@@ -229,12 +229,16 @@ void DestroyAll(void)
   DoneMemorySystem();
 #endif
     
-  /* Restore RandR / fullscreen before terminating GLFW (CloseWindow restores video mode). */
   if (glfwGetWindowParam(GLFW_OPENED)) {
     glfwRestoreWindow();
     glfwCloseWindow();
   }
   glfwTerminate();
+
+#ifdef UNIX
+  if (config.fullscreen)
+    system("xrandr --auto");
+#endif
 
   // Initialize network on Windows.
   end_sockets ();
