@@ -1,5 +1,5 @@
 /*
- * Dark Oberon — audio implementation (FMOD Ex 4.x / libfmodex).
+ * Dark Oberon — audio implementation (SDL2_mixer).
  */
 
 #include "cfg.h"
@@ -9,100 +9,93 @@
 
 #if SOUND
 
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
+
 #include <string.h>
 #include <stdio.h>
 
 #include "doconfig.h"
-#include "fmodex_api.h"
 
-static FMOD_SYSTEM *fmod_sys = NULL;
-/* Matches FSOUND_SetSFXMasterVolume — only applied to TSAMPLE (SFX), not streams / music. */
-static float fmod_sfx_master = 1.0f;
+/* Only applied to TSAMPLE (SFX), not music streams/modules. */
+static float s_sfx_master = 1.0f;
+static bool s_audio_ready = false;
 
-#define FMOD_MIN_VERSION_HEX 0x00044400u
+/* Single SDL_mixer music track (menu / game / mod). */
+static Mix_Music *s_active_music = NULL;
 
-static void apply_loop_mode(FMOD_SOUND *snd, bool lp)
+static int vol_byte_to_mix(T_BYTE v)
 {
-  FMOD_MODE m = FMOD_DEFAULT;
+  int x = (int)((unsigned)v * 128 / 255);
+  if (x < 0) x = 0;
+  if (x > MIX_MAX_VOLUME) x = MIX_MAX_VOLUME;
+  return x;
+}
 
-  if (!snd)
+static void music_halt_if(Mix_Music *which)
+{
+  if (s_active_music == which) {
+    Mix_HaltMusic();
+    s_active_music = NULL;
+  }
+}
+
+static void music_play(Mix_Music *mus, bool loop)
+{
+  if (!mus)
     return;
-  if (FMOD_Sound_GetMode(snd, &m) != FMOD_OK)
-    return;
-  m &= ~(FMOD_MODE)(FMOD_LOOP_NORMAL | FMOD_LOOP_OFF);
-  m |= lp ? FMOD_LOOP_NORMAL : FMOD_LOOP_OFF;
-  FMOD_Sound_SetMode(snd, m);
+  Mix_HaltMusic();
+  s_active_music = mus;
+  if (Mix_PlayMusic(mus, loop ? -1 : 0) != 0) {
+    Warning(LogMsg("Mix_PlayMusic failed: %s", Mix_GetError()));
+    s_active_music = NULL;
+  }
 }
 
 
 bool InitSound(void)
 {
-  unsigned int ver = 0;
-  FMOD_RESULT r;
+  unsigned mix_flags;
 
-  r = FMOD_System_Create(&fmod_sys);
-  if (r != FMOD_OK || !fmod_sys) {
-    Critical("FMOD_System_Create failed");
+  if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+    Critical(LogMsg("SDL audio init failed: %s", SDL_GetError()));
     return false;
   }
 
-  r = FMOD_System_GetVersion(fmod_sys, &ver);
-  if (r != FMOD_OK || ver < FMOD_MIN_VERSION_HEX) {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "FMOD Ex too old or missing (version 0x%08x, need >= 0x%08x)",
-             ver, FMOD_MIN_VERSION_HEX);
-    Critical(buf);
-    FMOD_System_Release(fmod_sys);
-    fmod_sys = NULL;
+  mix_flags = (unsigned)MIX_INIT_MP3 | (unsigned)MIX_INIT_OGG | (unsigned)MIX_INIT_MOD;
+  if (((unsigned)Mix_Init((int)mix_flags) & mix_flags) != mix_flags)
+    Warning(LogMsg("Mix_Init: %s (some compressed/mod music formats may be unavailable)", Mix_GetError()));
+
+  if (Mix_OpenAudio(SND_MIXRATE, MIX_DEFAULT_FORMAT, 2, 2048) != 0) {
+    Critical(LogMsg("Mix_OpenAudio failed: %s", Mix_GetError()));
+    Mix_Quit();
     return false;
   }
 
-  r = FMOD_System_SetSoftwareFormat(fmod_sys, SND_MIXRATE, FMOD_SOUND_FORMAT_PCM16,
-                                    0, 0, FMOD_DSP_RESAMPLER_DEFAULT);
-  if (r != FMOD_OK) {
-    Warning("FMOD_System_SetSoftwareFormat failed (continuing)");
-  }
-
-  r = FMOD_System_Init(fmod_sys, SND_MAX_CHANNELS, FMOD_INIT_NORMAL, NULL);
-  if (r != FMOD_OK) {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "FMOD_System_Init failed (result=%d)", (int)r);
-    Critical(buf);
-    FMOD_System_Release(fmod_sys);
-    fmod_sys = NULL;
-    return false;
-  }
-
-  Info(LogMsg("FMOD Ex init OK (version=0x%08x, sizeof(exinfo)=%d)", ver, (int)sizeof(FMOD_CREATESOUNDEXINFO)));
-
-  {
-    FMOD_CHANNELGROUP *master = NULL;
-    if (FMOD_System_GetMasterChannelGroup(fmod_sys, &master) == FMOD_OK && master)
-      FMOD_ChannelGroup_SetVolume(master, 1.0f);
-  }
-
+  Mix_AllocateChannels(SND_MAX_CHANNELS);
+  s_audio_ready = true;
+  Info(LogMsg("SDL2_mixer init OK (rate=%d, channels=%d)", SND_MIXRATE, SND_MAX_CHANNELS));
   return true;
 }
 
 
 void FmodUpdate(void)
 {
-  if (fmod_sys)
-    FMOD_System_Update(fmod_sys);
+  /* SDL_mixer does not need a periodic update like FMOD_System_Update. */
 }
 
 
 void FmodShutdown(void)
 {
-  int i;
-
-  if (!fmod_sys)
+  if (!s_audio_ready)
     return;
-  /* Let the mixer drain (streams / channels) before release. */
-  for (i = 0; i < 8; i++)
-    FMOD_System_Update(fmod_sys);
-  FMOD_System_Release(fmod_sys);
-  fmod_sys = NULL;
+
+  Mix_HaltChannel(-1);
+  Mix_HaltMusic();
+  s_active_music = NULL;
+  Mix_CloseAudio();
+  Mix_Quit();
+  s_audio_ready = false;
 }
 
 
@@ -111,7 +104,7 @@ void FmodApplySfxMasterVolume(T_BYTE vol)
   T_BYTE scaled;
   float fv;
 
-  if (!fmod_sys)
+  if (!s_audio_ready)
     return;
 
   scaled = (T_BYTE)(vol * 2.55f);
@@ -121,24 +114,28 @@ void FmodApplySfxMasterVolume(T_BYTE vol)
   if (fv > 1.0f)
     fv = 1.0f;
 
-  /* Like FSOUND_SetSFXMasterVolume: SFX only; streams/music use their own channel volume. */
-  fmod_sfx_master = fv;
+  s_sfx_master = fv;
 }
 
 
 void TCHANNEL::_SetVolume(void)
 {
-  if (!fch || vol_type == VT_NONE)
+  if (snd_ch < 0 || vol_type == VT_NONE)
     return;
-  FMOD_Channel_SetVolume(fch, (float)volume / 255.0f);
+  Mix_Volume(snd_ch, vol_byte_to_mix(volume));
 }
 
 
 void TSAMPLE::_SetVolume(void)
 {
-  if (!fch || vol_type == VT_NONE)
+  int mixv;
+
+  if (snd_ch < 0 || vol_type == VT_NONE)
     return;
-  FMOD_Channel_SetVolume(fch, ((float)volume / 255.0f) * fmod_sfx_master);
+  mixv = (int)((float)vol_byte_to_mix(volume) * s_sfx_master);
+  if (mixv < 0) mixv = 0;
+  if (mixv > MIX_MAX_VOLUME) mixv = MIX_MAX_VOLUME;
+  Mix_Volume(snd_ch, mixv);
 }
 
 
@@ -160,13 +157,9 @@ void TCHANNEL::SetVolumeAbsolute(T_BYTE vol)
 
 bool TCHANNEL::IsPlaying(void)
 {
-  FMOD_BOOL p = 0;
-
-  if (!fch)
+  if (snd_ch < 0)
     return false;
-  if (FMOD_Channel_IsPlaying(fch, &p) != FMOD_OK)
-    return false;
-  return p != 0;
+  return Mix_Playing(snd_ch) != 0;
 }
 
 
@@ -174,7 +167,7 @@ TSAMPLE::~TSAMPLE(void)
 {
   Stop();
   if (sample) {
-    FMOD_Sound_Release(sample);
+    Mix_FreeChunk(sample);
     sample = NULL;
   }
 }
@@ -182,31 +175,26 @@ TSAMPLE::~TSAMPLE(void)
 
 bool TSAMPLE::Load(char *data, int size)
 {
-  FMOD_CREATESOUNDEXINFO ex;
-  FMOD_RESULT r;
+  SDL_RWops *rw;
 
-  if (!fmod_sys || !data || size <= 0)
+  if (!s_audio_ready || !data || size <= 0)
     return false;
 
-  memset(&ex, 0, sizeof(ex));
-  ex.cbsize = sizeof(FMOD_CREATESOUNDEXINFO);
-  ex.length = (unsigned int)size;
-
   if (sample) {
-    FMOD_Sound_Release(sample);
+    Mix_FreeChunk(sample);
     sample = NULL;
   }
   Stop();
 
-  r = FMOD_System_CreateSound(fmod_sys, data,
-                              FMOD_OPENMEMORY | FMOD_CREATESAMPLE | FMOD_2D,
-                              &ex, &sample);
-  if (r != FMOD_OK || !sample) {
-    Warning(LogMsg("TSAMPLE::Load CreateSound failed (r=%d, size=%d)", (int)r, size));
+  rw = SDL_RWFromMem(data, size);
+  if (!rw)
+    return false;
+  sample = Mix_LoadWAV_RW(rw, 1);
+  if (!sample) {
+    Warning(LogMsg("TSAMPLE::Load Mix_LoadWAV_RW failed: %s (size=%d)", Mix_GetError(), size));
     return false;
   }
 
-  apply_loop_mode(sample, loop);
   return true;
 }
 
@@ -214,45 +202,53 @@ bool TSAMPLE::Load(char *data, int size)
 void TSAMPLE::SetMaxPlaybacks(int max)
 {
   (void)max;
-  /* FMOD Ex 4: would need per-sound SoundGroup + SetMaxAudible; not mapped. */
 }
 
 
 void TSAMPLE::Play(void)
 {
-  FMOD_RESULT r;
+  int ch;
+  int loops;
 
-  if (!sample || !fmod_sys)
+  if (!sample || !s_audio_ready)
     return;
 
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
+  Stop();
+
+  loops = loop ? -1 : 0;
+  ch = Mix_PlayChannel(-1, sample, loops);
+  if (ch < 0) {
+    Warning(LogMsg("TSAMPLE::Play Mix_PlayChannel failed: %s", Mix_GetError()));
+    snd_ch = SND_CH_NONE;
+    return;
   }
 
-  r = FMOD_System_PlaySound(fmod_sys, FMOD_CHANNEL_FREE, sample, 0, &fch);
-  if (r != FMOD_OK)
-    Warning(LogMsg("TSAMPLE::Play PlaySound failed (r=%d)", (int)r));
-  else
-    _SetVolume();
+  snd_ch = ch;
+  _SetVolume();
 }
 
 
 void TSAMPLE::Stop(void)
 {
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
+  if (snd_ch >= 0) {
+    Mix_HaltChannel(snd_ch);
+    snd_ch = SND_CH_NONE;
   }
 }
 
 
 void TSAMPLE::SetLoop(bool lp)
 {
-  if (loop == lp)
-    return;
   loop = lp;
-  apply_loop_mode(sample, lp);
+  /* Loop count is fixed at Play(); restart if playing. */
+  if (snd_ch >= 0 && Mix_Playing(snd_ch)) {
+    T_BYTE sv = volume;
+    TVOLUME_TYPE st = vol_type;
+    Play();
+    volume = sv;
+    vol_type = st;
+    _SetVolume();
+  }
 }
 
 
@@ -260,7 +256,7 @@ TSTREAM::~TSTREAM(void)
 {
   Stop();
   if (stream) {
-    FMOD_Sound_Release(stream);
+    Mix_FreeMusic(stream);
     stream = NULL;
   }
   if (stream_mem) {
@@ -274,16 +270,15 @@ TSTREAM::~TSTREAM(void)
 bool TSTREAM::Load(const char *file_name, int seek, int size)
 {
   FILE *fp;
-  FMOD_CREATESOUNDEXINFO ex;
-  FMOD_RESULT r;
   size_t n;
+  SDL_RWops *rw;
 
-  if (!fmod_sys || !file_name || size <= 0)
+  if (!s_audio_ready || !file_name || size <= 0)
     return false;
 
   Stop();
   if (stream) {
-    FMOD_Sound_Release(stream);
+    Mix_FreeMusic(stream);
     stream = NULL;
   }
   if (stream_mem) {
@@ -315,64 +310,68 @@ bool TSTREAM::Load(const char *file_name, int seek, int size)
   }
   stream_mem_size = size;
 
-  memset(&ex, 0, sizeof(ex));
-  ex.cbsize = sizeof(FMOD_CREATESOUNDEXINFO);
-  ex.length = (unsigned int)size;
-
-  r = FMOD_System_CreateStream(fmod_sys, stream_mem,
-                               FMOD_OPENMEMORY | FMOD_2D | FMOD_CREATESTREAM,
-                               &ex, &stream);
-  if (r != FMOD_OK || !stream) {
-    Warning(LogMsg("TSTREAM::Load CreateStream failed (r=%d, file=%s, seek=%d, size=%d)",
-                   (int)r, file_name, seek, size));
+  rw = SDL_RWFromMem(stream_mem, stream_mem_size);
+  if (!rw) {
+    delete[] stream_mem;
+    stream_mem = NULL;
+    stream_mem_size = 0;
+    return false;
+  }
+  stream = Mix_LoadMUS_RW(rw, 1);
+  if (!stream) {
+    Warning(LogMsg("TSTREAM::Load Mix_LoadMUS_RW failed: %s (file=%s, size=%d)", Mix_GetError(), file_name, size));
     delete[] stream_mem;
     stream_mem = NULL;
     stream_mem_size = 0;
     return false;
   }
 
-  apply_loop_mode(stream, loop);
   return true;
+}
+
+
+void TSTREAM::_SetVolume(void)
+{
+  if (vol_type == VT_NONE)
+    return;
+  if (s_active_music == stream)
+    Mix_VolumeMusic(vol_byte_to_mix(volume));
 }
 
 
 void TSTREAM::Play(void)
 {
-  FMOD_RESULT r;
-
-  if (!stream || !fmod_sys)
+  if (!stream || !s_audio_ready)
     return;
 
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
-  }
-
-  r = FMOD_System_PlaySound(fmod_sys, FMOD_CHANNEL_FREE, stream, 0, &fch);
-  if (r != FMOD_OK) {
-    Warning(LogMsg("TSTREAM::Play PlaySound failed (r=%d)", (int)r));
-  } else {
-    Info(LogMsg("TSTREAM::Play OK (vol=%d, vol_type=%d)", (int)volume, (int)vol_type));
-    _SetVolume();
-  }
+  Stop();
+  music_play(stream, loop);
+  _SetVolume();
 }
 
 
 void TSTREAM::Stop(void)
 {
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
-  }
+  music_halt_if(stream);
+}
+
+
+bool TSTREAM::IsPlaying(void)
+{
+  return stream && s_active_music == stream && Mix_PlayingMusic() != 0;
 }
 
 
 void TSTREAM::SetLoop(bool lp)
 {
-  if (loop == lp)
-    return;
   loop = lp;
-  apply_loop_mode(stream, lp);
+  if (IsPlaying()) {
+    T_BYTE sv = volume;
+    TVOLUME_TYPE st = vol_type;
+    Play();
+    volume = sv;
+    vol_type = st;
+  }
 }
 
 
@@ -380,70 +379,84 @@ TMODULE::~TMODULE(void)
 {
   Stop();
   if (mod) {
-    FMOD_Sound_Release(mod);
+    Mix_FreeMusic(mod);
     mod = NULL;
+  }
+  if (mod_mem) {
+    delete[] mod_mem;
+    mod_mem = NULL;
+    mod_mem_size = 0;
   }
 }
 
 
 bool TMODULE::Load(char *data, int size)
 {
-  FMOD_CREATESOUNDEXINFO ex;
-  FMOD_RESULT r;
+  SDL_RWops *rw;
 
-  if (!fmod_sys || !data || size <= 0)
+  if (!s_audio_ready || !data || size <= 0)
     return false;
 
-  memset(&ex, 0, sizeof(ex));
-  ex.cbsize = sizeof(FMOD_CREATESOUNDEXINFO);
-  ex.length = (unsigned int)size;
-
+  Stop();
   if (mod) {
-    FMOD_Sound_Release(mod);
+    Mix_FreeMusic(mod);
     mod = NULL;
   }
-  Stop();
+  if (mod_mem) {
+    delete[] mod_mem;
+    mod_mem = NULL;
+    mod_mem_size = 0;
+  }
 
-  r = FMOD_System_CreateSound(fmod_sys, data, FMOD_OPENMEMORY | FMOD_2D, &ex, &mod);
-  if (r != FMOD_OK || !mod) {
-    Warning(LogMsg("TMODULE::Load CreateSound failed (r=%d, size=%d)", (int)r, size));
+  mod_mem = NEW char[size];
+  if (!mod_mem)
+    return false;
+  memcpy(mod_mem, data, (size_t)size);
+  mod_mem_size = size;
+
+  rw = SDL_RWFromMem(mod_mem, mod_mem_size);
+  if (!rw) {
+    delete[] mod_mem;
+    mod_mem = NULL;
+    mod_mem_size = 0;
+    return false;
+  }
+  mod = Mix_LoadMUS_RW(rw, 1);
+  if (!mod) {
+    Warning(LogMsg("TMODULE::Load Mix_LoadMUS_RW failed: %s (size=%d)", Mix_GetError(), size));
+    delete[] mod_mem;
+    mod_mem = NULL;
+    mod_mem_size = 0;
     return false;
   }
 
-  apply_loop_mode(mod, false);
   return true;
 }
 
 
 void TMODULE::Play(void)
 {
-  if (!mod || !fmod_sys)
+  if (!mod || !s_audio_ready)
     return;
 
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
-  }
-
-  if (FMOD_System_PlaySound(fmod_sys, FMOD_CHANNEL_FREE, mod, 0, &fch) == FMOD_OK && fch)
-    FMOD_Channel_SetVolume(fch, (float)volume / 255.0f);
+  Stop();
+  music_play(mod, loop);
+  if (s_active_music == mod)
+    Mix_VolumeMusic(vol_byte_to_mix(volume));
 }
 
 
 void TMODULE::Stop(void)
 {
-  if (fch) {
-    FMOD_Channel_Stop(fch);
-    fch = NULL;
-  }
+  music_halt_if(mod);
 }
 
 
 void TMODULE::SetVolume(T_BYTE vol)
 {
   volume = vol;
-  if (fch)
-    FMOD_Channel_SetVolume(fch, (float)vol / 255.0f);
+  if (s_active_music == mod)
+    Mix_VolumeMusic(vol_byte_to_mix(volume));
 }
 
 
@@ -458,19 +471,17 @@ void TMODULE::SetLoop(bool lp)
   if (loop == lp)
     return;
   loop = lp;
-  apply_loop_mode(mod, lp);
+  if (IsPlaying()) {
+    T_BYTE sv = volume;
+    Play();
+    volume = sv;
+  }
 }
 
 
 bool TMODULE::IsPlaying(void)
 {
-  FMOD_BOOL p = 0;
-
-  if (!mod || !fch)
-    return false;
-  if (FMOD_Channel_IsPlaying(fch, &p) != FMOD_OK)
-    return false;
-  return p != 0;
+  return mod && s_active_music == mod && Mix_PlayingMusic() != 0;
 }
 
 #endif

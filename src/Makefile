@@ -6,13 +6,14 @@ CPPFLAGS = -g -Wall -O
 DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG)
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cflags 2>/dev/null)
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
+SDL2_MIXER_CFLAGS := $(shell pkg-config --cflags SDL2_mixer 2>/dev/null)
+SDL2_MIXER_LIBS := $(shell pkg-config --libs SDL2_mixer 2>/dev/null)
 INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs $(SDL2_CFLAGS)
 LIBPATHS = -L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs
 LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
-# SOUND=1 links FMOD Ex 4.x (Arch: package libfmod → libfmodex.so).
 ifeq ($(SOUND),1)
-FMOD_LIBS ?= -lfmodex -ldl
-LIBRARIES += $(FMOD_LIBS)
+INCLUDES += $(SDL2_MIXER_CFLAGS)
+LIBRARIES += $(SDL2_MIXER_LIBS)
 endif
 OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodraw.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 TARGETS = ../dark-oberon
@@ -22,7 +23,7 @@ all: tags ../dark-oberon checking
 checking: .checking
 .checking: *.h *.cpp
 	@echo Checking format of source files...
-	@if egrep -l "`printf '\t'`|`printf '\r'`" *.cpp *.h; then echo "Error: Previous listed files contain illegal characters (tabs or ^M)"; false; fi
+	@if grep -E -l "`printf '\t'`|`printf '\r'`" *.cpp *.h; then echo "Error: Previous listed files contain illegal characters (tabs or ^M)"; false; fi
 	@echo OK
 	@touch .checking
 

@@ -141,7 +141,6 @@ bool InitAll(void)
   InitMemorySestem();
 #endif
 
-  // initialize FMOD
 #if SOUND
   if (!InitSound()) Error("Can not initialize sound");
 #endif
@@ -260,11 +259,6 @@ void DestroyAll(void)
   glfwTerminate();
 
   SDL_Quit();
-
-#ifdef UNIX
-  if (config.fullscreen)
-    system("xrandr --auto");
-#endif
 
   // Initialize network on Windows.
   end_sockets ();

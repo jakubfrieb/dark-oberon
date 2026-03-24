@@ -15,7 +15,7 @@
 /**
  *  @file dosound.h
  *
- *  Sound declarations and methods (FMOD Ex 4.x backend).
+ *  Sound declarations and methods (SDL2_mixer backend).
  */
 
 #ifndef __dosound_h__
@@ -35,6 +35,9 @@
 #define SND_MAX_PLAYBACKS   2
 #define SND_MAX_CHANNELS    64
 #define SND_MIXRATE         32000
+
+/** SDL_mixer channel index for samples; -1 = not playing / N/A (music uses global channel). */
+#define SND_CH_NONE         (-1)
 
 
 enum TSOUND_FORMAT {
@@ -66,8 +69,8 @@ enum TVOLUME_TYPE {
 
 #if SOUND
 
-struct FMOD_SOUND;
-struct FMOD_CHANNEL;
+struct Mix_Chunk;
+struct Mix_Music;
 
 class TSOUND {
 public:
@@ -93,14 +96,14 @@ public:
 
 class TCHANNEL : public TSOUND {
 public:
-  FMOD_CHANNEL *fch;
+  int snd_ch;
 
   virtual void SetVolume(T_BYTE vol);
   virtual void SetVolumeAbsolute(T_BYTE vol);
 
   virtual bool IsPlaying();
 
-  TCHANNEL():TSOUND() { fch = NULL; }
+  TCHANNEL():TSOUND() { snd_ch = SND_CH_NONE; }
   virtual ~TCHANNEL() {};
 
 protected:
@@ -110,7 +113,7 @@ protected:
 
 class TSAMPLE : public TCHANNEL {
 public:
-  FMOD_SOUND *sample;
+  Mix_Chunk *sample;
 
   bool Load(char *data, int size);
   void SetMaxPlaybacks(int max);
@@ -129,7 +132,7 @@ protected:
 
 class TSTREAM : public TCHANNEL {
 public:
-  FMOD_SOUND *stream;
+  Mix_Music *stream;
   char *stream_mem;
   int stream_mem_size;
 
@@ -138,16 +141,21 @@ public:
   virtual void Play();
   virtual void Stop();
   virtual void SetLoop(bool lp);
+  virtual bool IsPlaying();
 
   TSTREAM():TCHANNEL() { stream = NULL; stream_mem = NULL; stream_mem_size = 0; }
   virtual ~TSTREAM();
+
+protected:
+  virtual void _SetVolume();
 };
 
 
 class TMODULE : public TSOUND {
 public:
-  FMOD_SOUND *mod;
-  FMOD_CHANNEL *fch;
+  Mix_Music *mod;
+  char *mod_mem;
+  int mod_mem_size;
 
   bool Load(char *data, int size);
 
@@ -160,7 +168,7 @@ public:
 
   virtual bool IsPlaying();
 
-  TMODULE():TSOUND() { mod = NULL; fch = NULL; }
+  TMODULE():TSOUND() { mod = NULL; mod_mem = NULL; mod_mem_size = 0; }
   virtual ~TMODULE();
 };
 

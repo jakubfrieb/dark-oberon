@@ -48,7 +48,7 @@ cat > Makefile <<-END
 	checking: .checking
 	.checking: *.h *.cpp
 	$e	@echo Checking format of source files...
-	$e	@if egrep -l "\`printf '\t'\`|\`printf '\r'\`" *.cpp *.h; then echo "Error: Previous listed files contain illegal characters (tabs or ^M)"; false; fi
+	$e	@if grep -E -l "\`printf '\t'\`|\`printf '\r'\`" *.cpp *.h; then echo "Error: Previous listed files contain illegal characters (tabs or ^M)"; false; fi
 	$e	@echo OK
 	$e	@touch .checking
 
