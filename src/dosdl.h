@@ -1,5 +1,5 @@
 /*
- * SDL2 include for subsystem migration (threading, time, window/input via doglfw_sdl).
+ * SDL2 — threading, time; window/input go through doglfw_sdl (GLFW-like API on SDL).
  */
 #ifndef __dosdl_h__
 #define __dosdl_h__

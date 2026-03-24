@@ -16,6 +16,18 @@ static GLFWwindowrefreshfun cb_refresh = NULL;
 
 static int g_wheel_pos = 0;
 
+/** Keep pointer inside the game window so multi-monitor moves do not lose the GL view. */
+static void set_window_mouse_grab(SDL_bool on)
+{
+  if (!g_win)
+    return;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+  SDL_SetWindowMouseGrab(g_win, on);
+#else
+  SDL_SetWindowGrab(g_win, on);
+#endif
+}
+
 static int glfw_button_to_sdl(int glfw_b)
 {
   switch (glfw_b) {
@@ -190,8 +202,10 @@ static void process_event(const SDL_Event *e)
 {
   switch (e->type) {
   case SDL_QUIT:
-    if (g_win)
+    if (g_win) {
+      set_window_mouse_grab(SDL_FALSE);
       SDL_DestroyWindow(g_win);
+    }
     g_win = NULL;
     if (g_ctx) {
       SDL_GL_DeleteContext(g_ctx);
@@ -208,6 +222,7 @@ static void process_event(const SDL_Event *e)
         SDL_GL_DeleteContext(g_ctx);
         g_ctx = NULL;
       }
+      set_window_mouse_grab(SDL_FALSE);
       SDL_DestroyWindow(g_win);
       g_win = NULL;
       break;
@@ -221,6 +236,13 @@ static void process_event(const SDL_Event *e)
     case SDL_WINDOWEVENT_SHOWN:
       if (cb_refresh)
         cb_refresh();
+      break;
+    case SDL_WINDOWEVENT_FOCUS_GAINED:
+      set_window_mouse_grab(SDL_TRUE);
+      break;
+    case SDL_WINDOWEVENT_FOCUS_LOST:
+    case SDL_WINDOWEVENT_MINIMIZED:
+      set_window_mouse_grab(SDL_FALSE);
       break;
     default:
       break;
@@ -322,6 +344,7 @@ int glfwOpenWindow(int width, int height, int redbits, int greenbits, int bluebi
     dispatch_window_size(aw, ah);
   else
     dispatch_window_size(width, height);
+  set_window_mouse_grab(SDL_TRUE);
   return 1;
 }
 
@@ -332,6 +355,7 @@ void glfwCloseWindow(void)
     g_ctx = NULL;
   }
   if (g_win) {
+    set_window_mouse_grab(SDL_FALSE);
     SDL_DestroyWindow(g_win);
     g_win = NULL;
   }

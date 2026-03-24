@@ -89,6 +89,9 @@ public:
 
   virtual bool IsPlaying() = 0;
 
+  /** After SFX master scale changes; samples re-apply Mix_Volume on active channels. */
+  virtual void RefreshSfxVolume(void) {}
+
   TSOUND() { id = NULL; format = SF_WAV;  volume = 0; vol_type = VT_NONE; loop = false; }
   virtual ~TSOUND() { if (id) delete[] id; }
 };
@@ -121,6 +124,8 @@ public:
   virtual void Play();
   virtual void Stop();
   virtual void SetLoop(bool lp);
+
+  virtual void RefreshSfxVolume(void);
 
   TSAMPLE():TCHANNEL() { sample = NULL; }
   virtual ~TSAMPLE();

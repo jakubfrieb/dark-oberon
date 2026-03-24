@@ -404,6 +404,16 @@ TSOUND * TSND_TABLE::GetSound(char * id) {
 }
 
 
+void TSND_TABLE::RefreshAllSfxVolumes(void)
+{
+  int i;
+
+  for (i = 0; i < count; i++)
+    if (sounds[i])
+      sounds[i]->RefreshSfxVolume();
+}
+
+
 #endif
 
 //=========================================================================

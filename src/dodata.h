@@ -227,6 +227,8 @@ struct TSND_TABLE {
 
   bool Load(const char *fname);
   void Clear(void);
+  /** Re-apply menu/game SFX master to every playing sample (after slider or master change). */
+  void RefreshAllSfxVolumes(void);
 
   TSOUND * GetSound(char * id); //!< Finds sound with id in TSOUND table (if not exists, return null)
 

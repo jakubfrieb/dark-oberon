@@ -481,6 +481,7 @@ static int SDLCALL connecting_in_menu_thread_sdl (void *_data)
 // vol [0..100]
 void ChangeSoundVolume(T_BYTE vol) {
   FmodApplySfxMasterVolume(vol);
+  sounds_table.RefreshAllSfxVolumes();
 }
 
 // vol [0..100]
@@ -4380,9 +4381,9 @@ void Menu()
 
 
 /**
- *  Update thread function. It is runned by glfwCreateThread() from Game().
+ *  Update thread function. Started as an SDL thread from Game().
  *
- *  @param arg Arguments passed to glfwCreateThread. They are not used.
+ *  @param arg Unused (SDL thread entry convention).
  */
 static int SDLCALL ProcessFunction(void *arg)
 {

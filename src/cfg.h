@@ -129,6 +129,7 @@
 
 /**
  *  Specifies if sound support should be compiled in.
+ *  SOUND=1 requires SDL2_mixer (see src/Makefile, need_install.md).
  */
 #ifndef SOUND
 # ifdef UNIX

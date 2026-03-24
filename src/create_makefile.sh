@@ -1,16 +1,18 @@
 # OPTIONS
+# NOTE: The checked-in src/Makefile is maintained by hand (SDL2, doglfw_sdl, SOUND).
+#       This script is legacy; update it before regenerating a Makefile from scratch.
 
 UNIX='yes' # yes/no
-SOUND='0'  # 1/0
+SOUND='1'  # 1/0
 DEBUG='0'  # 1/0
 
 ##############################################################################
 
 CPPFLAGS='-g -Wall -O'
 TARGETS='../dark-oberon'
-INCLUDES='-I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs'
-LIBPATHS='-L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs'
-LIBRARIES='-pthread -lglfw -lGL -lX11 -lGLU'
+INCLUDES=''
+LIBPATHS=''
+LIBRARIES='-pthread -lGL -lGLU -lSDL2'
 CPP='g++ $(CPPFLAGS) $(INCLUDES) $(DEFINES)'
 DATA_DIR=''
 

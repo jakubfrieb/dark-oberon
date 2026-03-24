@@ -1,4 +1,4 @@
-SOUND ?= 0
+SOUND ?= 1
 DEBUG ?= 0
 
 CPP = g++ $(CPPFLAGS) $(INCLUDES) $(DEFINES)
@@ -8,8 +8,11 @@ SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cfl
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
 SDL2_MIXER_CFLAGS := $(shell pkg-config --cflags SDL2_mixer 2>/dev/null)
 SDL2_MIXER_LIBS := $(shell pkg-config --libs SDL2_mixer 2>/dev/null)
-INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs $(SDL2_CFLAGS)
-LIBPATHS = -L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs
+ifeq ($(strip $(SDL2_MIXER_LIBS)),)
+SDL2_MIXER_LIBS = -lSDL2_mixer
+endif
+INCLUDES = $(SDL2_CFLAGS)
+LIBPATHS =
 LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
 ifeq ($(SOUND),1)
 INCLUDES += $(SDL2_MIXER_CFLAGS)

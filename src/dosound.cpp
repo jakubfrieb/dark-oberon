@@ -129,13 +129,23 @@ void TCHANNEL::_SetVolume(void)
 void TSAMPLE::_SetVolume(void)
 {
   int mixv;
+  int base;
 
-  if (snd_ch < 0 || vol_type == VT_NONE)
+  if (snd_ch < 0)
     return;
-  mixv = (int)((float)vol_byte_to_mix(volume) * s_sfx_master);
+  /* Data file does not set per-sample volume; VT_NONE must still obey SFX master. */
+  base = (vol_type == VT_NONE) ? vol_byte_to_mix((T_BYTE)255) : vol_byte_to_mix(volume);
+  mixv = (int)((float)base * s_sfx_master);
   if (mixv < 0) mixv = 0;
   if (mixv > MIX_MAX_VOLUME) mixv = MIX_MAX_VOLUME;
   Mix_Volume(snd_ch, mixv);
+}
+
+
+void TSAMPLE::RefreshSfxVolume(void)
+{
+  if (snd_ch >= 0 && Mix_Playing(snd_ch))
+    _SetVolume();
 }
 
 
