@@ -191,7 +191,7 @@ struct TOST_TEXT {
  *  messages to be displayed on the screen.
  *
  *  @note    This class is thread safe.
- *  @warning Mutex is only created when constructor is called after glfwInit().
+ *  @warning Mutex is only created when constructor is called after SDL_Init / window setup.
  */
 class TOST {
 public:

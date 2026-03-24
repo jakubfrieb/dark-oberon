@@ -137,7 +137,7 @@ struct TCONFIG;
 // Included files
 //========================================================================
 
-#include <glfw.h>
+#include "doglfw_sdl.h"
 
 #include "cfg.h"
 #include "doalloc.h"

@@ -25,7 +25,7 @@
  *  @date 2003, 2004
  */
 
-#include <glfw.h>
+#include "doglfw_sdl.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -122,7 +122,11 @@ void TPROJECTION::SetProjection(TPROJECTION_TYPE projection)
   glLoadIdentity();
 
   gluOrtho2D(left, right, bottom, top);  // orthographic projection
-  glViewport(0, 0, config.scr_width, config.scr_height);
+  {
+    int fbw = config.scr_width, fbh = config.scr_height;
+    glfwGetFramebufferSize(&fbw, &fbh);
+    glViewport(0, 0, fbw, fbh);
+  }
 
   if (type == PRO_GAME) {
     glTranslated(map.dx, map.dy, 0.0);
@@ -327,7 +331,7 @@ void LogToOst (int level, const char *header, const char *msg) {
 /**
  *  Constructor.
  *
- *  @warning Mutex is only created when constructor is called after glfwInit().
+ *  @warning Mutex is only created when constructor is called after SDL_Init / window setup.
  */
 TOST::TOST ()
 {

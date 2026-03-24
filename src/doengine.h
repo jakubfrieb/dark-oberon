@@ -300,7 +300,7 @@ public:
    *
    *  @param init_value Initial value of the switch.
    *
-   *  @note This constructor NEEDS to be called after SDL_Init(SDL_INIT_TIMER) and glfwInit(). Otherwise the
+   *  @note This constructor NEEDS to be called after SDL_Init (video/timer) and window creation. Otherwise the
    *        mutex won't be created.
    */
   TSAFE_BOOL_SWITCH (bool init_value) {

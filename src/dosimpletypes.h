@@ -35,7 +35,7 @@
 #include "cfg.h"
 #include "doalloc.h"
 
-#include <glfw.h>
+#include "doglfw_sdl.h"
 
 //=========================================================================
 // Type definitions

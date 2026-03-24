@@ -44,7 +44,7 @@
  *  published by the Free Software Foundation; either version 2 of the License,
  *  or (at your option) any later version.
  *
- *  Powered by GLFW - an OpenGL framework <http://glfw.sourceforge.net/>
+ *  Window / GL / input via SDL2 (GLFW-compatible shim in doglfw_sdl.*).
  */
 
 #include "cfg.h"
@@ -55,7 +55,7 @@
 #include <string>
 
 #include "donet.h"
-#include <glfw.h>
+#include "doglfw_sdl.h"
 
 #include "dosdl.h"
 #include "doconfig.h"
@@ -92,8 +92,8 @@ void InitIO(void)
   glfwSetMouseWheelCallback(MouseWheelCallback);
   glfwSetWindowRefreshCallback (WindowRefreshCallback);
 
-  // disable mouse cursor in window mode
-  if (!config.fullscreen) glfwDisable(GLFW_MOUSE_CURSOR);
+  /* Game draws its own cursor; hide the system pointer (window + fullscreen). */
+  glfwDisable(GLFW_MOUSE_CURSOR);
 }
 
 /**
@@ -124,16 +124,9 @@ bool InitAll(void)
     Warning("Log files were not opened");
 
    
-  // initialize GLFW
-  if (!glfwInit()) {
-    Critical("Can not initialize GLFW library");
-    return false;
-  }
-
-  /* SDL threading (mutex/cond/thread); required before any SDL_* sync primitives. */
-  if (SDL_Init(SDL_INIT_TIMER) != 0) {
+  /* Video (window + GL), timer, events; required before SDL sync primitives and doglfw_sdl. */
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0) {
     Critical(SDL_GetError());
-    glfwTerminate();
     return false;
   }
 
@@ -143,7 +136,7 @@ bool InitAll(void)
   pool_net_messages = NEW TPOOL<TNET_MESSAGE>(1000, 0, 100);
 
   // initialize memory checking system
-  // must be called after initializing log files and GLWF
+  // must be called after initializing log files and SDL/video
 #if DEBUG_MEMORY
   InitMemorySestem();
 #endif
@@ -186,7 +179,7 @@ bool InitAll(void)
   gui = NEW TGUI();
   gui->SetCursorHeight(DRW_CURSOR_HEIGHT);
 
-  /* This section MUST be called after glfwInit(). */
+  /* This section MUST be called after the OpenGL window exists. */
   ost = NEW TOST;               // Initialise On Screen Text.
   // Registers function LogToOst() as log callback.
   RegisterLogCallback (LogToOst);
@@ -200,7 +193,7 @@ bool InitAll(void)
 
   CreateLogMutex();
 
-  /* MUST be called after glfwInit(), but before InitIO(). */
+  /* MUST be called after window creation, but before InitIO(). */
   need_redraw = NEW TSAFE_BOOL_SWITCH (true);
 
   InitOpenGL();

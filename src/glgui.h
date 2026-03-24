@@ -110,7 +110,7 @@ enum TGUI_SLIDER_TYPE {
 // Included files
 //=========================================================================
 
-#include <glfw.h>
+#include "doglfw_sdl.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>

@@ -8,13 +8,13 @@ SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cfl
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
 INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs $(SDL2_CFLAGS)
 LIBPATHS = -L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs
-LIBRARIES = -pthread -lglfw2 -lGL -lX11 -lGLU -lXxf86vm -lXext -lXrandr $(SDL2_LIBS)
+LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
 # SOUND=1 links FMOD Ex 4.x (Arch: package libfmod → libfmodex.so).
 ifeq ($(SOUND),1)
 FMOD_LIBS ?= -lfmodex -ldl
 LIBRARIES += $(FMOD_LIBS)
 endif
-OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodraw.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
+OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodraw.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 TARGETS = ../dark-oberon
 
 all: tags ../dark-oberon checking
@@ -77,6 +77,9 @@ dofollower.o: dofollower.cpp cfg.h doalloc.h dofollower.h dohost.h doipc.h dolog
 
 doforces.o: doforces.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c doforces.cpp
+
+doglfw_sdl.o: doglfw_sdl.cpp doglfw_sdl.h
+	$(CPP) -c doglfw_sdl.cpp
 
 dohost.o: dohost.cpp cfg.h doalloc.h dohost.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h
 	$(CPP) -c dohost.cpp

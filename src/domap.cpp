@@ -27,7 +27,7 @@
 
 #include "cfg.h"
 
-#include <glfw.h>
+#include "doglfw_sdl.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

@@ -43,7 +43,7 @@
 
 
 #include "donet.h"
-#include <glfw.h>
+#include "doglfw_sdl.h"
 
 #include <atomic>
 #include <cmath>
@@ -1677,9 +1677,7 @@ void MenuCheckBoxOnClick(intptr_t key)
     config.vert_sync = !config.vert_sync;
     config.file->WriteBool("vert_sync", config.vert_sync);
     #if UNIX
-      /* We are not going to synchronise with monitor refresh rate on UNIX, because
-      * it seems xorg does not support this feature and the program aborts. This
-      * is a bug of glfw, which tries to set nonexistent feature. */
+      /* Many X11 drivers historically ignored or mishandled vsync; keep off on UNIX. */
       glfwSwapInterval(0);
     #else
       glfwSwapInterval(config.vert_sync ? 1 : 0);
@@ -4161,7 +4159,10 @@ void GLFWCALL SizeCallback(int w, int h)
   config.scr_width = w;
   config.scr_height = h;
 
-  glViewport(0, 0, w, h);
+  /* Logical size w,h matches mouse/GUI; viewport must cover full GL drawable (HiDPI). */
+  int fbw = w, fbh = h;
+  glfwGetFramebufferSize(&fbw, &fbh);
+  glViewport(0, 0, fbw, fbh);
 
   glfSetFontDisplayMode(font0, w, h);
 }
