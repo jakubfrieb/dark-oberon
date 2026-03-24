@@ -2062,7 +2062,7 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
             }
             else 
             {
-              int requested_material_amount = MIN((int)((glfwGetTime() - new_time_stamp) / itm->GetMiningTime(mined_material)) + 1, int(itm->GetMaxMaterialAmount(mined_material) - material_amount));
+              int requested_material_amount = MIN((int)((AppGetTimeSeconds() - new_time_stamp) / itm->GetMiningTime(mined_material)) + 1, int(itm->GetMaxMaterialAmount(mined_material) - material_amount));
               
               // send request to hyperplayer
               waiting_request_id = source->SendRequest(false, new_time_stamp, RQ_CAN_MINE, 0, GetPlayerID(), 0, 0, 0, 0, 0, GetUnitID(), requested_material_amount); // sets info about requested request
@@ -3206,7 +3206,7 @@ TBUILDING_UNIT *TWORKER_UNIT::StartBuild(TBUILDING_ITEM *building, TPOSITION bui
   int i = 0;
   TBUILDING_UNIT * new_building = NULL;
   TPOSITION_3D building_position;
-  double new_ts = glfwGetTime();
+  double new_ts = AppGetTimeSeconds();
 
   building_position.SetPosition(build_here.x, build_here.y, building->GetExistSegments().min);
 
@@ -3339,7 +3339,7 @@ bool TWORKER_UNIT::StartRepair(TBASIC_UNIT *unit, bool auto_call)
   { 
   
     // send event to queue
-    SendEvent(false, glfwGetTime(), US_START_REPAIR, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
+    SendEvent(false, AppGetTimeSeconds(), US_START_REPAIR, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
     process_mutex->Unlock();
   
     return true;
@@ -3414,7 +3414,7 @@ bool TWORKER_UNIT::StartMine(TSOURCE_UNIT *unit, bool auto_call)
   if (CanMine(unit, true, auto_call)) 
   {
     // send event to queue
-    SendEvent(false, glfwGetTime(), US_START_MINE, -1, pos.x, pos.y, pos.segment, move_direction, unit->GetPlayerID(), 0, unit->GetUnitID());
+    SendEvent(false, AppGetTimeSeconds(), US_START_MINE, -1, pos.x, pos.y, pos.segment, move_direction, unit->GetPlayerID(), 0, unit->GetUnitID());
     process_mutex->Unlock();
 
     return true;
@@ -3474,7 +3474,7 @@ bool TWORKER_UNIT::StartUnload(TBUILDING_UNIT *unit, bool auto_call)
   if (CanUnload(unit, true, auto_call))
   {
     // send event to queue
-    SendEvent(false, glfwGetTime(), US_START_UNLOAD, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
+    SendEvent(false, AppGetTimeSeconds(), US_START_UNLOAD, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
     process_mutex->Unlock();
 
     return true;

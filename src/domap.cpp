@@ -1905,7 +1905,7 @@ bool TMAP::LoadMapUnit(int pid, int id)    // set map unit
       // send init event to queue to local (not remote) units
       if (!player_array.IsRemote(pid)){
         process_mutex->Lock();
-        unit->SendEvent(false, glfwGetTime(), US_NEXT_STEP, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+        unit->SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
         process_mutex->Unlock();
       }
     }
@@ -2000,7 +2000,7 @@ bool TMAP::LoadMapBuilding(int pid, int id)
       // send init event to queue to local (not remote) buildings
       if (!player_array.IsRemote(pid)){
         process_mutex->Lock();
-        unit->SendEvent(false, glfwGetTime(), US_STAY, -1);
+        unit->SendEvent(false, AppGetTimeSeconds(), US_STAY, -1);
         process_mutex->Unlock();
       }
     }
@@ -2088,7 +2088,7 @@ bool TMAP::LoadMapSource(int pid, int id)
       // send init event to queue to local (not remote) sources
       if (!player_array.IsRemote(pid)){
         process_mutex->Lock();
-        unit->SendEvent(false, glfwGetTime(), US_STAY, -1);
+        unit->SendEvent(false, AppGetTimeSeconds(), US_STAY, -1);
         process_mutex->Unlock();
       }
     }

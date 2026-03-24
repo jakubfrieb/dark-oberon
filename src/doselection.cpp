@@ -1080,7 +1080,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
   TFORCE_UNIT * fu = NULL;
   TSEL_NODE *new_node = NULL;
   TNODE_OF_UNITS_LIST *node = NULL;
-  double time_stamp = glfwGetTime();
+  double time_stamp = AppGetTimeSeconds();
 
   //fill all the information needed for whole group
   path_info = pool_path_info->GetFromPool(); 

@@ -273,7 +273,7 @@ void DrawGame(void)
     glColor3f(0.7f, 0.7f, 0.7f);
     glfPrint(font0, GLfloat(config.scr_width / 2 - 70), GLfloat(config.scr_height / 2 - 15), "press 'G' for exit", false);
 
-    glfwSleep(0.05);
+    AppSleepSeconds(0.05);
   }
 
   // draw gui

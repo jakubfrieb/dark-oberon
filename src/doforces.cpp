@@ -139,7 +139,7 @@ TEVENT* TFORCE_UNIT::SendEvent(bool n_priority, double n_time_stamp, int n_event
       // US_HEALING undo
       if (old_state == US_HEALING){
         // if message is received, increase heal_shift about value of how long was event in queue
-        heal_shift += (pevent->GetTimeStamp() - glfwGetTime());
+        heal_shift += (pevent->GetTimeStamp() - AppGetTimeSeconds());
       }
 
       queue_events->GetEvent(pevent);
@@ -1725,10 +1725,10 @@ void TFORCE_UNIT::Dead(bool local)
     if (group_id >= 0)
       selection->DeleteStoredUnit(group_id, this);
 
-    SendEvent(false, glfwGetTime(), US_DYING, -1, pos.x, pos.y, pos.segment, move_direction);
+    SendEvent(false, AppGetTimeSeconds(), US_DYING, -1, pos.x, pos.y, pos.segment, move_direction);
   }
   else
-    SendRequestLocal(false, glfwGetTime(), RQ_DYING, -1, pos.x, pos.y, pos.segment, move_direction);
+    SendRequestLocal(false, AppGetTimeSeconds(), RQ_DYING, -1, pos.x, pos.y, pos.segment, move_direction);
 }
 
 /**
@@ -2114,13 +2114,13 @@ void TFORCE_UNIT::Disconnect()
     pgui_texture = player->race->tex_table.GetTexture(itm->tg_dying_id, 0);
     state_time = pgui_texture->frame_time * pgui_texture->frames_count;
   }
-  SendRequestLocal(false, glfwGetTime() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment, move_direction);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment, move_direction);
 
   // send US_DELETE
   if (itm->tg_zombie_id != -1) state_time = UNI_ZOMBIE_TIME;
   else state_time = 0;
 
-  SendRequestLocal(false, glfwGetTime() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment, move_direction);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment, move_direction);
 }
 
 /**
@@ -2133,7 +2133,7 @@ bool TFORCE_UNIT::StartStaying()
   // send event to queue
   process_mutex->Lock();
   ClearActions();
-  SendEvent(false, glfwGetTime(), US_NEXT_STEP, -1, pos.x, pos.y, pos.segment, move_direction);
+  SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, pos.x, pos.y, pos.segment, move_direction);
   process_mutex->Unlock();
 
   return true;
@@ -2200,7 +2200,7 @@ bool TFORCE_UNIT::StartMoving(TPOSITION_3D target_pos, bool auto_call)
   
   if (player->pathtools->PathFinder(target_pos, this, player->GetLocalMap(),&path, &goal) && this->path)  //OK
   {
-    SendEvent(false, glfwGetTime(), US_NEXT_STEP, -1, pos.x, pos.y, pos.segment, move_direction);
+    SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, pos.x, pos.y, pos.segment, move_direction);
     ok = true;
   }
   else MessageText(false, "%s: Can not move there.", pitem->name);
@@ -2228,7 +2228,7 @@ bool TFORCE_UNIT::StartHiding(TMAP_UNIT *unit, bool auto_call)
   if (CanHide(unit, true, auto_call)) 
   {
     // send event to queue
-    SendEvent(false, glfwGetTime(), US_START_HIDING, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
+    SendEvent(false, AppGetTimeSeconds(), US_START_HIDING, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, unit->GetUnitID());
     ok = true;
   }
 
@@ -2252,7 +2252,7 @@ bool TFORCE_UNIT::StartAttacking(TMAP_UNIT *unit, bool auto_call)
   process_mutex->Lock();
 
   SetAutoAttack(auto_call);
-  SendEvent(false, glfwGetTime(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, GetMoveDirection(), 
+  SendEvent(false, AppGetTimeSeconds(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, GetMoveDirection(), 
             0, unit->GetPlayerID(), unit->GetUnitID());
 
   process_mutex->Unlock();

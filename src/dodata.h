@@ -105,6 +105,7 @@ struct TSND_TABLE;
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dotime.h"
 
 #include "dosimpletypes.h"
 #include "dosound.h"
@@ -185,10 +186,10 @@ public:
   void Play() {
     if (!count)
       return;
-    if (repeat_limit > 0 && glfwGetTime() < last_time + repeat_limit)
+    if (repeat_limit > 0 && AppGetTimeSeconds() < last_time + repeat_limit)
       return;
 
-    last_time = glfwGetTime();
+    last_time = AppGetTimeSeconds();
 
     if (count == 1)
       last_id = 0;

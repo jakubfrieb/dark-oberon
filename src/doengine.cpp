@@ -50,6 +50,7 @@
 #include <string>
 
 #include "dosdl.h"
+#include "dotime.h"
 
 #include "dofollower.h"
 #include "doengine.h"
@@ -442,7 +443,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     double wait_interval = 0.05;
     for (int i = 0; i < 50; i++) {
       follower->SendPingRequest ();
-      glfwSleep (wait_interval);
+      AppSleepSeconds(wait_interval);
       wait_interval *= 1.04;
     }
 
@@ -2660,7 +2661,7 @@ void GameOnKeyDown(int key)
       if (glfwGetKey(GLFW_KEY_LCTRL))
         selection->StoreSelection(key);
       else {
-        double delta = glfwGetTime() - key_time[key];
+        double delta = AppGetTimeSeconds() - key_time[key];
         bool double_key = delta < 0.5;
         bool center = glfwGetKey(GLFW_KEY_LALT) == GL_TRUE || double_key;
 
@@ -2835,8 +2836,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
   /* If the time, when the message originated is less greater than actual time,
    * we have wrong time and we'll correct it according to the received time. */
-  if (glfwGetTime () < time)
-    glfwSetTime (time);
+  if (AppGetTimeSeconds() < time)
+    AppSetTimeSeconds(time);
 
   player_array.Lock ();
 
@@ -2904,7 +2905,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           if (fd != -1)
             break;
           Debug ("Este stale nemam tu adresu");
-          glfwSleep (0.5);
+          AppSleepSeconds(0.5);
         }
 
         if (fd != -1) {
@@ -2938,7 +2939,7 @@ static void ProcessHello (TNET_MESSAGE *msg) {
     return;
   }
 
-  double received = glfwGetTime ();
+  double received = AppGetTimeSeconds();
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
@@ -2954,7 +2955,7 @@ static void ProcessHello (TNET_MESSAGE *msg) {
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
   double time_shift = (received - follower->GetPingRequestTime ()) / 2;
-  glfwSetTime (time + time_shift);
+  AppSetTimeSeconds(time + time_shift);
   follower->SetMinimalTimeshift (time_shift);
 
   Debug (LogMsg ("Reply from Leader received in %.2f miliseconds", time_shift * 2000));
@@ -2992,7 +2993,7 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
     return;
   }
 
-  double received = glfwGetTime ();
+  double received = AppGetTimeSeconds();
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
@@ -3008,7 +3009,7 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
     double time_shift = (received - follower->GetPingRequestTime ()) / 2;
 
     if (time_shift < follower->GetMinimalTimeshift ()) {
-      glfwSetTime (time + time_shift);
+      AppSetTimeSeconds(time + time_shift);
       follower->SetMinimalTimeshift (time_shift);
       Debug (LogMsg ("Ping reply from Leader received in %.2f miliseconds", time_shift * 2000));
     }
@@ -4354,7 +4355,7 @@ void Menu()
       gui->PollEvents();
     }
 
-    glfwSleep (0.01); // 100 fps
+    AppSleepSeconds(0.01); // 100 fps
     glfwPollEvents ();
 
     gui->PollEvents();
@@ -4391,7 +4392,7 @@ static int SDLCALL ProcessFunction(void *arg)
   fps_of_update.Reset ();
 
   while (!allowed_to_start_process_function)
-    glfwSleep (0.02);
+    AppSleepSeconds(0.02);
 
   Info ("Update: Running");
 
@@ -4420,7 +4421,7 @@ static int SDLCALL ProcessFunction(void *arg)
           
           
           #if DEBUG_EVENTS
-            Debug(LogMsg("PROC_L: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), glfwGetTime(), queue_events->GetQueueLength()));
+            Debug(LogMsg("PROC_L: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), AppGetTimeSeconds(), queue_events->GetQueueLength()));
           #endif
 
           act_unit->ProcessEvent(act_event);
@@ -4437,7 +4438,7 @@ static int SDLCALL ProcessFunction(void *arg)
               if (act_unit->pevent)
                 Error(LogMsg("Remote unit has PEVENT!"));
 
-              Debug(LogMsg("PROC_R: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), glfwGetTime(), queue_events->GetQueueLength()));
+              Debug(LogMsg("PROC_R: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), AppGetTimeSeconds(), queue_events->GetQueueLength()));
             #endif
 
             act_unit->ProcessEvent(act_event);

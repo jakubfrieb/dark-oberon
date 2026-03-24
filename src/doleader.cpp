@@ -31,6 +31,7 @@
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dotime.h"
 
 #include <string>
 
@@ -68,7 +69,7 @@ void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, in
   m->Pack (&remote_address, sizeof remote_address);
   m->Pack (&remote_port, sizeof remote_port);
 
-  double time = glfwGetTime ();
+  double time = AppGetTimeSeconds();
 
   m->Pack (&time, sizeof time);
 
@@ -79,7 +80,7 @@ void TLEADER::SendPingReply (double request_time) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_ping, 1);
 
-  double time = glfwGetTime ();
+  double time = AppGetTimeSeconds();
 
   m->Pack (&request_time, sizeof request_time);
   m->Pack (&time, sizeof time);
@@ -93,7 +94,7 @@ void TLEADER::SendPlayerArray (string map_name, bool start_game) {
 
   player_array.Lock ();
 
-  double time = glfwGetTime ();
+  double time = AppGetTimeSeconds();
 
   m->Pack (&time, sizeof time);
 

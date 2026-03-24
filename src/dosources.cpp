@@ -180,7 +180,7 @@ bool TSOURCE_UNIT::SetMaterialBalance(int new_value)
   if (!player_array.IsRemote(GetPlayerID())) {
     // send info about material amount in source to not local players
     hlp = pool_events->GetFromPool();
-    hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, glfwGetTime(), RQ_SYNC_MAT_AMOUNT, US_NONE, -1, 0, 0, 0, 0, 0, 0, material_balance);
+    hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_MAT_AMOUNT, US_NONE, -1, 0, 0, 0, 0, 0, 0, material_balance);
     SendNetEvent(hlp, all_players);
     pool_events->PutToPool(hlp);
   }
@@ -450,12 +450,12 @@ void TSOURCE_UNIT::Disconnect()
     pgui_texture = player->race->tex_table.GetTexture(itm->tg_dying_id, 0);
     state_time = pgui_texture->frame_time * pgui_texture->frames_count;
   }
-  SendRequestLocal(false, glfwGetTime() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment);
 
   // send US_DELETE
   if (itm->tg_zombie_id != -1) state_time = UNI_ZOMBIE_TIME;
   else state_time = 0;
-  SendRequestLocal(false, glfwGetTime() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment);
 }
 
 

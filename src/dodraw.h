@@ -31,6 +31,7 @@
 #include "cfg.h"
 #include "doalloc.h"
 #include "dosdl.h"
+#include "dotime.h"
 
 //=========================================================================
 // Forward declarations
@@ -258,23 +259,23 @@ class TTIME {
      *  expected_frame_duration. */
     void SleepToGetExpectedFrameDuration (double expected_frame_duration)
     {
-      double sleep_time = expected_frame_duration - (glfwGetTime() - time_actual);
+      double sleep_time = expected_frame_duration - (AppGetTimeSeconds() - time_actual);
       /* the smallest time for sleep is 0.01 (1 ms), we are ignoring sleep times
        * smaller than that */
-      if (sleep_time > 0.009) glfwSleep (sleep_time);
+      if (sleep_time > 0.009) AppSleepSeconds(sleep_time);
     }
 
     //! Updates #time_actual and #time_shift.
     void Update ()
     {
       double last_update = time_actual;
-      time_actual = glfwGetTime();
+      time_actual = AppGetTimeSeconds();
       time_shift = time_actual - last_update;
     }
 
     //! Constructor. Initializes #time_actual and #time_shift.
     TTIME ()
-    { time_actual = glfwGetTime(); time_shift = 0.0; }
+    { time_actual = AppGetTimeSeconds(); time_shift = 0.0; }
 
   private:
     double time_actual;   //!< Actual time. [seconds]

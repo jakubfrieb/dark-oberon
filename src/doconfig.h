@@ -184,7 +184,7 @@ struct TCONFIG {
   T_BYTE map_zoom_speed;  //!< Speed of map zooming. [1..100]
   
   /** Maximum frame rate per one second (fps). This is an approximate value,
-   *  which is achieved using glfwSleep(). Usually the precision of glfwSleep()
+   *  which is achieved using AppSleepSeconds(). Usually the precision of AppSleepSeconds()
    *  is in miliseconds and smallest possible sleep time is 1ms. That is why
    *  high values of #max_frame_rate cause real fps to be rounded to some
    *  values which correspond to 1ms, 2ms and 3ms (eg. 33 fps, 50 fps and 100

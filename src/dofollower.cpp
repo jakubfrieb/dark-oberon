@@ -31,6 +31,7 @@
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dotime.h"
 
 #include <string>
 
@@ -77,7 +78,7 @@ void TFOLLOWER::Connect (string player_name) {
   m->Pack (&listener_port, sizeof (in_port_t));
   m->PackString (player_name);
 
-  ping_request_time = glfwGetTime ();
+  ping_request_time = AppGetTimeSeconds();
 
   /* Send message to leader. */
   SendMessage (m, 0);
@@ -112,7 +113,7 @@ void TFOLLOWER::SendPingRequest () {
   TNET_MESSAGE *msg = pool_net_messages->GetFromPool();
   msg->Init_send(net_protocol_ping, 0);
 
-  ping_request_time = glfwGetTime ();
+  ping_request_time = AppGetTimeSeconds();
   msg->Pack (&ping_request_time, sizeof ping_request_time);
 
   SendMessage (msg, 0);

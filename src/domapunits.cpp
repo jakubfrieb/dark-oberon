@@ -256,7 +256,7 @@ void TMAP_UNIT::SetLife(const float value)
     if (!player_array.IsRemote(this->GetPlayerID())) {
       // send info about unit's actual life to all not local players
       hlp = pool_events->GetFromPool();
-      hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, glfwGetTime(), RQ_SYNC_LIFE, US_NONE, -1, 0, 0, 0, 0, 0, 0, (int)life);
+      hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_LIFE, US_NONE, -1, 0, 0, 0, 0, 0, 0, (int)life);
       SendNetEvent(hlp, all_players);
       pool_events->PutToPool(hlp);
     }
@@ -1096,7 +1096,7 @@ bool TMAP_UNIT::StartStaying()
   // send event to queue
   process_mutex->Lock();
   ClearActions();
-  SendEvent(false, glfwGetTime(), US_STAY, -1, pos.x, pos.y, pos.segment);
+  SendEvent(false, AppGetTimeSeconds(), US_STAY, -1, pos.x, pos.y, pos.segment);
   process_mutex->Unlock();
 
   return true;
@@ -1215,7 +1215,7 @@ void TMAP_UNIT::EjectUnits()
     unit = copy_hided_units.TakeFirstOut();
 
     if (unit->LeaveHolderUnit(this)) {
-      unit->SendEvent(false, glfwGetTime(), US_EJECTING, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+      unit->SendEvent(false, AppGetTimeSeconds(), US_EJECTING, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
     }
     else {
       hided_units.AddNode(unit);
@@ -1235,10 +1235,10 @@ void TMAP_UNIT::Dead(bool local)
     if (group_id >= 0)
       selection->DeleteStoredUnit(group_id, this);
 
-    SendEvent(false, glfwGetTime(), US_DYING, -1, pos.x, pos.y, pos.segment);
+    SendEvent(false, AppGetTimeSeconds(), US_DYING, -1, pos.x, pos.y, pos.segment);
   }
   else
-    SendRequestLocal(false, glfwGetTime(), US_DYING, -1, pos.x, pos.y, pos.segment);
+    SendRequestLocal(false, AppGetTimeSeconds(), US_DYING, -1, pos.x, pos.y, pos.segment);
 }
 
 /**
@@ -1337,7 +1337,7 @@ bool TMAP_UNIT::StartAttacking(TMAP_UNIT *unit, bool automatic)
   process_mutex->Lock();
 
   SetAutoAttack(automatic);
-  SendEvent(false, glfwGetTime(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, 0, 0, unit->GetPlayerID(), unit->GetUnitID());
+  SendEvent(false, AppGetTimeSeconds(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, 0, 0, unit->GetPlayerID(), unit->GetUnitID());
 
   process_mutex->Unlock();
 

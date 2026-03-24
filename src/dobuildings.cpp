@@ -137,7 +137,7 @@ void TBUILDING_UNIT::SetProgress(T_BYTE pr)
     
     // send info about buildings's actual progress to all not local players
     hlp = pool_events->GetFromPool();
-    hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, glfwGetTime(), RQ_SYNC_PROGRESS, US_NONE, -1, 0, 0, 0, 0, 0, 0, progress);
+    hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_PROGRESS, US_NONE, -1, 0, 0, 0, 0, 0, 0, progress);
     SendNetEvent(hlp, all_players);
     pool_events->PutToPool(hlp);
   }
@@ -253,7 +253,7 @@ bool TBUILDING_UNIT::StartAttacking(TMAP_UNIT *unit, bool auto_call)
   process_mutex->Lock();
 
   SetAutoAttack(auto_call);
-  SendEvent(false, glfwGetTime(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, 0, 0, unit->GetPlayerID(), unit->GetUnitID());
+  SendEvent(false, AppGetTimeSeconds(), US_START_ATTACK, -1, GetPosition().x, GetPosition().y, GetPosition().segment, 0, 0, unit->GetPlayerID(), unit->GetUnitID());
 
   process_mutex->Unlock();
 
@@ -280,12 +280,12 @@ void TBUILDING_UNIT::Disconnect()
     pgui_texture = player->race->tex_table.GetTexture(itm->tg_dying_id, 0);
     state_time = pgui_texture->frame_time * pgui_texture->frames_count;
   }
-  SendRequestLocal(false, glfwGetTime() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + TS_MIN_EVENTS_DIFF, RQ_ZOMBIE, -1, pos.x, pos.y, pos.segment);
 
   // send US_DELETE
   if (itm->tg_zombie_id != -1) state_time = UNI_ZOMBIE_TIME;
   else state_time = 0;
-  SendRequestLocal(false, glfwGetTime() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment);
+  SendRequestLocal(false, AppGetTimeSeconds() + state_time + 2 * TS_MIN_EVENTS_DIFF, RQ_DELETE, -1, pos.x, pos.y, pos.segment);
 }
 
 /**
@@ -745,10 +745,10 @@ void TBUILDING_UNIT::Dead(bool local)
     if (group_id >= 0)
       selection->DeleteStoredUnit(group_id, this);
 
-    SendEvent(false, glfwGetTime(), new_state, -1, pos.x, pos.y, pos.segment);
+    SendEvent(false, AppGetTimeSeconds(), new_state, -1, pos.x, pos.y, pos.segment);
   }
   else
-    SendRequestLocal(false, glfwGetTime(), new_state, -1, pos.x, pos.y, pos.segment);
+    SendRequestLocal(false, AppGetTimeSeconds(), new_state, -1, pos.x, pos.y, pos.segment);
 }
 
 

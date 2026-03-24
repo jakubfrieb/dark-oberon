@@ -1135,7 +1135,7 @@ TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
     actual = actual->next; 
   }
 
-  time_stamp = glfwGetTime();
+  time_stamp = AppGetTimeSeconds();
   actual = group_info->unit_list;
   while (actual)
   {
@@ -1225,7 +1225,7 @@ TPATH_INFO* TA_STAR_ALG::ComputePath(TPATH_INFO* path_info)
     Debug (LogMsg ("SendPathEvent ID = %d", path_info->request_id));
 #endif
 
-    path_info->unit->SendRequest(false, glfwGetTime(), RQ_PATH_FINDING, path_info->request_id,path_info->succ,
+    path_info->unit->SendRequest(false, AppGetTimeSeconds(), RQ_PATH_FINDING, path_info->request_id,path_info->succ,
                                  path_info->real_goal.x, path_info->real_goal.y,path_info->real_goal.segment,path_info->e_simple1,
                                  path_info->e_simple2,reinterpret_cast<intptr_t>(p_pathlist),path_info->event_type);                 
 
@@ -1250,7 +1250,7 @@ TNEAREST_INFO* TA_STAR_ALG::SearchForNearestBuilding(TNEAREST_INFO* pnearest_inf
   {
     pnearest_info->nearest = static_cast<TWORKER_UNIT*>(pnearest_info->unit)->GetNearestBuilding(pnearest_info->src_unit, this);      
   
-    pnearest_info->unit->SendRequest(false, glfwGetTime(),RQ_NEAREST_SEARCHING,pnearest_info->request_id,pnearest_info->simple1,
+    pnearest_info->unit->SendRequest(false, AppGetTimeSeconds(),RQ_NEAREST_SEARCHING,pnearest_info->request_id,pnearest_info->simple1,
                                    pnearest_info->simple2,0,0,0,0, 
                                    reinterpret_cast<intptr_t>(pnearest_info->nearest),pnearest_info->event_type);
 

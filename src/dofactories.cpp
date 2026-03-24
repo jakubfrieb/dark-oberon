@@ -465,7 +465,7 @@ void TFACTORY_UNIT::TogglePausedProducing()
   if (!paused) {
     if (order_size) {
       process_mutex->Lock();
-      SendRequest(false, glfwGetTime() + (production_time / UNI_PRODUCING_COUNT), RQ_PRODUCING, waiting_request_id);
+      SendRequest(false, AppGetTimeSeconds() + (production_time / UNI_PRODUCING_COUNT), RQ_PRODUCING, waiting_request_id);
       process_mutex->Unlock();
     }
   }
@@ -495,7 +495,7 @@ void TFACTORY_UNIT::CancelProducing(int buttonid)
       production_time = order[producing]->GetProduceTime();
       production_count = UNI_PRODUCING_COUNT;
   
-      waiting_request_id = SendRequest(false, glfwGetTime(), RQ_PRODUCING); // sets info about requested request
+      waiting_request_id = SendRequest(false, AppGetTimeSeconds(), RQ_PRODUCING); // sets info about requested request
     }
     else
       waiting_request_id = -1;
@@ -574,7 +574,7 @@ bool TFACTORY_UNIT::AddUnitToOrder(TFORCE_ITEM *unit_item)
     production_time = product_info->GetProduceTime();
     production_count = UNI_PRODUCING_COUNT;
     
-    waiting_request_id = SendRequest(false, glfwGetTime(), RQ_PRODUCING); // sets info about requested request
+    waiting_request_id = SendRequest(false, AppGetTimeSeconds(), RQ_PRODUCING); // sets info about requested request
   }
   else
   {
