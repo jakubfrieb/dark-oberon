@@ -2,8 +2,6 @@
  * -------------
  *  Dark Oberon
  * -------------
- * 
- * An advanced strategy game.
  *
  * Copyright (C) 2002 - 2005 Valeria Sventova, Jiri Krejsa, Peter Knut,
  *                           Martin Kosalko, Marian Cerny, Michal Kral
@@ -15,13 +13,9 @@
  */
 
 /**
- *  @file doconfig.h
+ *  @file dosound.h
  *
- *  Sound declarations and methods.
- *
- *  @author Peter Knut
- *
- *  @date 2004
+ *  Sound declarations and methods (FMOD Ex 4.x backend).
  */
 
 #ifndef __dosound_h__
@@ -30,11 +24,6 @@
 
 #include "cfg.h"
 #include "doalloc.h"
-
-#if SOUND
-# include <fmod.h>
-# include <fmod_errors.h>
-#endif
 
 #include "dosimpletypes.h"
 
@@ -77,6 +66,9 @@ enum TVOLUME_TYPE {
 
 #if SOUND
 
+struct FMOD_SOUND;
+struct FMOD_CHANNEL;
+
 class TSOUND {
 public:
   char *id;
@@ -101,24 +93,24 @@ public:
 
 class TCHANNEL : public TSOUND {
 public:
-  int channel;
+  FMOD_CHANNEL *fch;
 
   virtual void SetVolume(T_BYTE vol);
   virtual void SetVolumeAbsolute(T_BYTE vol);
 
   virtual bool IsPlaying();
 
-  TCHANNEL():TSOUND() { channel = -1; }
+  TCHANNEL():TSOUND() { fch = NULL; }
   virtual ~TCHANNEL() {};
 
 protected:
-  void _SetVolume();
+  virtual void _SetVolume();
 };
 
 
 class TSAMPLE : public TCHANNEL {
 public:
-  FSOUND_SAMPLE *sample;
+  FMOD_SOUND *sample;
 
   bool Load(char *data, int size);
   void SetMaxPlaybacks(int max);
@@ -126,30 +118,36 @@ public:
   virtual void Play();
   virtual void Stop();
   virtual void SetLoop(bool lp);
-  
+
   TSAMPLE():TCHANNEL() { sample = NULL; }
   virtual ~TSAMPLE();
+
+protected:
+  void _SetVolume();
 };
 
 
 class TSTREAM : public TCHANNEL {
 public:
-  FSOUND_STREAM *stream;
-  
+  FMOD_SOUND *stream;
+  char *stream_mem;
+  int stream_mem_size;
+
   bool Load(const char *file_name, int seek, int size);
 
   virtual void Play();
   virtual void Stop();
   virtual void SetLoop(bool lp);
-  
-  TSTREAM():TCHANNEL() { stream = NULL; }
+
+  TSTREAM():TCHANNEL() { stream = NULL; stream_mem = NULL; stream_mem_size = 0; }
   virtual ~TSTREAM();
 };
 
 
 class TMODULE : public TSOUND {
 public:
-  FMUSIC_MODULE *mod;
+  FMOD_SOUND *mod;
+  FMOD_CHANNEL *fch;
 
   bool Load(char *data, int size);
 
@@ -162,23 +160,16 @@ public:
 
   virtual bool IsPlaying();
 
-  TMODULE():TSOUND() { mod = NULL; }
+  TMODULE():TSOUND() { mod = NULL; fch = NULL; }
   virtual ~TMODULE();
 };
 
 
-//========================================================================
-// Functions
-//========================================================================
-
-bool InitSound();
+bool InitSound(void);
+void FmodUpdate(void);
+void FmodShutdown(void);
+void FmodApplySfxMasterVolume(T_BYTE vol_menu_0_100);
 
 #endif // #if SOUND
 
 #endif // __dosound_h__
-
-//========================================================================
-// End
-//========================================================================
-// vim:ts=2:sw=2:et:
-

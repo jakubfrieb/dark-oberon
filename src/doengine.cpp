@@ -62,6 +62,10 @@
 #include "dopool.h"
 #include "doipc.h"
 
+#if SOUND
+#include "dosound.h"
+#endif
+
 using std::string;
 
 
@@ -463,9 +467,7 @@ static void connecting_in_menu_thread (void *_data) {
 
 // vol [0..100]
 void ChangeSoundVolume(T_BYTE vol) {
-  vol = (T_BYTE)(vol * 2.55);
-
-  FSOUND_SetSFXMasterVolume((vol * config.snd_master_volume) / 100);
+  FmodApplySfxMasterVolume(vol);
 }
 
 // vol [0..100]
@@ -4333,6 +4335,12 @@ void Menu()
     glfwPollEvents ();
 
     gui->PollEvents();
+
+#if SOUND
+    FmodUpdate();
+#endif
+    if (!glfwGetWindowParam(GLFW_OPENED))
+      state = ST_QUIT;
   }
 
   if (state == ST_RESET_VIDEO_MENU) state = ST_VIDEO_MENU;
@@ -4709,6 +4717,10 @@ void Game(void)
      * not to render one more frame, when QUIT key was pressed). */
     glfwPollEvents ();
     gui->PollEvents();
+
+#if SOUND
+    FmodUpdate();
+#endif
 
   } // while (state == ST_GAME)
 

@@ -220,7 +220,7 @@ void DestroyAll(void)
   delete process_mutex;
 
 #if SOUND
-  FSOUND_Close();
+  FmodShutdown();
 #endif
 
   // stop memory checking system
@@ -229,7 +229,11 @@ void DestroyAll(void)
   DoneMemorySystem();
 #endif
     
-  // close OpenGL window
+  /* Restore RandR / fullscreen before terminating GLFW (CloseWindow restores video mode). */
+  if (glfwGetWindowParam(GLFW_OPENED)) {
+    glfwRestoreWindow();
+    glfwCloseWindow();
+  }
   glfwTerminate();
 
   // Initialize network on Windows.
