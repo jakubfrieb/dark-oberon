@@ -30,6 +30,7 @@
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dosdl.h"
 
 //=========================================================================
 // Forward declarations
@@ -237,7 +238,7 @@ private:
   int last;         //!< "Pointer" to last item.
   int unused_texts_stack[OST_MAX_LINES]; //!< Stack of unused texts.
   int count;        //!< Count of active texts. Also used as a stack top.
-  GLFWmutex mutex;  //!< Mutex to avoid race conditions.
+  SDL_mutex *mutex;  //!< Mutex to avoid race conditions.
 };
 
 

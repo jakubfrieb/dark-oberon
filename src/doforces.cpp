@@ -2808,9 +2808,9 @@ void TFORCE_UNIT::ComputePath(TPOSITION_3D goal,int request_id,int event_type,T_
   ppath_info->event_type = event_type;
   ppath_info->request_id = request_id;  
 
-  glfwLockMutex(delete_mutex);
+  SDL_LockMutex(delete_mutex);
   ppath_info->unit = (TFORCE_UNIT *)AcquirePointer();
-  glfwUnlockMutex(delete_mutex);
+  SDL_UnlockMutex(delete_mutex);
 
   if (!ppath_info->unit) {
     pool_path_info->PutToPool(ppath_info);

@@ -99,7 +99,7 @@ TSELECTION::TSELECTION(void)
   timer = 0.0;
 
   // create mutex
-  if ((mutex = glfwCreateMutex ()) == NULL) {
+  if ((mutex = SDL_CreateMutex ()) == NULL) {
     Critical ("Could not create units mutex");
   }
 }
@@ -112,7 +112,7 @@ TSELECTION::~TSELECTION()
 {
   if (IsEmpty()) return;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   TNODE_OF_UNITS_LIST *u = units;
   TNODE_OF_UNITS_LIST *u2;
@@ -124,9 +124,9 @@ TSELECTION::~TSELECTION()
     u = u2;
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
-  glfwDestroyMutex(mutex);
+  SDL_DestroyMutex(mutex);
 }
 
 
@@ -139,12 +139,12 @@ void TSELECTION::SelectUnit(TMAP_UNIT *punit)
 {
   if (!punit) return;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   _UnselectAll(false);
   _AddUnit(punit, true, false);
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -174,7 +174,7 @@ void TSELECTION::_AddUnit(TMAP_UNIT *punit, bool sound, bool lock)
     punit->TestState(US_DYING) || punit->TestState(US_ZOMBIE) || punit->TestState(US_DELETE)
   ) return;
   
-  if (lock) glfwLockMutex(mutex);
+  if (lock) SDL_LockMutex(mutex);
 
   Debug(LogMsg("X:%d, Y:%d, Z:%d, UID:%d, STATE:%d", punit->GetPosition().x, punit->GetPosition().y, punit->GetPosition().segment, punit->GetUnitID(), punit->GetState()));
   StartTimer();
@@ -288,7 +288,7 @@ void TSELECTION::_AddUnit(TMAP_UNIT *punit, bool sound, bool lock)
       panel_info.action_panel[i]->ResetSliders();
   }
 
-  if (lock) glfwUnlockMutex(mutex);
+  if (lock) SDL_UnlockMutex(mutex);
 
   //Debug(LogMsg("unit position: %d, %d", punit->GetPosition().x, punit->GetPosition().y));
 }
@@ -303,7 +303,7 @@ bool TSELECTION::DeleteUnit(TMAP_UNIT *punit)
 {
   if (!punit->IsSelected()) return false;
   
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   TNODE_OF_UNITS_LIST *u;
 
@@ -315,7 +315,7 @@ bool TSELECTION::DeleteUnit(TMAP_UNIT *punit)
 
   // if unit is not found, return
   if (!u) {
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     return false;
   }
 
@@ -368,7 +368,7 @@ bool TSELECTION::DeleteUnit(TMAP_UNIT *punit)
     }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   UpdateInfo(true);
   return true;
@@ -382,7 +382,7 @@ void TSELECTION::_UnselectAll(bool lock)
 {
   if (IsEmpty()) return;
 
-  if (lock) glfwLockMutex(mutex);
+  if (lock) SDL_LockMutex(mutex);
 
   TNODE_OF_UNITS_LIST *u = units;
   TNODE_OF_UNITS_LIST *u2;
@@ -402,7 +402,7 @@ void TSELECTION::_UnselectAll(bool lock)
   builder_item = NULL;
   units_action = UA_NONE;
 
-  if (lock) glfwUnlockMutex(mutex);
+  if (lock) SDL_UnlockMutex(mutex);
 
   UpdateInfo(true, lock);
 }
@@ -421,7 +421,7 @@ void TSELECTION::Update(double time_shift)
     if (timer < 0) timer = 0.0;
   }
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   // dynamic unit info
   if (state == ST_GAME && !IsEmpty() && !units->next) {
@@ -510,7 +510,7 @@ void TSELECTION::Update(double time_shift)
       }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   if (last_action != units_action && mouse.action == UA_NONE && !panel_info.build_button->IsChecked()) UpdateInfo(true);
 }
@@ -529,7 +529,7 @@ void TSELECTION::UpdateInfo(bool update_action, bool lock)
   GLfloat y = GLfloat(config.scr_height - 315);
   GLfloat lh = panel_info.info_label->GetLineHeight();
 
-  if (lock) glfwLockMutex(mutex);
+  if (lock) SDL_LockMutex(mutex);
 
   for (i = 0; i < scheme.materials_count; i++) {
     panel_info.material_image[i]->Hide();
@@ -748,7 +748,7 @@ void TSELECTION::UpdateInfo(bool update_action, bool lock)
   panel_info.repair_button->SetEnabled(can_repair);
   panel_info.build_button->SetEnabled(can_build);
 
-  if (lock) glfwUnlockMutex(mutex);
+  if (lock) SDL_UnlockMutex(mutex);
 
   if (update_action) UpdateAction(lock);
 }
@@ -761,7 +761,7 @@ void TSELECTION::UpdateAction(bool lock)
 {
   if (state != ST_GAME) return;
 
-  if (lock) glfwLockMutex(mutex);
+  if (lock) SDL_LockMutex(mutex);
 
   switch (units_action) {
   case UA_NONE:
@@ -790,7 +790,7 @@ void TSELECTION::UpdateAction(bool lock)
     break;
   }
 
-  if (lock) glfwUnlockMutex(mutex);
+  if (lock) SDL_UnlockMutex(mutex);
 }
 
 
@@ -799,7 +799,7 @@ void TSELECTION::DrawUnitsLines()
   // move lines
   if (!CanDrawLines() || !can_move) return;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   TNODE_OF_UNITS_LIST *n;
 
@@ -807,7 +807,7 @@ void TSELECTION::DrawUnitsLines()
     static_cast<TFORCE_UNIT *>(n->unit)->DrawLine();
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -815,7 +815,7 @@ bool TSELECTION::TestCanHide(TMAP_UNIT *over_unit)
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !over_unit || !can_move || 
@@ -833,7 +833,7 @@ bool TSELECTION::TestCanHide(TMAP_UNIT *over_unit)
     }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -843,14 +843,14 @@ bool TSELECTION::TestCanAttack(TMAP_UNIT *over_unit)
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !over_unit || !can_attack || over_unit->IsGhost() ||
     (OnlyOne() && GetFirstUnit() == over_unit)
   ) ok = false;
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -860,7 +860,7 @@ bool TSELECTION::TestCanMine(TSOURCE_UNIT *over_unit)
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !over_unit || !can_mine || 
@@ -880,7 +880,7 @@ bool TSELECTION::TestCanMine(TSOURCE_UNIT *over_unit)
     }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -890,7 +890,7 @@ bool TSELECTION::TestCanUnload(TBUILDING_UNIT *over_unit)
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !over_unit || !can_mine ||
@@ -911,7 +911,7 @@ bool TSELECTION::TestCanUnload(TBUILDING_UNIT *over_unit)
     }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -921,7 +921,7 @@ bool TSELECTION::TestCanBuildOrRepair(TBASIC_UNIT *over_unit)
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !over_unit || !can_repair ||
@@ -941,7 +941,7 @@ bool TSELECTION::TestCanBuildOrRepair(TBASIC_UNIT *over_unit)
     }
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -951,7 +951,7 @@ bool TSELECTION::TestCanBuild(TBUILDING_ITEM *building, TPOSITION pos, bool **bu
 {
   bool ok = true;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (
     !can_build || !building
@@ -959,7 +959,7 @@ bool TSELECTION::TestCanBuild(TBUILDING_ITEM *building, TPOSITION pos, bool **bu
 
   if (ok) ok = static_cast<TWORKER_UNIT *>(units->unit)->CanBuild(building, pos, build_map, false, false);
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -970,7 +970,7 @@ bool TSELECTION::TestCanBuild(TBUILDING_ITEM *building, TPOSITION pos, bool **bu
  */
 void TSELECTION::StopUnits()
 {
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   TNODE_OF_UNITS_LIST *ul;      // actual item in units list
 
@@ -991,7 +991,7 @@ void TSELECTION::StopUnits()
 #endif
 
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -1014,7 +1014,7 @@ bool TSELECTION::ReactUnits()
     default: return false;                  break;
   }
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   for (ul = units; ul; ul = ul->next)
     if (ul->unit != mouse.over_unit && ul->unit->SelectReaction(mouse.over_unit, action)) ok = true;
@@ -1033,7 +1033,7 @@ bool TSELECTION::ReactUnits()
 #endif
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return ok;
 }
@@ -1048,11 +1048,11 @@ bool TSELECTION::ReactUnits()
 bool TSELECTION::MoveUnits(TPOSITION goal)
 {
   process_mutex->Lock();
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (!TestCanMove()) 
   {
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     process_mutex->Unlock();
     return false;
   }
@@ -1060,7 +1060,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
   if (!map.IsInMap(goal.x, goal.y)) 
   {
     GetFirstUnit()->MessageText(false, "Can not move outside of map.");
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     process_mutex->Unlock();
     return false;
   }
@@ -1087,7 +1087,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
 
   if (!path_info)
   {
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     process_mutex->Unlock();
     return false;
   }
@@ -1103,7 +1103,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
   else
   {
     pool_path_info->PutToPool(path_info);    
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     process_mutex->Unlock();
     return false;
   }
@@ -1127,7 +1127,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
       path_info->unit_list = NULL;
       pool_path_info->PutToPool(path_info);
 
-      glfwUnlockMutex(mutex);
+      SDL_UnlockMutex(mutex);
       process_mutex->Unlock();
       return false;
     }
@@ -1135,9 +1135,9 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
     new_node->next = NULL;
     new_node->prev = NULL;
 
-    glfwLockMutex(delete_mutex);
+    SDL_LockMutex(delete_mutex);
     new_node->unit = (TFORCE_UNIT *)node->unit->AcquirePointer();
-    glfwUnlockMutex(delete_mutex);
+    SDL_UnlockMutex(delete_mutex);
 
     if (!new_node->unit) {
       pool_path_info->PutToPool(path_info);
@@ -1175,7 +1175,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
   threadpool_astar->AddRequest(path_info, &TA_STAR_ALG::DevideToGroups);
 
   //fcia group management rozdeli skupinu do mensich skupin a pre kazdu skupinu najde leadra.
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
   process_mutex->Unlock();
 
   return false;
@@ -1209,10 +1209,10 @@ void TSELECTION::StoreSelection(int gid)
   TNODE_OF_UNITS_LIST *u;
   int i;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (!IsMy()) {
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     return;
   }
 
@@ -1224,7 +1224,7 @@ void TSELECTION::StoreSelection(int gid)
     u->unit->SetGroupID(gid);
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -1241,7 +1241,7 @@ void TSELECTION::RestoreSelection(int gid, bool center, bool sound)
   int i;
   TMAP_UNIT *u = NULL;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   _UnselectAll(false);
 
@@ -1259,17 +1259,17 @@ void TSELECTION::RestoreSelection(int gid, bool center, bool sound)
   // reset drawing selection rectangle
   mouse.draw_selection = false;
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
 void TSELECTION::DeleteStoredUnit(int gid, TMAP_UNIT *unit)
 {
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   groups[gid].DeleteUnit(unit);
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 

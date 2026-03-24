@@ -45,8 +45,11 @@
 #include "donet.h"
 #include <glfw.h>
 
+#include <atomic>
 #include <cmath>
 #include <string>
+
+#include "dosdl.h"
 
 #include "dofollower.h"
 #include "doengine.h"
@@ -288,9 +291,11 @@ TBUILD_TOOLTIP  *build_tooltip = NULL;
 
 string selected_map_name;
 
-/** Update thread ID. */
-GLFWthread process_thread = -1;
-GLFWthread connecting_thread_id = -1;
+/** Update thread (game simulation). */
+SDL_Thread *process_thread = NULL;
+/** Menu "connect to server" background thread. */
+SDL_Thread *connecting_thread = NULL;
+static std::atomic<bool> connecting_thread_finished{true};
 
 // menus
 TGUI_PANEL *main_menu = NULL;
@@ -380,7 +385,7 @@ struct TCONNECT_DATA {
   in_port_t port;
 };
 
-static void connecting_in_menu_thread (void *_data) {
+static void connecting_in_menu_thread_impl (void *_data) {
   TCONNECT_DATA *data = static_cast<TCONNECT_DATA *>(_data);
   string server_name = data->server_name;
   in_port_t port = data->port;
@@ -456,6 +461,13 @@ static void connecting_in_menu_thread (void *_data) {
   } catch (...) {
     Debug ("nejaka ina vynimka");
   }
+}
+
+static int SDLCALL connecting_in_menu_thread_sdl (void *_data)
+{
+  connecting_in_menu_thread_impl (_data);
+  connecting_thread_finished.store (true);
+  return 0;
 }
 
 
@@ -1102,15 +1114,15 @@ void UpdateMyselfInfo()
 
 void SetActiveMenu(TGUI_PANEL *menu)
 {
-  static GLFWmutex mutexicek = glfwCreateMutex ();
+  static SDL_mutex *mutexicek = SDL_CreateMutex ();
 
-  glfwLockMutex (mutexicek);
+  SDL_LockMutex (mutexicek);
 
   active_menu->SetVisible(false);
   menu->SetVisible(true);
   active_menu = menu;
 
-  glfwUnlockMutex (mutexicek);
+  SDL_UnlockMutex (mutexicek);
 }
 
 
@@ -1225,13 +1237,16 @@ void UpdatePlayersAndMenu () {
 //========================================================================
 
 bool Disconnect() {
-  /* Destroy connecting thread if it is running. Do it even when not connected.
-   */
-  if (glfwWaitThread (connecting_thread_id, GLFW_NOWAIT) == GL_FALSE) {
-    Debug (LogMsg ("ok, rusim vlakno %d", connecting_thread_id));
-    glfwDestroyThread (connecting_thread_id);
+  /* Join or detach connecting thread if it is running. */
+  if (connecting_thread) {
+    if (connecting_thread_finished.load ()) {
+      SDL_WaitThread (connecting_thread, NULL);
+    } else {
+      Debug ("disconnect: detaching unfinished connecting thread");
+      SDL_DetachThread (connecting_thread);
+    }
+    connecting_thread = NULL;
   }
-  connecting_thread_id = -1;
 
   /* one never knows... (if the process thread is not still waiting :-) */
   allowed_to_start_process_function = true;
@@ -1326,11 +1341,11 @@ bool Connect (string server)
   data->port = config.net_server_port;
   data->server_name = server;
 
-  /* Create connecting thread. */
-  connecting_thread_id = glfwCreateThread (connecting_in_menu_thread, data);
-  if (connecting_thread_id < 0)
+  connecting_thread_finished.store (false);
+  connecting_thread = SDL_CreateThread (connecting_in_menu_thread_sdl, "menu_connect", data);
+  if (connecting_thread == NULL)
     Critical ("Error creating thread");
-  Debug (LogMsg ("Yep, vytvaram to vlakno %d", connecting_thread_id));
+  Debug ("connect: created background connecting thread");
 
   return true;
 }
@@ -1381,11 +1396,15 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
     /* If user clicked on Cancel when connecting */
     if (action_key == MNU_CONNECT2) {
-      if (glfwWaitThread (connecting_thread_id, GLFW_NOWAIT) == GL_FALSE) {
-        Debug (LogMsg ("ok, rusim vlakno %d", connecting_thread_id));
-        glfwDestroyThread (connecting_thread_id);
+      if (connecting_thread) {
+        if (connecting_thread_finished.load ()) {
+          SDL_WaitThread (connecting_thread, NULL);
+        } else {
+          Debug ("cancel connect: detaching connecting thread");
+          SDL_DetachThread (connecting_thread);
+        }
+        connecting_thread = NULL;
       }
-      connecting_thread_id = -1;
       action_force = true;
       MenuButtonOnClickKey(MNU_DISCONNECT, sender);
     }
@@ -3143,7 +3162,7 @@ struct TDISCONNECT_DATA {
   in_port_t port;
 };
 
-static void OnDisconnectThread (void *d) {
+static int SDLCALL OnDisconnectThread (void *d) {
   TDISCONNECT_DATA *data = static_cast<TDISCONNECT_DATA *>(d);
 
   Debug ("niekto sa odpojil");
@@ -3153,7 +3172,8 @@ static void OnDisconnectThread (void *d) {
   if (host == NULL) {
     Debug ("Ale nemam hosta");
     giant->Unlock ();
-    return;
+    delete data;
+    return 0;
   }
 
   if (state == ST_PLAY_MENU) {
@@ -3196,6 +3216,8 @@ static void OnDisconnectThread (void *d) {
   }
 
   giant->Unlock ();
+  delete data;
+  return 0;
 }
 
 static void OnDisconnect (in_addr address, in_port_t port) {
@@ -3204,7 +3226,8 @@ static void OnDisconnect (in_addr address, in_port_t port) {
   data->address = address;
   data->port = port;
 
-  glfwCreateThread (OnDisconnectThread, data);
+  if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
+    Critical ("Could not create OnDisconnect thread");
 }
 
 
@@ -4359,7 +4382,7 @@ void Menu()
  *
  *  @param arg Arguments passed to glfwCreateThread. They are not used.
  */
-static void GLFWCALL ProcessFunction(void *arg)
+static int SDLCALL ProcessFunction(void *arg)
 {
   TTIME time;
   TEVENT * act_event;
@@ -4430,6 +4453,7 @@ static void GLFWCALL ProcessFunction(void *arg)
     // sleep that long, we get 50 fps
     time.SleepToGetExpectedFrameDuration (0.02);
   }
+  return 0;
 }
 
 
@@ -4438,8 +4462,7 @@ bool StartGame(double stime)
   state = ST_GAME;
   won_lose = false;
 
-  // int threads (only for identification that CreateMutex was not called)
-  process_thread = -1;
+  process_thread = NULL;
 
   // create loading gui
   gui->SetFont(font0);
@@ -4452,7 +4475,7 @@ bool StartGame(double stime)
   glfwSwapBuffers();
 
   // create mutexes
-  delete_mutex  = glfwCreateMutex ();
+  delete_mutex  = SDL_CreateMutex ();
 
   if (!delete_mutex) {
     Critical ("Could not create mutex");
@@ -4511,9 +4534,9 @@ bool StartGame(double stime)
   started = true;
 
   // start Update thread
-  process_thread = glfwCreateThread (ProcessFunction, NULL);
+  process_thread = SDL_CreateThread (ProcessFunction, "game_update", NULL);
 
-  if (process_thread < 0) {
+  if (process_thread == NULL) {
     Critical ("Could not create threads");
     goto error;
   }
@@ -4532,8 +4555,10 @@ error_with_own_state:
   map_info_list.ClearRacList();
   gui->Reset();
 
-  // wait for Update and AI thread to finish
-  if (process_thread == -1) glfwWaitThread(process_thread, GLFW_WAIT);
+  if (process_thread) {
+    SDL_WaitThread (process_thread, NULL);
+    process_thread = NULL;
+  }
   
   started = false;
   
@@ -4553,7 +4578,7 @@ error_with_own_state:
   if (pool_sel_node){ delete pool_sel_node; pool_sel_node = NULL;}
   
   if (delete_mutex) {
-    glfwDestroyMutex(delete_mutex);
+    SDL_DestroyMutex(delete_mutex);
     delete_mutex = NULL;
   }
 
@@ -4565,8 +4590,10 @@ void StopGame()
 {
   started = false;
 
-  // wait for Update thread to finish
-  glfwWaitThread(process_thread, GLFW_WAIT);
+  if (process_thread) {
+    SDL_WaitThread (process_thread, NULL);
+    process_thread = NULL;
+  }
 
   // delete selection
   if (selection) {
@@ -4588,7 +4615,7 @@ void StopGame()
   if (threadpool_nearest) { delete threadpool_nearest; threadpool_nearest = NULL; }
 
   if (delete_mutex){
-    glfwDestroyMutex(delete_mutex);
+    SDL_DestroyMutex(delete_mutex);
     delete_mutex = NULL;
   }
 

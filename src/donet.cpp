@@ -258,10 +258,10 @@ TNET_MESSAGE_QUEUE::TNET_MESSAGE_QUEUE (int size) {
 
   dead = false;
 
-  mutex = glfwCreateMutex ();
+  mutex = SDL_CreateMutex ();
 
-  is_not_empty = glfwCreateCond ();
-  is_not_full  = glfwCreateCond ();
+  is_not_empty = SDL_CreateCond ();
+  is_not_full  = SDL_CreateCond ();
 
   if (mutex == NULL || is_not_empty == NULL || is_not_full == NULL)
     throw MutexException ();
@@ -279,14 +279,14 @@ TNET_MESSAGE_QUEUE::~TNET_MESSAGE_QUEUE () {
  *  inserted into the queue using PutMessage().
  */
 TNET_MESSAGE *TNET_MESSAGE_QUEUE::GetMessage () {
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   while (count == 0) {
-    glfwWaitCond (is_not_empty, mutex, GLFW_INFINITY);
+    SDL_CondWait (is_not_empty, mutex);
   }
 
   if (dead) {
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
     return NULL;
   }
 
@@ -295,9 +295,9 @@ TNET_MESSAGE *TNET_MESSAGE_QUEUE::GetMessage () {
   head = (head + 1) % size;
   count--;
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 
-  glfwSignalCond (is_not_full);
+  SDL_CondSignal (is_not_full);
 
   return ret;
 }
@@ -308,7 +308,7 @@ TNET_MESSAGE *TNET_MESSAGE_QUEUE::GetMessage () {
  *  queue using GetMessage().
  */
 void TNET_MESSAGE_QUEUE::PutMessage (TNET_MESSAGE *message) {
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
 #if DEBUG
   if (count == size)
@@ -316,25 +316,25 @@ void TNET_MESSAGE_QUEUE::PutMessage (TNET_MESSAGE *message) {
 #endif
 
   while (count == size)
-    glfwWaitCond (is_not_full, mutex, GLFW_INFINITY);
+    SDL_CondWait (is_not_full, mutex);
 
   int tail = (head + count) % size;
   this->message[tail] = message;
   count++;
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 
-  glfwSignalCond (is_not_empty);
+  SDL_CondSignal (is_not_empty);
 }
 
 void TNET_MESSAGE_QUEUE::Die () {
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
   dead = true;
   count = 1;
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 
   /* Wake up consumer. GetMessage will return NULL when dead. */
-  glfwSignalCond (is_not_empty);
+  SDL_CondSignal (is_not_empty);
 }
 
 
@@ -352,13 +352,13 @@ void TNET_MESSAGE_QUEUE::Die () {
 TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   this->port = port;
   incoming_messages = NEW TNET_MESSAGE_QUEUE (queue_size);
-  consumer_thread = -1;
+  consumer_thread = NULL;
 
   on_disconnect = NULL;
 
-  thread = glfwCreateThread (listener_thread_function, this);
+  thread = SDL_CreateThread (listener_thread_function, "net_listen", this);
 
-  if (thread < 0) {
+  if (thread == NULL) {
     Critical ("Could not create listener thread");
   }
 }
@@ -370,11 +370,12 @@ TNET_LISTENER::~TNET_LISTENER () {
   do_close (fd);
 
   /* Wait until listener thread is dead. */
-  glfwWaitThread (thread, GLFW_WAIT);
+  if (thread)
+    SDL_WaitThread (thread, NULL);
 
   /* Wait until consumer of incoming_messages is dead. */
-  if (consumer_thread >= 0)
-    glfwWaitThread (consumer_thread, GLFW_WAIT);
+  if (consumer_thread)
+    SDL_WaitThread (consumer_thread, NULL);
 
   delete incoming_messages;
 }
@@ -385,7 +386,7 @@ TNET_LISTENER::~TNET_LISTENER () {
  *  @param listener_class Pointer to class instance to which the thread
  *                        belongs.
  */
-void GLFWCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
+int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
   struct sockaddr_in address;
   socklen_t sockaddr_size = sizeof (address);
 
@@ -397,7 +398,7 @@ void GLFWCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   if ((fd = socket (PF_INET, SOCK_STREAM, 0)) == -1) {
     Error (SOCKET_ERROR_MESSAGE ("Listener: Calling socket failed"));
-    return;
+    return 0;
   }
 
   address.sin_family = AF_INET;
@@ -417,7 +418,7 @@ void GLFWCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   if (bind (fd, (struct sockaddr *)&address, sizeof (address)) == -1) {
     Error (SOCKET_ERROR_MESSAGE ("Listener: Error binding socket to address"));
-    return;
+    return 0;
   }
 
   Info (LogMsg ("Listener running on port %hu", self->port));
@@ -439,10 +440,10 @@ void GLFWCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
     TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (new_fd,
         remote_addr, self);
 
-    GLFWthread t;
-    t = glfwCreateThread (listener_accept, data);
+    SDL_Thread *t;
+    t = SDL_CreateThread (listener_accept, "net_accept", data);
 
-    if (t < 0)
+    if (t == NULL)
       throw MutexException ();
 
     self->subthread_thread.push_back (t);
@@ -452,18 +453,17 @@ void GLFWCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   /* Shutdown all running listener threads. */
   for (unsigned i = 0; i < self->subthread_thread.size (); i++) {
-    if (glfwWaitThread (self->subthread_thread[i], GLFW_NOWAIT) == GL_FALSE)
-      shutdown (self->subthread_fd[i], 2);
-
-    glfwWaitThread (self->subthread_thread[i], GLFW_WAIT);
+    shutdown (self->subthread_fd[i], 2);
+    SDL_WaitThread (self->subthread_thread[i], NULL);
   }
 
   end_sockets ();
 
   Info ("Listener finished");
+  return 0;
 }
 
-void GLFWCALL TNET_LISTENER::listener_accept (void *d) {
+int SDLCALL TNET_LISTENER::listener_accept (void *d) {
   TNET_LISTENER::ACCEPT_DATA *data = static_cast<TNET_LISTENER::ACCEPT_DATA *>(d);
 
   Debug (LogMsg ("Got connection from: %s", inet_ntoa (data->address.sin_addr)));
@@ -478,7 +478,7 @@ void GLFWCALL TNET_LISTENER::listener_accept (void *d) {
   while (1) {
     if ((pos = recv (fd, reinterpret_cast<char*>(buf), 1, 0)) == -1) {
       Error (SOCKET_ERROR_MESSAGE ("Listener: recv failed"));
-      return;
+      return 0;
     }
 
     if (pos == 0) {
@@ -505,6 +505,7 @@ void GLFWCALL TNET_LISTENER::listener_accept (void *d) {
     self->on_disconnect (data->address.sin_addr, data->address.sin_port);
 
   Debug ("Listener's subthread finished");
+  return 0;
 }
 
 void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port, int fd) {
@@ -519,10 +520,10 @@ void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port
 
   TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (fd, remote_addr, this);
 
-  GLFWthread t;
-  t = glfwCreateThread (listener_accept, data);
+  SDL_Thread *t;
+  t = SDL_CreateThread (listener_accept, "net_accept", data);
 
-  if (t < 0)
+  if (t == NULL)
     throw MutexException ();
 
   subthread_fd.push_back (fd);
@@ -530,7 +531,7 @@ void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port
   subthread_thread.push_back (t);
 }
 
-void TNET_LISTENER::ConsumerIsAttached (GLFWthread thread) {
+void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
   consumer_thread = thread;
 }
 
@@ -574,9 +575,9 @@ TNET_TALKER::TNET_TALKER (int queue_size, in_addr remote_address,
 void TNET_TALKER::Initialise (int queue_size) {
   outgoing_messages = NEW TNET_MESSAGE_QUEUE (queue_size);
 
-  thread = glfwCreateThread (talker_thread_function, this);
+  thread = SDL_CreateThread (talker_thread_function, "net_talker", this);
 
-  if (thread < 0)
+  if (thread == NULL)
     throw MutexException ();
 }
 
@@ -588,7 +589,8 @@ TNET_TALKER::~TNET_TALKER () {
   RemoveAllAddresses ();
 
   /* Wait until consumer of outgoing_messages is dead. */
-  glfwWaitThread (thread, GLFW_WAIT);
+  if (thread)
+    SDL_WaitThread (thread, NULL);
 
   delete outgoing_messages;
 }
@@ -598,7 +600,7 @@ TNET_TALKER::~TNET_TALKER () {
  *
  *  @param talker_class Pointer to class instance to which the thread belongs.
  */
-void GLFWCALL TNET_TALKER::talker_thread_function (void *talker_class) {
+int SDLCALL TNET_TALKER::talker_thread_function (void *talker_class) {
   int fd;   /* file descriptor */
 
   TNET_TALKER *self = (TNET_TALKER *)talker_class;
@@ -607,7 +609,7 @@ void GLFWCALL TNET_TALKER::talker_thread_function (void *talker_class) {
 
   if ((fd = socket (PF_INET, SOCK_DGRAM, 0)) == -1) {
     Error (SOCKET_ERROR_MESSAGE ("Talker: Calling socket failed"));
-    return;
+    return 0;
   }
 
   Info ("Talker running");
@@ -646,6 +648,7 @@ void GLFWCALL TNET_TALKER::talker_thread_function (void *talker_class) {
   end_sockets ();
 
   Info ("Talker finished");
+  return 0;
 }
 
 void TNET_TALKER::RemoveAllAddresses () {
@@ -755,18 +758,19 @@ TNET_DISPATCHER::TNET_DISPATCHER (TNET_MESSAGE_QUEUE *incoming_messages,
   this->incoming_messages = incoming_messages;
   this->handler = handler;
 
-  thread = glfwCreateThread (dispatcher_thread_function, this);
+  thread = SDL_CreateThread (dispatcher_thread_function, "net_dispatch", this);
 
-  if (thread < 0) {
+  if (thread == NULL) {
     Critical ("Could not create dispatcher thread");
   }
 }
 
 TNET_DISPATCHER::~TNET_DISPATCHER () {
-  glfwWaitThread (thread, GLFW_WAIT);
+  if (thread)
+    SDL_WaitThread (thread, NULL);
 }
 
-void GLFWCALL TNET_DISPATCHER::dispatcher_thread_function (void *dispatcher_class) {
+int SDLCALL TNET_DISPATCHER::dispatcher_thread_function (void *dispatcher_class) {
   TNET_DISPATCHER *self = (TNET_DISPATCHER *)dispatcher_class;
   TNET_MESSAGE *msg;
 
@@ -774,6 +778,7 @@ void GLFWCALL TNET_DISPATCHER::dispatcher_thread_function (void *dispatcher_clas
     self->GetHandler ()->HandleMessage (msg);
 
   Info ("Dispatcher finished");
+  return 0;
 }
 
 

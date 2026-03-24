@@ -49,8 +49,8 @@ TQUEUE_EVENTS * queue_events;
 /**
  *  Mutex to assure safe data sharing between graphic thread and update thread.
  */
-GLFWmutex delete_mutex = 0;
-GLFWmutex path_mutex =0;
+SDL_mutex *delete_mutex = NULL;
+SDL_mutex *path_mutex = NULL;
 
 //=========================================================================
 // class TEVENT
@@ -246,7 +246,7 @@ void TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 TQUEUE_EVENTS::TQUEUE_EVENTS()
 {
   // create mutex
-  if ((mutex = glfwCreateMutex ()) == NULL) 
+  if ((mutex = SDL_CreateMutex ()) == NULL) 
     Critical ("Could not create mutex");
 
   count = 0;    //initialization
@@ -261,7 +261,7 @@ TQUEUE_EVENTS::~TQUEUE_EVENTS()
 { 
   Clear ();
 
-  glfwDestroyMutex(mutex);
+  SDL_DestroyMutex(mutex);
 }
 
 
@@ -272,7 +272,7 @@ void TQUEUE_EVENTS::Clear()
 {
   TEVENT *act_event, *delete_event;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   // delete priority gueue
   act_event = delete_event = prior_events;
@@ -296,7 +296,7 @@ void TQUEUE_EVENTS::Clear()
 
   count = 0;
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 
 
@@ -310,7 +310,7 @@ void TQUEUE_EVENTS::PutEvent(TEVENT *event)
 
   TEVENT **list_begin, *act_event, *act_event_prev = NULL;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   // for sure
 #if DEBUG_EVENTS
@@ -386,7 +386,7 @@ void TQUEUE_EVENTS::PutEvent(TEVENT *event)
   }
 #endif
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 
 
@@ -399,7 +399,7 @@ void TQUEUE_EVENTS::GetEvent(TEVENT *event)
 
   TEVENT **list_begin;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   #if DEBUG_EVENTS
   Debug(LogMsg("Fr Q: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d TS:%f COUNT:%d", event->GetPlayerID(), event->GetUnitID(), EventToString(event->GetEvent()), event->GetRequestID(), event->simple1, event->simple2, event->simple3, event->simple4, event->GetTimeStamp(), count));
@@ -443,7 +443,7 @@ void TQUEUE_EVENTS::GetEvent(TEVENT *event)
   }
 #endif
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 
 
@@ -454,7 +454,7 @@ TEVENT *TQUEUE_EVENTS::GetFirstEvent()
 {
   TEVENT **list_begin, *first;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   // set list
   if (prior_events)
@@ -462,7 +462,7 @@ TEVENT *TQUEUE_EVENTS::GetFirstEvent()
   else if (events)
     list_begin = &events;
   else {
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
     return NULL;
   }
 
@@ -499,7 +499,7 @@ TEVENT *TQUEUE_EVENTS::GetFirstEvent()
 #endif
 
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 
   return first;
 }
@@ -513,7 +513,7 @@ double TQUEUE_EVENTS::GetFirstEventTimeStamp()
   double ts;
   TEVENT **list_begin;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   // set list
   if (prior_events)
@@ -521,13 +521,13 @@ double TQUEUE_EVENTS::GetFirstEventTimeStamp()
   else if (events)
     list_begin = &events;
   else {
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
     return -1;
   }
 
   ts = (*list_begin)->GetTimeStamp();
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
   
   return ts;
 }
@@ -542,7 +542,7 @@ void TQUEUE_EVENTS::LogQueue(void)
   TEVENT *act_event;
   int c;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   Debug(LogMsg("*** TQUEUE_EVENTS - count: %d", count));
 
@@ -570,7 +570,7 @@ void TQUEUE_EVENTS::LogQueue(void)
 
   Debug("*** END **********************");
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 #endif
 

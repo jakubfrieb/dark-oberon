@@ -86,7 +86,7 @@ class TQUEUE_EVENTS;
 // Included files
 //========================================================================
 
-#include <glfw.h>
+#include "dosdl.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -191,7 +191,7 @@ private:
   TEVENT *prior_events;   //!< List of events in the queue.
   int count;              //!< Count of events in the queue.
 
-  GLFWmutex mutex;        //!< Queue mutex.
+  SDL_mutex *mutex;        //!< Queue mutex.
 
 public:
   TEVENT * GetFirstEvent(void);         // Returns pointer to event with lowest timestamp and deletes it from queue.
@@ -219,7 +219,7 @@ public:
 extern TPOOL<TEVENT> * pool_events;
 extern TQUEUE_EVENTS * queue_events;
 
-extern GLFWmutex delete_mutex;
+extern SDL_mutex *delete_mutex;
 
 //========================================================================
 // Global functions

@@ -300,13 +300,13 @@ public:
    *
    *  @param init_value Initial value of the switch.
    *
-   *  @note This constructor NEEDS to be called after glfwInit(). Otherwise the
+   *  @note This constructor NEEDS to be called after SDL_Init(SDL_INIT_TIMER) and glfwInit(). Otherwise the
    *        mutex won't be created.
    */
   TSAFE_BOOL_SWITCH (bool init_value) {
     value = init_value;
 
-    mutex = glfwCreateMutex ();
+    mutex = SDL_CreateMutex ();
     if (!mutex)
       Critical ("Error creating mutex for TSAFE_BOOL_SWITCH");
   }
@@ -315,9 +315,9 @@ public:
    *  Sets the value of the switch to true;
    */
   void SetTrue () {
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
     value = true;
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
   }
 
   /**
@@ -325,21 +325,21 @@ public:
    *  the value of the switch to false.
    */
   bool IsTrue () {
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
 
     if (value) {
       value = false;
 
-      glfwUnlockMutex (mutex);
+      SDL_UnlockMutex (mutex);
       return true;
     }
 
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
     return false;
   }
 
 private:
-  GLFWmutex mutex;  //!< Object's mutex.
+  SDL_mutex *mutex;  //!< Object's mutex.
   bool value;       //!< Value of the switch.
 };
 

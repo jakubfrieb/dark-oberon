@@ -33,7 +33,9 @@
 // Included files
 //========================================================================
 
-#include <glfw.h>
+#include <atomic>
+
+#include "dosdl.h"
 #include "dopool.h"
 
 
@@ -110,6 +112,8 @@ public:
       return NULL;
 
     TTHREAD_POOL<I, O, A> *new_threadpool = NEW TTHREAD_POOL<I, O, A>;
+    new_threadpool->thread_count = thread_count;
+    new_threadpool->pool_dead.store(false);
 
     //prepare requests queue
     new_threadpool->requests = new_threadpool->requests->CreateNewQueue(2*thread_count + req_queue_size, thread_count);
@@ -132,7 +136,7 @@ public:
     }
 
     //create condition variable
-    new_threadpool->condition = glfwCreateCond();
+    new_threadpool->condition = SDL_CreateCond();
     if (new_threadpool->condition == NULL)
     {
       delete new_threadpool;
@@ -140,7 +144,7 @@ public:
     }
 
     //create condition mutex
-    new_threadpool->condition_mutex = glfwCreateMutex();
+    new_threadpool->condition_mutex = SDL_CreateMutex();
     if (new_threadpool->condition_mutex == NULL) 
     {
       delete new_threadpool;
@@ -148,7 +152,7 @@ public:
     }
 
     //lock mutex to stop threads start too fast
-    glfwLockMutex(new_threadpool->condition_mutex);
+    SDL_LockMutex(new_threadpool->condition_mutex);
 
     //as last create instances of the class with thread info in the pool
     new_threadpool->threads = NEW TTHREAD<A>[thread_count];
@@ -159,36 +163,56 @@ public:
     //check success of creating all of the threads
     if (i < thread_count)
     {
-      for (--i; i >= 0; --i)
-      {
-        new_threadpool->threads[i].KillThread();
+      new_threadpool->pool_dead.store(true);
+      SDL_CondBroadcast(new_threadpool->condition);
+      SDL_UnlockMutex(new_threadpool->condition_mutex);
+      for (int j = 0; j < i; ++j) {
+        if (new_threadpool->threads[j].thread)
+          SDL_WaitThread(new_threadpool->threads[j].thread, NULL);
+        new_threadpool->threads[j].thread = NULL;
       }
+      delete [] new_threadpool->threads;
       new_threadpool->threads = NULL;
-      glfwUnlockMutex(new_threadpool->condition_mutex);
       delete new_threadpool;
       return NULL;
     }
 
     //unlock mutex, threads can start now
-    glfwUnlockMutex(new_threadpool->condition_mutex);
+    SDL_UnlockMutex(new_threadpool->condition_mutex);
 
     return new_threadpool;
   }
 
-  /** The destructor kills threads, and destroyes queues and condition variable.*/
+  /** The destructor joins worker threads, then destroys queues and condition variable.*/
   ~TTHREAD_POOL<I, O, A>()
   {
-    //if exist array with threads kill them and destroy it
-    if (threads != NULL)
-      delete []threads;
+    if (threads != NULL && thread_count > 0 && condition_mutex != NULL && condition != NULL)
+    {
+      pool_dead.store(true);
+      SDL_LockMutex(condition_mutex);
+      SDL_CondBroadcast(condition);
+      SDL_UnlockMutex(condition_mutex);
+      for (int j = 0; j < thread_count; ++j) {
+        if (threads[j].thread)
+          SDL_WaitThread(threads[j].thread, NULL);
+        threads[j].thread = NULL;
+      }
+      delete [] threads;
+      threads = NULL;
+    }
+    else if (threads != NULL)
+    {
+      delete [] threads;
+      threads = NULL;
+    }
 
     //if condition variable exists destroy it
     if (condition != NULL)
-      glfwDestroyCond(condition);
+      SDL_DestroyCond(condition);
 
     //if condition mutex exists destroy it
     if (condition_mutex != NULL)
-      glfwDestroyMutex(condition_mutex);
+      SDL_DestroyMutex(condition_mutex);
 
     //if requests queue exists destroy it
     if (requests != NULL)
@@ -213,7 +237,7 @@ public:
     unsigned int count = requests->Push(request, processor);
 
     //wake up waiting threads
-    glfwSignalCond(condition);
+    SDL_CondSignal(condition);
 
     //return count of the waiting requests
     return count;
@@ -247,42 +271,40 @@ public:
   *
   *  @param p_thread The pointer to the array of the threads in the pool.
   */
-  static void GLFWCALL FunctionStarter(void *p_thread)
+  static int SDLCALL FunctionStarter(void *p_thread)
   {
     //get instance of the class with information about the thread
     TTHREAD<A> *thread = reinterpret_cast<TTHREAD<A>*>(p_thread);
     O* (A::*p_process_method)(I*);
 
-    //infinite cycle
-    while (true)
+    while (!thread->threadpool->pool_dead.load())
     {
-      //get pool mutex necessary for condition checking
-      glfwLockMutex(thread->threadpool->condition_mutex);
+      SDL_LockMutex(thread->threadpool->condition_mutex);
   
-      //while request queue is empty wait for signal
-      while (thread->threadpool->requests->GetQueueLength() == 0)
-        glfwWaitCond(thread->threadpool->condition, thread->threadpool->condition_mutex, GLFW_INFINITY);
+      while (thread->threadpool->requests->GetQueueLength() == 0
+             && !thread->threadpool->pool_dead.load())
+        SDL_CondWait(thread->threadpool->condition, thread->threadpool->condition_mutex);
+
+      if (thread->threadpool->pool_dead.load()) {
+        SDL_UnlockMutex(thread->threadpool->condition_mutex);
+        return 0;
+      }
 
       #if DEBUG_THREADS
-        Info(LogMsg("Request adopted by thread %d", (thread - thread->threadpool->threads)));
+        Info(LogMsg("Request adopted by thread %d", (int)(thread - thread->threadpool->threads)));
       #endif
 
-      //get pointer to the process method
       p_process_method = thread->threadpool->requests->GetProcessMethodOfFirstNode();
-
-      //take out request from the queue
       I* request = thread->threadpool->requests->Pop();
 
-      //unlock pool mutex necessary for condition checking
-      glfwUnlockMutex(thread->threadpool->condition_mutex);
+      SDL_UnlockMutex(thread->threadpool->condition_mutex);
 
-      //compute response to request
       O* response = (thread->auxiliary_data.*p_process_method)(request);
 
-      //if response queue is used and some response was created add into the response queue
       if (thread->threadpool->use_response_queue && (response != NULL))
         thread->threadpool->responses->Push(response, NULL);
     }
+    return 0;
   }
 
 private:
@@ -296,6 +318,8 @@ private:
     threads = NULL; 
     condition = NULL;
     condition_mutex = NULL;
+    thread_count = 0;
+    pool_dead.store(false);
   }
 
   /** The instances of the of the class encapsulate the queue of the swimmers. */
@@ -366,7 +390,7 @@ private:
         swimmer->SetProcessMethod(to_execute);
 
         //get exclusive access to the queue
-        glfwLockMutex(mutex);
+        SDL_LockMutex(mutex);
 
         //if it is first node in the queue set new swimmer as head and tail
         if (tail == NULL)
@@ -381,7 +405,7 @@ private:
         ++length;
 
         //unlock mutex
-        glfwUnlockMutex(mutex);
+        SDL_UnlockMutex(mutex);
 
         return length;
       }
@@ -398,7 +422,7 @@ private:
         TSWIMMER *swimmer = NULL;
 
         //get exclusive access to the queue
-        glfwLockMutex(mutex);
+        SDL_LockMutex(mutex);
 
         if (length > 0)
         {
@@ -418,7 +442,7 @@ private:
         }
 
         //unlock mutex
-        glfwUnlockMutex(mutex);
+        SDL_UnlockMutex(mutex);
 
         if (swimmer != NULL)
         {
@@ -460,7 +484,7 @@ private:
         }
 
         //create queue mutex necessary for synchronize access to queue
-        new_queue->mutex = glfwCreateMutex();
+        new_queue->mutex = SDL_CreateMutex();
         if (new_queue->mutex == NULL) 
         {
           delete new_queue;
@@ -479,11 +503,11 @@ private:
        */
       ~TQUEUE<S>()
       {
-        glfwLockMutex(mutex);
+        SDL_LockMutex(mutex);
         for (S* poped = this->Pop(); poped; poped = this->Pop())
           delete poped;
         delete swimmers;
-        glfwDestroyMutex(mutex);
+        SDL_DestroyMutex(mutex);
       }
 
     private:
@@ -502,7 +526,7 @@ private:
       TSWIMMER *head;    //!< The pointer to the first node in the queue.
       TSWIMMER *tail;    //!< The pointer to the last node in the queue.
       unsigned int length;        //!< The length of the queue.
-      GLFWmutex mutex;            //!< The mutex which supports exclusive access to the queue.
+      SDL_mutex *mutex;            //!< The mutex which supports exclusive access to the queue.
   };
 
   /** The template encapsulate thread and his auxiliary class.*/
@@ -513,7 +537,7 @@ private:
       /** Constructor creates new thread.*/
       TTHREAD<T>()
       { 
-        thread = -1;
+        thread = NULL;
         threadpool = NULL;
       }
 
@@ -529,30 +553,25 @@ private:
       {
         threadpool = tp;
 
-        thread = glfwCreateThread(FunctionStarter, this);
+        thread = SDL_CreateThread(FunctionStarter, "pool", this);
 
-        if (thread >= 0)
+        if (thread != NULL)
           return true;
         else
           return false;
       }
 
-      /** @return The method returns pointer to the thread.*/
-      GLFWthread GetThread()
+      /** @return The method returns SDL thread handle (pool destructor joins it). */
+      SDL_Thread *GetThread()
         { return thread;};
 
-      /** The method kills the thread.*/
+      /** No-op: pool destructor joins all threads after setting pool_dead. */
       void KillThread()
       { 
-        if (thread >= 0)
-          glfwDestroyThread(thread); 
-        thread = -1;
       }
 
-      /** Destructor kills thread if still is alive. */
       ~TTHREAD<T>()
       { 
-        KillThread();
         threadpool = NULL;
       }
 
@@ -561,7 +580,7 @@ private:
         { return auxiliary_data;};
 
     private:
-      GLFWthread thread;        //!< The thread from the pool.
+      SDL_Thread *thread;        //!< The thread from the pool.
       A auxiliary_data;         //!< Auxiliary data of the thread.
       TTHREAD_POOL<I, O, A> *threadpool;    //!< The pointer to the pool which member the thread is.
       friend class TTHREAD_POOL<I, O, A>;
@@ -572,11 +591,13 @@ private:
 private:
 
   TQUEUE<I> *requests;     //!< The queue of the requests.
-  GLFWmutex condition_mutex;                      //!< The mutex used in pair with condtion variable.
+  SDL_mutex *condition_mutex;                      //!< The mutex used in pair with condtion variable.
   TQUEUE<O> *responses;    //!< The queue of the responses.
   TTHREAD<A> *threads;     //!< The array of the threads with its exclusive auxiliary data in the pool.
   bool use_response_queue;      //!< The flag which informs whether is used the queue of the responses.
-  GLFWcond condition;           //!< The condition variable which synchronizes threads in the pool.
+  SDL_cond *condition;           //!< The condition variable which synchronizes threads in the pool.
+  int thread_count;             //!< Number of entries in @a threads.
+  std::atomic<bool> pool_dead;  //!< When true, worker threads exit their loop.
 };
 
 

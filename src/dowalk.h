@@ -280,7 +280,7 @@ public:
   TPOSITION_3D GetRealGoalPosition() { return real_goal_position;};
   void SetRealGoalPosition(TPOSITION_3D new_pos) { real_goal_position = new_pos;};
 private:
-  GLFWmutex mutex;                      //!< Units mutex.
+  SDL_mutex *mutex;                      //!< Units mutex.
 };
 
 

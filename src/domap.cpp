@@ -787,7 +787,7 @@ bool TMAP_SEGMENT::LoadMapObject(T_BYTE sid, int id)
 TSEG_UNITS::TSEG_UNITS(T_BYTE seg_id)
 {
   // create mutex
-  if ((mutex = glfwCreateMutex ()) == NULL) {
+  if ((mutex = SDL_CreateMutex ()) == NULL) {
     Critical ("Could not create units mutex");
   }
 
@@ -802,13 +802,13 @@ TSEG_UNITS::~TSEG_UNITS()
 {
   delete units;
 
-  glfwDestroyMutex(mutex);
+  SDL_DestroyMutex(mutex);
 }
 
 
 void TSEG_UNITS::Clear()
 {
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   for (int i = 0; i <= DAT_SEGMENTS_COUNT; i++) {
     units->SetNextInSegment(i, units);
@@ -816,7 +816,7 @@ void TSEG_UNITS::Clear()
   }
   units_count = 0;
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -830,7 +830,7 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
   TDRAW_UNIT *mu = NULL;
   TDRAW_UNIT *next_unit = NULL;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   // logging
   /*
@@ -845,7 +845,7 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
 
   if (unit->GetNextInSegment(id)) {
     //if (id == 1) Debug(LogMsg("*** AddUnit(%s) - warning: DOUBLE!", unit->GetPointerToItem()->id));
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     return;
   }
 
@@ -872,7 +872,7 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
   }
   */
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -883,7 +883,7 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
  */
 void TSEG_UNITS::DeleteUnit(TDRAW_UNIT *unit)
 {
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   // logging
   /*
@@ -898,7 +898,7 @@ void TSEG_UNITS::DeleteUnit(TDRAW_UNIT *unit)
 
   if (!unit->GetNextInSegment(id) || !units_count) {
     //if (id == 1) Debug(LogMsg("*** DeleteUnit(%s) - warning: DELETED", unit->GetPointerToItem()->id));
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     return;
   }
 
@@ -924,7 +924,7 @@ void TSEG_UNITS::DeleteUnit(TDRAW_UNIT *unit)
   }
   */
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -938,10 +938,10 @@ void TSEG_UNITS::SortUnits(void)
   int counter = 0;
 #endif
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (units_count < 2) {
-    glfwUnlockMutex(mutex);
+    SDL_UnlockMutex(mutex);
     return;   // nothing to sort
   }
 
@@ -1016,7 +1016,7 @@ void TSEG_UNITS::SortUnits(void)
   }
 #endif
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -1027,13 +1027,13 @@ void TSEG_UNITS::Draw(T_BYTE style)
 {
   TDRAW_UNIT *unit;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   // draw units in one segment
   for (unit = units->GetNextInSegment(id); unit != units; unit = unit->GetNextInSegment(id))
     unit->Draw(style);
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -1044,14 +1044,14 @@ void TSEG_UNITS::DrawToRadar(void)
 {
   TDRAW_UNIT *unit;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   // draw units
   for (unit = units->GetNextInSegment(id); unit != units; unit = unit->GetNextInSegment(id)) {
     unit->DrawToRadar();
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 

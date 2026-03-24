@@ -4,9 +4,11 @@ DEBUG ?= 0
 CPP = g++ $(CPPFLAGS) $(INCLUDES) $(DEFINES)
 CPPFLAGS = -g -Wall -O
 DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG)
-INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs
+SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cflags 2>/dev/null)
+SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
+INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs $(SDL2_CFLAGS)
 LIBPATHS = -L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs
-LIBRARIES = -pthread -lglfw2 -lGL -lX11 -lGLU -lXxf86vm -lXext -lXrandr
+LIBRARIES = -pthread -lglfw2 -lGL -lX11 -lGLU -lXxf86vm -lXext -lXrandr $(SDL2_LIBS)
 # SOUND=1 links FMOD Ex 4.x (Arch: package libfmod → libfmodex.so).
 ifeq ($(SOUND),1)
 FMOD_LIBS ?= -lfmodex -ldl

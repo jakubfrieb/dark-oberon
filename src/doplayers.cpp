@@ -242,7 +242,7 @@ TPLAYER::TPLAYER()
   SetPlayerType(PT_HUMAN);
 
   // create mutex
-  if ((mutex = glfwCreateMutex ()) == NULL) {
+  if ((mutex = SDL_CreateMutex ()) == NULL) {
     Critical ("Could not create player mutex");
   }
 }
@@ -263,7 +263,7 @@ TPLAYER::~TPLAYER(void)
   for (int i = 0; i < SCH_MAX_MATERIALS_COUNT + 2; i++)
     if (need_animation[i]) delete need_animation[i];
 
-  glfwDestroyMutex(mutex);
+  SDL_DestroyMutex(mutex);
 }
 
 
@@ -273,7 +273,7 @@ TPLAYER::~TPLAYER(void)
 void TPLAYER::AddUnit(TPLAYER_UNIT *punit)
 {
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (units) {
     punit->SetNext(units);
@@ -283,7 +283,7 @@ void TPLAYER::AddUnit(TPLAYER_UNIT *punit)
   units = punit;
 
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -292,14 +292,14 @@ void TPLAYER::AddUnit(TPLAYER_UNIT *punit)
  */
 void TPLAYER::DeleteUnit(TPLAYER_UNIT *punit)
 {
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   if (punit == units) units = punit->GetNext();
 
   if (punit->GetNext()) punit->GetNext()->SetPrev(punit->GetPrev());
   if (punit->GetPrev()) punit->GetPrev()->SetNext(punit->GetNext());
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -307,13 +307,13 @@ void TPLAYER::Disconnect(void)
 {
   TPLAYER_UNIT *unit = NULL;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   for (unit = units; unit; unit = unit->GetNext()) {
       unit->Disconnect();
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -326,8 +326,8 @@ void TPLAYER::UpdateGraphics(double time_shift)
   list<TMAP_UNIT *> ghost_list;
   list<TMAP_UNIT *>::const_iterator iter;
 
-  glfwLockMutex(delete_mutex);
-  glfwLockMutex(mutex);
+  SDL_LockMutex(delete_mutex);
+  SDL_LockMutex(mutex);
 
   // units
   for (unit = units; unit; unit = unit->GetNext()) 
@@ -338,8 +338,8 @@ void TPLAYER::UpdateGraphics(double time_shift)
     }
   }
 
-  glfwUnlockMutex(mutex);
-  glfwUnlockMutex(delete_mutex);
+  SDL_UnlockMutex(mutex);
+  SDL_UnlockMutex(delete_mutex);
 
   // creating and deleting ghosts
   for (iter = ghost_list.begin(); iter != ghost_list.end(); iter++) {

@@ -121,7 +121,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <glfw.h>
+#include "dosdl.h"
 
 
 //========================================================================
@@ -137,7 +137,7 @@ typedef char TLOG_MESSAGE[MAX_LOG_MESSAGE_SIZE];
 // Variables
 //========================================================================
 
-extern GLFWmutex log_mutex;
+extern SDL_mutex *log_mutex;
 
 
 //========================================================================
@@ -294,13 +294,13 @@ do { \
  */
 #define Log(level, header, msg) \
 do { \
-  if (log_mutex) glfwLockMutex(log_mutex); \
+  if (log_mutex) SDL_LockMutex(log_mutex); \
   \
   Log_stderr(level, header, msg); \
   Log_logfiles(level, header, msg); \
   Log_callback(level, header, msg); \
   \
-  if (log_mutex) glfwUnlockMutex(log_mutex); \
+  if (log_mutex) SDL_UnlockMutex(log_mutex); \
 } while (0)
 
 

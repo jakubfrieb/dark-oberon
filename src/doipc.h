@@ -36,7 +36,7 @@
 #include <string>
 #include <list>
 
-#include <glfw.h>
+#include "dosdl.h"
 
 
 //=========================================================================
@@ -55,20 +55,20 @@ public:
   void Unlock ();
 #else
   void Lock () {
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
   }
 
   void Unlock () {
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
   }
 #endif
 
 private:
 #if DEBUG
-  GLFWthread locked_by;
-  GLFWcond unlocked;
+  SDL_threadID locked_by;
+  SDL_cond *unlocked;
 #endif
-  GLFWmutex mutex;        //!< Mutex for atomicity of operations.
+  SDL_mutex *mutex;        //!< Mutex for atomicity of operations.
 };
 
 
@@ -87,9 +87,9 @@ public:
   void Unlock ();
 
 private:
-  GLFWthread locked_by;
+  SDL_threadID locked_by;
   int locked_count;
-  GLFWmutex mutex;        //!< Mutex for atomicity of operations.
+  SDL_mutex *mutex;        //!< Mutex for atomicity of operations.
 };
 
 
@@ -103,25 +103,25 @@ public:
   class MutexException {};
 
   TSAVE_LIST () {
-    mutex = glfwCreateMutex ();
+    mutex = SDL_CreateMutex ();
     if (!mutex)
       throw MutexException ();
   }
 
   ~TSAVE_LIST () {
-    glfwDestroyMutex (mutex);
+    SDL_DestroyMutex (mutex);
   }
 
   void PushBack (T node) {
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
     list.push_back(node);
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
   }
 
   bool PopFront (T &node) {
     bool ret;
 
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
 
     ret = !list.empty();
     if (ret) {
@@ -129,13 +129,13 @@ public:
       list.pop_front();
     }
 
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
 
     return ret;
   }
 
 private:
-  GLFWmutex mutex;        //!< Mutex for atomicity of operations.
+  SDL_mutex *mutex;        //!< Mutex for atomicity of operations.
   std::list<T> list;
 };
 

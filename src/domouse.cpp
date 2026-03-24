@@ -539,7 +539,7 @@ void TMOUSE::FindOverUnit(int seg)
   act_y -= steps;
 
   // goes up from lowest position and finds all units
-  glfwLockMutex(delete_mutex);
+  SDL_LockMutex(delete_mutex);
   while (go) {
     // unit is found
     if (map.IsInMap(act_x, act_y)
@@ -566,7 +566,7 @@ void TMOUSE::FindOverUnit(int seg)
     }
     else go = false;
   }
-  glfwUnlockMutex(delete_mutex);
+  SDL_UnlockMutex(delete_mutex);
 
 
   // if we have some units, tests selection
@@ -690,7 +690,7 @@ bool TMOUSE::RectSelect()
   r = (T_SIMPLE)right;
   t = (T_SIMPLE)top;
 
-  glfwLockMutex(delete_mutex);
+  SDL_LockMutex(delete_mutex);
 
   // goes through whole envelope and tests units
   for (seg = DAT_SEGMENTS_COUNT - 1; seg >=0 ; seg--)
@@ -727,7 +727,7 @@ bool TMOUSE::RectSelect()
   if (first_found)
     selection->AddUnit(first_found, true);
 
-  glfwUnlockMutex(delete_mutex);
+  SDL_UnlockMutex(delete_mutex);
 
   return first_found != NULL;
 }

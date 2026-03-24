@@ -559,9 +559,9 @@ public:
 protected:
   /** The method sets variable to will be deleted and delete unit. */
   virtual void UnitToDelete(bool lock) {
-    if (lock) glfwLockMutex(delete_mutex);
+    if (lock) SDL_LockMutex(delete_mutex);
     if (!pointer_counter) delete this; else will_be_deleted = true;
-    if (lock) glfwUnlockMutex(delete_mutex);
+    if (lock) SDL_UnlockMutex(delete_mutex);
   }
 
 protected:

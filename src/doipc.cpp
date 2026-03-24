@@ -40,30 +40,30 @@
 
 TLOCK::TLOCK ()
 {
-  mutex = glfwCreateMutex ();
+  mutex = SDL_CreateMutex ();
 
   /* Throws an exception when mutex was not created. */
   if (!mutex)
     throw MutexException ();
 
 #if DEBUG
-  unlocked = glfwCreateCond ();
+  unlocked = SDL_CreateCond ();
 
   /* Throws an exception when mutex was not created. */
   if (!unlocked)
     throw MutexException ();
 
-  locked_by = -1;
+  locked_by = 0;
 #endif
 }
 
 
 TLOCK::~TLOCK ()
 {
-  glfwDestroyMutex (mutex);
+  SDL_DestroyMutex (mutex);
 
 #if DEBUG
-  glfwDestroyCond (unlocked);
+  SDL_DestroyCond (unlocked);
 #endif
 }
 
@@ -74,9 +74,9 @@ TLOCK::~TLOCK ()
  */
 void TLOCK::Lock ()
 {
-  GLFWthread myself = glfwGetThreadID ();
+  SDL_threadID myself = SDL_ThreadID ();
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   if (locked_by == myself) {
     /* Mutex is already locked by myself, you should consider using
@@ -85,13 +85,13 @@ void TLOCK::Lock ()
   }
 
   /* wait until I can enter. */
-  while (locked_by != -1) {
-    glfwWaitCond (unlocked, mutex, GLFW_INFINITY);
+  while (locked_by != 0) {
+    SDL_CondWait (unlocked, mutex);
   }
 
   locked_by = myself;
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 #endif
 
@@ -101,11 +101,11 @@ void TLOCK::Lock ()
  */
 void TLOCK::Unlock ()
 {
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
-  GLFWthread myself = glfwGetThreadID ();
+  SDL_threadID myself = SDL_ThreadID ();
 
-  if (locked_by == -1) {
+  if (locked_by == 0) {
     /* Mutex is not locked! Fix your bug. */
     throw MutexException ();
   }
@@ -115,11 +115,11 @@ void TLOCK::Unlock ()
     throw MutexException ();
   }
 
-  locked_by = -1;
+  locked_by = 0;
 
-  glfwSignalCond (unlocked);
+  SDL_CondSignal (unlocked);
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 #endif
 
@@ -135,20 +135,20 @@ void TLOCK::Unlock ()
  */
 TRECURSIVE_LOCK::TRECURSIVE_LOCK ()
 {
-  mutex = glfwCreateMutex ();
+  mutex = SDL_CreateMutex ();
 
   /* Throws an exception when mutex was not created. */
   if (!mutex)
     throw MutexException ();
 
-  locked_by = -1;
+  locked_by = 0;
   locked_count = 0;
 }
 
 
 TRECURSIVE_LOCK::~TRECURSIVE_LOCK ()
 {
-  glfwDestroyMutex (mutex);
+  SDL_DestroyMutex (mutex);
 }
 
 /**
@@ -163,11 +163,11 @@ void TRECURSIVE_LOCK::Lock ()
     throw MutexException ();
 #endif
 
-  GLFWthread myself = glfwGetThreadID ();
+  SDL_threadID myself = SDL_ThreadID ();
 
   if (locked_by != myself)
   {
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
     locked_by = myself;
   }
 
@@ -182,7 +182,7 @@ void TRECURSIVE_LOCK::Lock ()
  */
 void TRECURSIVE_LOCK::Unlock ()
 {
-  GLFWthread myself = glfwGetThreadID ();
+  SDL_threadID myself = SDL_ThreadID ();
 
   if (locked_by != myself) {
     throw MutexException ();
@@ -191,8 +191,8 @@ void TRECURSIVE_LOCK::Unlock ()
   locked_count--;
 
   if (!locked_count) {
-    locked_by = -1;
-    glfwUnlockMutex (mutex);
+    locked_by = 0;
+    SDL_UnlockMutex (mutex);
   }
 }
 

@@ -280,10 +280,10 @@ public:
   void Die ();
 
 private:
-  GLFWmutex mutex;        //!< Mutex used for locking the queue.
-  GLFWcond is_not_empty;  //!< Conditional variable for signaling that the
+  SDL_mutex *mutex;        //!< Mutex used for locking the queue.
+  SDL_cond *is_not_empty;  //!< Conditional variable for signaling that the
                           //!  queue is not empty.
-  GLFWcond is_not_full;   //!< Conditional variable for signaling that the
+  SDL_cond *is_not_full;   //!< Conditional variable for signaling that the
                           //!  queue is not full.
 
   TNET_MESSAGE **message; //!< Dynamicaly created array of networking messages.
@@ -332,21 +332,21 @@ public:
   in_port_t GetPort ()
   { return port; }
 
-  void ConsumerIsAttached (GLFWthread thread);
+  void ConsumerIsAttached (SDL_Thread *thread);
   int GetListenersFileDescriptor (in_addr address);
 
   void RegisterOnDisconnect (void (* f)(in_addr, in_port_t));
 
 private:
-  static void GLFWCALL listener_thread_function (void *listener_class);
-  static void GLFWCALL listener_accept (void *d);
+  static int SDLCALL listener_thread_function (void *listener_class);
+  static int SDLCALL listener_accept (void *d);
 
-  GLFWthread thread;    //!< Thread id for listener's thread.
-  GLFWthread consumer_thread;
+  SDL_Thread *thread;    //!< Listener thread handle.
+  SDL_Thread *consumer_thread;
 
   std::vector<int> subthread_fd;
   std::vector<in_addr> subthread_address;
-  std::vector<GLFWthread> subthread_thread;
+  std::vector<SDL_Thread *> subthread_thread;
 
   int fd;   //!< File descriptior.
   in_port_t port;  //!< Port on which the listener is listening.
@@ -399,9 +399,9 @@ public:
 private:
   void Initialise (int queue_size);
 
-  static void GLFWCALL talker_thread_function (void *talker_class);
+  static int SDLCALL talker_thread_function (void *talker_class);
 
-  GLFWthread thread;    //!< Thread id for talker's thread.
+  SDL_Thread *thread;    //!< Talker thread handle.
 
   TNET_MESSAGE_QUEUE *outgoing_messages;  //!< Message queue for outgoing
                                           //!  network messages.
@@ -459,14 +459,14 @@ public:
   { return handler; }
 
   /** Returns dispatcher's thread id. */
-  GLFWthread GetThread () {
+  SDL_Thread *GetThread () {
     return thread;
   }
 
 private:
-  static void GLFWCALL dispatcher_thread_function (void *dispatcher_class);
+  static int SDLCALL dispatcher_thread_function (void *dispatcher_class);
 
-  GLFWthread thread;    //!< Thread id for dispatcher's thread.
+  SDL_Thread *thread;    //!< Dispatcher thread handle.
 
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.

@@ -49,6 +49,7 @@ class TSELECTION;
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dosdl.h"
 
 #include "dounits.h"
 
@@ -145,7 +146,7 @@ public:
   ~TSELECTION();                        // Destructor.
 
 private:
-  GLFWmutex mutex;                      //!< Units mutex.
+  SDL_mutex *mutex;                      //!< Units mutex.
 
   TNODE_OF_UNITS_LIST *units;           //!< List of selected units.
   int    units_count;                   //!< Count of selected units.

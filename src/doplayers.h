@@ -74,6 +74,7 @@ class TCOMPUTER_PLAYER;
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dosdl.h"
 
 #include <string>
 
@@ -311,7 +312,7 @@ private:
 
   int player_type;                       //!< PT_COMPUTER for computer_players, PT_HUMAN for humans
 
-  GLFWmutex mutex;                        //!< Mutex for locking list of units.
+  SDL_mutex *mutex;                        //!< Mutex for locking list of units.
 };
 
 

@@ -98,6 +98,7 @@ class TMAP;
 
 #include "cfg.h"
 #include "doalloc.h"
+#include "dosdl.h"
 
 #include "dounits.h"
 #include "doconfig.h"
@@ -244,7 +245,7 @@ private:
   TDRAW_UNIT *units;          //!< Circle list with head of all map units, that stays on the segment.
   int units_count;            //!< Count of units that stays on the segment.
 
-  GLFWmutex mutex;            //!< Units mutex.
+  SDL_mutex *mutex;            //!< Units mutex.
 
 public:
   void Clear();

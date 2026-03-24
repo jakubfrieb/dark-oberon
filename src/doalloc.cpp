@@ -29,7 +29,7 @@
 #if DEBUG_MEMORY
 
 #include "dologs.h"
-#include <glfw.h>
+#include "dosdl.h"
 #include <crtdbg.h>
 #include <malloc.h>
 
@@ -66,7 +66,7 @@ bool check_blocks = false;          //!< Whether checking is initialized.
 unsigned total_count = 0;           //!< Total count of allocated blocks.
 size_t total_size = 0;              //!< Total size of allocated blocks.
 
-GLFWmutex mutex = NULL;
+SDL_mutex *mutex = NULL;
 
 
 //========================================================================
@@ -82,7 +82,7 @@ void CheckMemory(void)
   unsigned count = 0;
   size_t size = 0;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   Debug("*** MEMORY BEGIN ***");
 
@@ -110,7 +110,7 @@ void CheckMemory(void)
   Debug(LogMsg("*** Total size:       %d", total_size));
   Debug(LogMsg("*** Undeleted size:   %d (%.2lf%%)", size, ((double)size / total_size) * 100));
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 
@@ -119,7 +119,7 @@ void CheckMemory(void)
  */
 void InitMemorySestem(void)
 {
-  mutex = glfwCreateMutex();
+  mutex = SDL_CreateMutex();
 
   check_blocks = true;
 }
@@ -133,7 +133,7 @@ void DoneMemorySystem(void)
   check_blocks = false;
 
   CheckMemory();
-  glfwDestroyMutex(mutex);
+    SDL_DestroyMutex(mutex);
 }
 
 
@@ -180,7 +180,7 @@ void *NewBlock(size_t size, const char *file = NULL, int line = 0)
   block->line = line;
   block->next = block->prev = NULL;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   total_count++;
   total_size += size;
@@ -195,7 +195,7 @@ void *NewBlock(size_t size, const char *file = NULL, int line = 0)
     memory_list = memory_back = block;
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 
   return res;
 }
@@ -220,7 +220,7 @@ void DeleteBlock(void *address, const char* file = NULL, int line = 0)
 
   TMEMORY_BLOCK *iter;
 
-  glfwLockMutex(mutex);
+  SDL_LockMutex(mutex);
 
   for (iter = memory_list; iter; iter = iter->next) {
     if (iter->address == address) break;
@@ -243,7 +243,7 @@ void DeleteBlock(void *address, const char* file = NULL, int line = 0)
     else Debug(LogMsg("Missing block: %lx", address));
   }
 
-  glfwUnlockMutex(mutex);
+  SDL_UnlockMutex(mutex);
 }
 
 

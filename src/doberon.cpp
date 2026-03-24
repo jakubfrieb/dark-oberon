@@ -57,6 +57,7 @@
 #include "donet.h"
 #include <glfw.h>
 
+#include "dosdl.h"
 #include "doconfig.h"
 #include "doengine.h"
 #include "doipc.h"
@@ -95,6 +96,21 @@ void InitIO(void)
   if (!config.fullscreen) glfwDisable(GLFW_MOUSE_CURSOR);
 }
 
+/**
+ *  Clears GLFW callbacks before destroying gui / closing the window.
+ *  Otherwise glfwCloseWindow() can still dispatch (e.g. MousePosCallback)
+ *  into freed objects and crash.
+ */
+static void ShutdownIO(void)
+{
+  glfwSetWindowSizeCallback(NULL);
+  glfwSetKeyCallback(NULL);
+  glfwSetMouseButtonCallback(NULL);
+  glfwSetMousePosCallback(NULL);
+  glfwSetMouseWheelCallback(NULL);
+  glfwSetWindowRefreshCallback(NULL);
+}
+
 
 /**
  *   Inits everything on game start. Returns true if successful.
@@ -111,6 +127,13 @@ bool InitAll(void)
   // initialize GLFW
   if (!glfwInit()) {
     Critical("Can not initialize GLFW library");
+    return false;
+  }
+
+  /* SDL threading (mutex/cond/thread); required before any SDL_* sync primitives. */
+  if (SDL_Init(SDL_INIT_TIMER) != 0) {
+    Critical(SDL_GetError());
+    glfwTerminate();
     return false;
   }
 
@@ -140,6 +163,7 @@ bool InitAll(void)
                       config.pr_wnd_mode)) {  // window mode
     Critical("Can not open OpenGL window");
     glfwTerminate();
+    SDL_Quit();
     return false;
   }
   glfwSetWindowTitle("Dark Oberon");          // set window title
@@ -147,12 +171,14 @@ bool InitAll(void)
   // load data
   if (!LoadData()) {
     glfwTerminate();
+    SDL_Quit();
     return false;
   }
 
   // create fonts
   if (!CreateFonts()) {
     glfwTerminate();
+    SDL_Quit();
     DeleteData();
     return false;
   }
@@ -211,6 +237,11 @@ void DestroyAll(void)
   // destroy OST
   if (ost) delete ost;
   RegisterLogCallback (NULL);
+
+  /* Must run before delete need_redraw / gui: close-window can fire input callbacks. */
+  if (glfwGetWindowParam(GLFW_OPENED))
+    ShutdownIO();
+
   delete need_redraw;
 
   // destroy gui
@@ -234,6 +265,8 @@ void DestroyAll(void)
     glfwCloseWindow();
   }
   glfwTerminate();
+
+  SDL_Quit();
 
 #ifdef UNIX
   if (config.fullscreen)

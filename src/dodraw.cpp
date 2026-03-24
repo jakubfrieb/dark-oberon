@@ -337,7 +337,7 @@ TOST::TOST ()
   }
   first = last = OST_NULL;
 
-  mutex = glfwCreateMutex ();
+  mutex = SDL_CreateMutex ();
 
   if (mutex == NULL)
     Critical ("Mutex could not be created");
@@ -351,7 +351,7 @@ TOST::~TOST ()
 {
   /* The mutex is destroyed, if it was created successfully. */
   if (mutex)
-    glfwDestroyMutex (mutex);
+    SDL_DestroyMutex (mutex);
 }
 
 
@@ -372,7 +372,7 @@ void TOST::AddText (const char *s, double last_for, float red, float green, floa
   int new_text;
 
   /* Only one thread can access data. */
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   // Finds the position in stack for the text.
   if (count == OST_MAX_LINES) {
@@ -404,7 +404,7 @@ void TOST::AddText (const char *s, double last_for, float red, float green, floa
 
   last = new_text;
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 
 
@@ -426,7 +426,7 @@ bool TOST::Update (double actual_time)
   bool any_change_made = false;
 
   /* Only one thread can access data. */
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   /* Texts, which are displayed for too long are removed. */
   p = first;
@@ -460,7 +460,7 @@ bool TOST::Update (double actual_time)
     p = text[p].next;
   }
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 
   return any_change_made;
 }
@@ -476,7 +476,7 @@ void TOST::Draw ()
   int p;
 
   /* Only one thread can access data. */
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
   /* Displays all texts. */
   int i;
@@ -485,7 +485,7 @@ void TOST::Draw ()
     glfPrint(font0, 10.0f, ((GLfloat)OST_MAX_LINES - i + 1) * 13, text[p].string, true);
   }
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
 }
 
 

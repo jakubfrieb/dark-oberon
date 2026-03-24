@@ -47,7 +47,7 @@ class TPOOL_ELEMENT;
 // Included files
 //========================================================================
 
-#include <glfw.h>
+#include "dosdl.h"
 #include <string.h>
 #include "dologs.h"
 #include "dosimpletypes.h"
@@ -84,7 +84,7 @@ private:
   int count;                         //!< Count of elements in pool.
   int critical_count;                //!< Minimal count of elements in pool.
   int increment_count;               //!< Count of elements which are added to pool when count <= crutical_count.
-  GLFWmutex mutex;                   //!< Pool mutex.
+  SDL_mutex *mutex;                   //!< Pool mutex.
 
 public:
   T * GetFromPool(void);             //!< Returns pointer to any clear elements.
@@ -116,7 +116,7 @@ template <class T>
 TPOOL<T>::TPOOL(int elements_count, int count_critical, int count_increment)
 {
   // create mutex
-  if ((mutex = glfwCreateMutex ()) == NULL) 
+  if ((mutex = SDL_CreateMutex ()) == NULL) 
     Critical ("Could not create mutex");
 
   count = 0;
@@ -158,7 +158,7 @@ TPOOL<T>::~TPOOL(void)
 
   // free memory
   if (mutex != NULL)
-    glfwDestroyMutex(mutex);
+    SDL_DestroyMutex(mutex);
 };
 
 /**
@@ -193,11 +193,11 @@ bool TPOOL<T>::AllocateNewElements(int el_count)
   }
 
   if (ok){  // if everything is OK returns list of 'events_count' TEVENTs
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
       last->SetNext(list_begin);
       list_begin = all;
       count += el_count;
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
     return true;
   }
   else
@@ -222,7 +222,7 @@ T * TPOOL<T>::GetFromPool(void)
 {
   T * first = NULL;
 
-  glfwLockMutex (mutex);
+  SDL_LockMutex (mutex);
 
     if (list_begin) { // if exists any event in pool, returns first
       first = list_begin;
@@ -237,7 +237,7 @@ T * TPOOL<T>::GetFromPool(void)
   if (first) 
     first->Clear(true); // clear event
 
-  glfwUnlockMutex (mutex);
+  SDL_UnlockMutex (mutex);
     
   return first;
 };
@@ -249,12 +249,12 @@ template <class T>
 void TPOOL<T>::PutToPool(T * element)
 {
   if (element){
-    glfwLockMutex (mutex);
+    SDL_LockMutex (mutex);
       element->SetNext(list_begin); // add event to pool
       list_begin = element;
       count ++; // increase count of events in pool
       element->Clear(false);
-    glfwUnlockMutex (mutex);
+    SDL_UnlockMutex (mutex);
   }
 };
 

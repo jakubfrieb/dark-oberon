@@ -47,7 +47,7 @@
  *  String for function LogMsg().
  */
 TLOG_MESSAGE log_msg;
-GLFWmutex log_mutex = NULL;            //!< Mutex for LogMsg function.
+SDL_mutex *log_mutex = NULL;            //!< Mutex for LogMsg function.
 
 /**
  *  Error log file. By default, only errors come here. This can be changed by
@@ -110,7 +110,7 @@ char *LogMsg(const char *msg, ...)
 bool CreateLogMutex(void)
 {
   // create mutex
-  if ((log_mutex = glfwCreateMutex ()) == NULL) {
+  if ((log_mutex = SDL_CreateMutex ()) == NULL) {
     Critical ("Could not create log mutex");
     return false;
   }
@@ -124,7 +124,7 @@ bool CreateLogMutex(void)
  */
 void DestroyLogMutex(void)
 {
-  glfwDestroyMutex(log_mutex);
+    SDL_DestroyMutex(log_mutex);
   log_mutex = NULL;
 }
 
@@ -186,7 +186,11 @@ void CloseLogFiles(void)
   if (full_log) fclose (full_log);
 #endif
 
-  glfwDestroyMutex(log_mutex);
+  /* Mutex is normally destroyed in DestroyLogMutex(); guard for safety. */
+  if (log_mutex) {
+    SDL_DestroyMutex(log_mutex);
+    log_mutex = NULL;
+  }
 }
 
 /**
