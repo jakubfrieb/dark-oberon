@@ -3255,7 +3255,7 @@ TBUILDING_UNIT *TWORKER_UNIT::StartBuild(TBUILDING_ITEM *building, TPOSITION bui
 
       player->IncPlayerUnitsCount(); //increase count of active units of player
 
-      if (!new_building) return false;
+      if (!new_building) return NULL;
 
       new_building->SetAggressivity(AM_IGNORE, true);
       new_building->AddToMap(true, false);

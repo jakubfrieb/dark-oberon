@@ -1,5 +1,7 @@
+SOUND ?= 0
+
 build:
-	cd src && make
+	cd src && make SOUND=$(SOUND)
 
 clean:
 	cd src && make clean

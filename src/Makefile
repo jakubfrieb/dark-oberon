@@ -6,7 +6,13 @@ CPPFLAGS = -g -Wall -O
 DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG)
 INCLUDES = -I/usr/X11R6/include -I/usr/X11R6/include/GL -I../libs
 LIBPATHS = -L/usr/X11R6/lib -L/usr/lib -L/usr/local/lib -L../libs
-LIBRARIES = -pthread -lglfw -lGL -lX11 -lGLU -lXxf86vm -lXext -lXrandr  
+LIBRARIES = -pthread -lglfw2 -lGL -lX11 -lGLU -lXxf86vm -lXext -lXrandr
+# SOUND=1 needs FMOD 3.x (FSOUND_*/FMUSIC_*). Arch package "libfmod" is FMOD Ex 4 (libfmodex.so) — incompatible.
+# With a real libfmod.so from FMOD 3.75 SDK: make SOUND=1 FMOD_LEGACY_LIBS='-L/usr/local/lib -lfmod -ldl'
+ifeq ($(SOUND),1)
+FMOD_LEGACY_LIBS ?= -lfmod -ldl
+LIBRARIES += $(FMOD_LEGACY_LIBS)
+endif
 OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodraw.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 TARGETS = ../dark-oberon
 

@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "doconfig.h"
 #include "dodata.h"
@@ -106,6 +107,7 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
 
   char   header[257];
   T_BYTE version;
+  int32_t textures_seek32 = 0;
   long   textures_seek = 0;
 
   int   tid, gid;   // texture id, group id
@@ -135,8 +137,12 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
     return false;
   }
 
-  // seeks
-  fread(&textures_seek, sizeof(textures_seek), 1, fr);
+  /* .dat files store a 32-bit offset; reading into long breaks on LP64. */
+  if (fread(&textures_seek32, sizeof(textures_seek32), 1, fr) != 1) {
+    fclose(fr);
+    return false;
+  }
+  textures_seek = (long)textures_seek32;
 
   if (!textures_seek) {
     Error(LogMsg("Data file '%s' does not contain any textures", file_name));
