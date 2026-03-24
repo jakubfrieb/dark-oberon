@@ -32,7 +32,9 @@
 //========================================================================
 
 #include "cfg.h"
+#include "build_info.h"
 #include <stdint.h>
+#include <cstdio>
 
 #ifdef WINDOWS
  #include <io.h>
@@ -3711,6 +3713,17 @@ void CreateMenuGUI()
   button->SetTexture(GUI_BS_UP, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 15));
   button->SetCaption(NULL);
   SetMenuButton(true);
+
+  {
+    char build_caption[96];
+    TGUI_LABEL *build_lbl;
+    snprintf(build_caption, sizeof(build_caption), "%s  %s",
+             DO_VERSION_STRING, DO_GIT_REVISION);
+    build_lbl = gui->AddLabel(0, (GLfloat)(config.scr_width - 280), 8.0f, build_caption);
+    build_lbl->SetFontColor(0.58f, 0.54f, 0.5f);
+    build_lbl->SetLineHeight(14.0f);
+    build_lbl->SetAlpha(0.9f);
+  }
 
   // activate menu
   if (state == ST_PLAY_MENU) active_menu = play_menu;

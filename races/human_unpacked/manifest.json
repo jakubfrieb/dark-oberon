@@ -1,0 +1,2695 @@
+{
+  "format": "dark_oberon_dat",
+  "version": 3,
+  "source_dat": "human.dat",
+  "texture_groups": [
+    {
+      "name": "food",
+      "textures": [
+        {
+          "id": "food",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g000_t000_food__food.tga"
+        },
+        {
+          "id": "need_food",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 1000,
+          "pointx": 16,
+          "pointy": 16,
+          "ttype": 0,
+          "file": "textures/g000_t001_food__need_food.tga"
+        }
+      ]
+    },
+    {
+      "name": "energy",
+      "textures": [
+        {
+          "id": "energy",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g001_t000_energy__energy.tga"
+        },
+        {
+          "id": "need_energy",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 1000,
+          "pointx": 16,
+          "pointy": 16,
+          "ttype": 0,
+          "file": "textures/g001_t001_energy__need_energy.tga"
+        },
+        {
+          "id": "disabled_energy",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g001_t002_energy__disabled_energy.tga"
+        }
+      ]
+    },
+    {
+      "name": "unit_burning",
+      "textures": [
+        {
+          "id": "burning1",
+          "hcount": 11,
+          "vcount": 3,
+          "atime": 2500,
+          "pointx": 15,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g002_t000_unit_burning__burning1.tga"
+        },
+        {
+          "id": "burning1",
+          "hcount": 11,
+          "vcount": 3,
+          "atime": 2500,
+          "pointx": 15,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g002_t001_unit_burning__burning1.tga"
+        }
+      ]
+    },
+    {
+      "name": "building_burning",
+      "textures": [
+        {
+          "id": "burning1",
+          "hcount": 11,
+          "vcount": 3,
+          "atime": 2500,
+          "pointx": 15,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g003_t000_building_burning__burning1.tga"
+        },
+        {
+          "id": "burning2",
+          "hcount": 7,
+          "vcount": 1,
+          "atime": 1000,
+          "pointx": 20,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g003_t001_building_burning__burning2.tga"
+        }
+      ]
+    },
+    {
+      "name": "footman_picture",
+      "textures": [
+        {
+          "id": "footman_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g004_t000_footman_picture__footman_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "footman_stay",
+      "textures": [
+        {
+          "id": "footman_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t000_footman_stay__footman_stay1.tga"
+        },
+        {
+          "id": "footman_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t001_footman_stay__footman_stay2.tga"
+        },
+        {
+          "id": "footman_stay3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t002_footman_stay__footman_stay3.tga"
+        },
+        {
+          "id": "footman_stay4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t003_footman_stay__footman_stay4.tga"
+        },
+        {
+          "id": "footman_stay5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t004_footman_stay__footman_stay5.tga"
+        },
+        {
+          "id": "footman_stay6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t005_footman_stay__footman_stay6.tga"
+        },
+        {
+          "id": "footman_stay7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t006_footman_stay__footman_stay7.tga"
+        },
+        {
+          "id": "footman_stay8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g005_t007_footman_stay__footman_stay8.tga"
+        }
+      ]
+    },
+    {
+      "name": "footman_move",
+      "textures": [
+        {
+          "id": "footman_move1",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 11,
+          "ttype": 0,
+          "file": "textures/g006_t000_footman_move__footman_move1.tga"
+        },
+        {
+          "id": "footman_move2",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t001_footman_move__footman_move2.tga"
+        },
+        {
+          "id": "footman_move3",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t002_footman_move__footman_move3.tga"
+        },
+        {
+          "id": "footman_move4",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t003_footman_move__footman_move4.tga"
+        },
+        {
+          "id": "footman_move5",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t004_footman_move__footman_move5.tga"
+        },
+        {
+          "id": "footman_move6",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t005_footman_move__footman_move6.tga"
+        },
+        {
+          "id": "footman_move7",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t006_footman_move__footman_move7.tga"
+        },
+        {
+          "id": "footman_move8",
+          "hcount": 3,
+          "vcount": 2,
+          "atime": 600,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g006_t007_footman_move__footman_move8.tga"
+        }
+      ]
+    },
+    {
+      "name": "footman_attack",
+      "textures": [
+        {
+          "id": "footman_attack1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t000_footman_attack__footman_attack1.tga"
+        },
+        {
+          "id": "footman_attack2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t001_footman_attack__footman_attack2.tga"
+        },
+        {
+          "id": "footman_attack3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t002_footman_attack__footman_attack3.tga"
+        },
+        {
+          "id": "footman_attack4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t003_footman_attack__footman_attack4.tga"
+        },
+        {
+          "id": "footman_attack5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t004_footman_attack__footman_attack5.tga"
+        },
+        {
+          "id": "footman_attack6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t005_footman_attack__footman_attack6.tga"
+        },
+        {
+          "id": "footman_attack7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t006_footman_attack__footman_attack7.tga"
+        },
+        {
+          "id": "footman_attack8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g007_t007_footman_attack__footman_attack8.tga"
+        }
+      ]
+    },
+    {
+      "name": "footman_zombie",
+      "textures": [
+        {
+          "id": "footman_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 45,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g008_t000_footman_zombie__footman_zombie1.tga"
+        },
+        {
+          "id": "footman_zombie2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 30,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g008_t001_footman_zombie__footman_zombie2.tga"
+        },
+        {
+          "id": "footman_zombie3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 22,
+          "pointy": 5,
+          "ttype": 0,
+          "file": "textures/g008_t002_footman_zombie__footman_zombie3.tga"
+        },
+        {
+          "id": "footman_zombie4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 18,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g008_t003_footman_zombie__footman_zombie4.tga"
+        },
+        {
+          "id": "footman_zombie5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 22,
+          "pointy": 15,
+          "ttype": 0,
+          "file": "textures/g008_t004_footman_zombie__footman_zombie5.tga"
+        },
+        {
+          "id": "footman_zombie6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 30,
+          "pointy": 16,
+          "ttype": 0,
+          "file": "textures/g008_t005_footman_zombie__footman_zombie6.tga"
+        },
+        {
+          "id": "footman_zombie7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 44,
+          "pointy": 15,
+          "ttype": 0,
+          "file": "textures/g008_t006_footman_zombie__footman_zombie7.tga"
+        },
+        {
+          "id": "footman_zombie8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 47,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g008_t007_footman_zombie__footman_zombie8.tga"
+        }
+      ]
+    },
+    {
+      "name": "catapult_picture",
+      "textures": [
+        {
+          "id": "catapult_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g009_t000_catapult_picture__catapult_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "catapult_stay",
+      "textures": [
+        {
+          "id": "catapult_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t000_catapult_stay__catapult_stay1.tga"
+        },
+        {
+          "id": "catapult_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t001_catapult_stay__catapult_stay2.tga"
+        },
+        {
+          "id": "catapult_stay3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t002_catapult_stay__catapult_stay3.tga"
+        },
+        {
+          "id": "catapult_stay4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t003_catapult_stay__catapult_stay4.tga"
+        },
+        {
+          "id": "catapult_stay5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t004_catapult_stay__catapult_stay5.tga"
+        },
+        {
+          "id": "catapult_stay6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t005_catapult_stay__catapult_stay6.tga"
+        },
+        {
+          "id": "catapult_stay7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t006_catapult_stay__catapult_stay7.tga"
+        },
+        {
+          "id": "catapult_stay8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g010_t007_catapult_stay__catapult_stay8.tga"
+        }
+      ]
+    },
+    {
+      "name": "catapult_move",
+      "textures": [
+        {
+          "id": "catapult_move1",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t000_catapult_move__catapult_move1.tga"
+        },
+        {
+          "id": "catapult_move2",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t001_catapult_move__catapult_move2.tga"
+        },
+        {
+          "id": "catapult_move3",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t002_catapult_move__catapult_move3.tga"
+        },
+        {
+          "id": "catapult_move4",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t003_catapult_move__catapult_move4.tga"
+        },
+        {
+          "id": "catapult_move5",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t004_catapult_move__catapult_move5.tga"
+        },
+        {
+          "id": "catapult_move6",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t005_catapult_move__catapult_move6.tga"
+        },
+        {
+          "id": "catapult_move7",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t006_catapult_move__catapult_move7.tga"
+        },
+        {
+          "id": "catapult_move8",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 40,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g011_t007_catapult_move__catapult_move8.tga"
+        }
+      ]
+    },
+    {
+      "name": "catapult_zombie",
+      "textures": [
+        {
+          "id": "catapult_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": -10,
+          "ttype": 0,
+          "file": "textures/g012_t000_catapult_zombie__catapult_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "catapult_projectile",
+      "textures": [
+        {
+          "id": "catapult_projectile",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 16,
+          "pointy": 16,
+          "ttype": 0,
+          "file": "textures/g013_t000_catapult_projectile__catapult_projectile.tga"
+        }
+      ]
+    },
+    {
+      "name": "airship_picture",
+      "textures": [
+        {
+          "id": "airship_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g014_t000_airship_picture__airship_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "airship_stay",
+      "textures": [
+        {
+          "id": "airship_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t000_airship_stay__airship_stay1.tga"
+        },
+        {
+          "id": "airship_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t001_airship_stay__airship_stay2.tga"
+        },
+        {
+          "id": "airship_stay3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t002_airship_stay__airship_stay3.tga"
+        },
+        {
+          "id": "airship_stay4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t003_airship_stay__airship_stay4.tga"
+        },
+        {
+          "id": "airship_stay5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t004_airship_stay__airship_stay5.tga"
+        },
+        {
+          "id": "airship_stay6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t005_airship_stay__airship_stay6.tga"
+        },
+        {
+          "id": "airship_stay7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t006_airship_stay__airship_stay7.tga"
+        },
+        {
+          "id": "airship_stay8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g015_t007_airship_stay__airship_stay8.tga"
+        }
+      ]
+    },
+    {
+      "name": "airship_anchor",
+      "textures": [
+        {
+          "id": "airship_anchor1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t000_airship_anchor__airship_anchor1.tga"
+        },
+        {
+          "id": "airship_anchor2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t001_airship_anchor__airship_anchor2.tga"
+        },
+        {
+          "id": "airship_anchor3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t002_airship_anchor__airship_anchor3.tga"
+        },
+        {
+          "id": "airship_anchor4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t003_airship_anchor__airship_anchor4.tga"
+        },
+        {
+          "id": "airship_anchor5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t004_airship_anchor__airship_anchor5.tga"
+        },
+        {
+          "id": "airship_anchor6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t005_airship_anchor__airship_anchor6.tga"
+        },
+        {
+          "id": "airship_anchor7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t006_airship_anchor__airship_anchor7.tga"
+        },
+        {
+          "id": "airship_anchor8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 20,
+          "ttype": 0,
+          "file": "textures/g016_t007_airship_anchor__airship_anchor8.tga"
+        }
+      ]
+    },
+    {
+      "name": "airship_move",
+      "textures": [
+        {
+          "id": "airship_move1",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t000_airship_move__airship_move1.tga"
+        },
+        {
+          "id": "airship_move2",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t001_airship_move__airship_move2.tga"
+        },
+        {
+          "id": "airship_move3",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t002_airship_move__airship_move3.tga"
+        },
+        {
+          "id": "airship_move4",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t003_airship_move__airship_move4.tga"
+        },
+        {
+          "id": "airship_move5",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t004_airship_move__airship_move5.tga"
+        },
+        {
+          "id": "airship_move6",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t005_airship_move__airship_move6.tga"
+        },
+        {
+          "id": "airship_move7",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t006_airship_move__airship_move7.tga"
+        },
+        {
+          "id": "airship_move8",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 200,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g017_t007_airship_move__airship_move8.tga"
+        }
+      ]
+    },
+    {
+      "name": "airship_land",
+      "textures": [
+        {
+          "id": "airship_land1",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t000_airship_land__airship_land1.tga"
+        },
+        {
+          "id": "airship_land2",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t001_airship_land__airship_land2.tga"
+        },
+        {
+          "id": "airship_land3",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t002_airship_land__airship_land3.tga"
+        },
+        {
+          "id": "airship_land4",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t003_airship_land__airship_land4.tga"
+        },
+        {
+          "id": "airship_land5",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t004_airship_land__airship_land5.tga"
+        },
+        {
+          "id": "airship_land6",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t005_airship_land__airship_land6.tga"
+        },
+        {
+          "id": "airship_land7",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t006_airship_land__airship_land7.tga"
+        },
+        {
+          "id": "airship_land8",
+          "hcount": 4,
+          "vcount": 2,
+          "atime": 0,
+          "pointx": 85,
+          "pointy": 60,
+          "ttype": 0,
+          "file": "textures/g018_t007_airship_land__airship_land8.tga"
+        }
+      ]
+    },
+    {
+      "name": "townhall_picture",
+      "textures": [
+        {
+          "id": "tawnhall_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g019_t000_townhall_picture__tawnhall_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "townhall_stay",
+      "textures": [
+        {
+          "id": "townhall_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g020_t000_townhall_stay__townhall_stay1.tga"
+        },
+        {
+          "id": "townhall_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g020_t001_townhall_stay__townhall_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "townhall_build",
+      "textures": [
+        {
+          "id": "townhall_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g021_t000_townhall_build__townhall_build1.tga"
+        },
+        {
+          "id": "townhall_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g021_t001_townhall_build__townhall_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "townhall_zombie",
+      "textures": [
+        {
+          "id": "tawnhall_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g022_t000_townhall_zombie__tawnhall_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "fort_picture",
+      "textures": [
+        {
+          "id": "fort_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g023_t000_fort_picture__fort_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "fort_stay",
+      "textures": [
+        {
+          "id": "fort_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g024_t000_fort_stay__fort_stay1.tga"
+        },
+        {
+          "id": "fort_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g024_t001_fort_stay__fort_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "fort_build",
+      "textures": [
+        {
+          "id": "fort_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g025_t000_fort_build__fort_build1.tga"
+        },
+        {
+          "id": "fort_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g025_t001_fort_build__fort_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "castle_picture",
+      "textures": [
+        {
+          "id": "castle_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g026_t000_castle_picture__castle_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "castle_stay",
+      "textures": [
+        {
+          "id": "castle_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g027_t000_castle_stay__castle_stay1.tga"
+        },
+        {
+          "id": "castle_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g027_t001_castle_stay__castle_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "castle_build",
+      "textures": [
+        {
+          "id": "castle_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g028_t000_castle_build__castle_build1.tga"
+        },
+        {
+          "id": "castle_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 84,
+          "pointy": -11,
+          "ttype": 0,
+          "file": "textures/g028_t001_castle_build__castle_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "farm_picture",
+      "textures": [
+        {
+          "id": "farm_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g029_t000_farm_picture__farm_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "farm_stay",
+      "textures": [
+        {
+          "id": "farm_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 60,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g030_t000_farm_stay__farm_stay1.tga"
+        },
+        {
+          "id": "farm_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 60,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g030_t001_farm_stay__farm_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "farm_build",
+      "textures": [
+        {
+          "id": "farm_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 60,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g031_t000_farm_build__farm_build1.tga"
+        },
+        {
+          "id": "farm_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 60,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g031_t001_farm_build__farm_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "farm_zombie",
+      "textures": [
+        {
+          "id": "farm_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 60,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g032_t000_farm_zombie__farm_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "barracks_picture",
+      "textures": [
+        {
+          "id": "barracks_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g033_t000_barracks_picture__barracks_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "barracks_stay",
+      "textures": [
+        {
+          "id": "barracks_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g034_t000_barracks_stay__barracks_stay1.tga"
+        },
+        {
+          "id": "barracks_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g034_t001_barracks_stay__barracks_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "barracks_build",
+      "textures": [
+        {
+          "id": "barracks_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g035_t000_barracks_build__barracks_build1.tga"
+        },
+        {
+          "id": "barracks_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g035_t001_barracks_build__barracks_build2.tga"
+        },
+        {
+          "id": "barracks_build3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g035_t002_barracks_build__barracks_build3.tga"
+        }
+      ]
+    },
+    {
+      "name": "barracks_zombie",
+      "textures": [
+        {
+          "id": "barracks_zombie1",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 43,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g036_t000_barracks_zombie__barracks_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "tower_picture",
+      "textures": [
+        {
+          "id": "tower_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g037_t000_tower_picture__tower_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "tower_stay",
+      "textures": [
+        {
+          "id": "tower_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": -2,
+          "ttype": 0,
+          "file": "textures/g038_t000_tower_stay__tower_stay1.tga"
+        },
+        {
+          "id": "tower_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": -2,
+          "ttype": 0,
+          "file": "textures/g038_t001_tower_stay__tower_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "tower_build",
+      "textures": [
+        {
+          "id": "tower_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 35,
+          "pointy": 8,
+          "ttype": 0,
+          "file": "textures/g039_t000_tower_build__tower_build1.tga"
+        },
+        {
+          "id": "tower_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 35,
+          "pointy": 8,
+          "ttype": 0,
+          "file": "textures/g039_t001_tower_build__tower_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "tower_zombie",
+      "textures": [
+        {
+          "id": "tower_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 21,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g040_t000_tower_zombie__tower_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "cannontower_picture",
+      "textures": [
+        {
+          "id": "cannontower_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g041_t000_cannontower_picture__cannontower_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "cannontower_stay",
+      "textures": [
+        {
+          "id": "cannontower_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": -2,
+          "ttype": 0,
+          "file": "textures/g042_t000_cannontower_stay__cannontower_stay1.tga"
+        },
+        {
+          "id": "cannontower_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 40,
+          "pointy": -2,
+          "ttype": 0,
+          "file": "textures/g042_t001_cannontower_stay__cannontower_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "cannontower_build",
+      "textures": [
+        {
+          "id": "cannontower_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 33,
+          "pointy": 1,
+          "ttype": 0,
+          "file": "textures/g043_t000_cannontower_build__cannontower_build1.tga"
+        }
+      ]
+    },
+    {
+      "name": "shed_picture",
+      "textures": [
+        {
+          "id": "shed_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g044_t000_shed_picture__shed_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "shed_stay",
+      "textures": [
+        {
+          "id": "shed_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g045_t000_shed_stay__shed_stay1.tga"
+        },
+        {
+          "id": "shed_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g045_t001_shed_stay__shed_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "shed_build",
+      "textures": [
+        {
+          "id": "shed_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g046_t000_shed_build__shed_build1.tga"
+        },
+        {
+          "id": "shed_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g046_t001_shed_build__shed_build2.tga"
+        },
+        {
+          "id": "shed_build3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g046_t002_shed_build__shed_build3.tga"
+        }
+      ]
+    },
+    {
+      "name": "shed_zombie",
+      "textures": [
+        {
+          "id": "shed_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 48,
+          "pointy": -6,
+          "ttype": 0,
+          "file": "textures/g047_t000_shed_zombie__shed_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "manufactory_picture",
+      "textures": [
+        {
+          "id": "manufactory_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g048_t000_manufactory_picture__manufactory_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "manufactory_stay",
+      "textures": [
+        {
+          "id": "manufactory_stay1",
+          "hcount": 2,
+          "vcount": 1,
+          "atime": 400,
+          "pointx": 73,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g049_t000_manufactory_stay__manufactory_stay1.tga"
+        },
+        {
+          "id": "manufactory_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g049_t001_manufactory_stay__manufactory_stay2.tga"
+        }
+      ]
+    },
+    {
+      "name": "manufactory_build",
+      "textures": [
+        {
+          "id": "manufactory_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g050_t000_manufactory_build__manufactory_build1.tga"
+        },
+        {
+          "id": "manufactory_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g050_t001_manufactory_build__manufactory_build2.tga"
+        },
+        {
+          "id": "manufactory_build3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 73,
+          "pointy": -1,
+          "ttype": 0,
+          "file": "textures/g050_t002_manufactory_build__manufactory_build3.tga"
+        }
+      ]
+    },
+    {
+      "name": "peasant_picture",
+      "textures": [
+        {
+          "id": "peasant_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g051_t000_peasant_picture__peasant_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "peasant_stay",
+      "textures": [
+        {
+          "id": "peasant_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t000_peasant_stay__peasant_stay1.tga"
+        },
+        {
+          "id": "peasant_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t001_peasant_stay__peasant_stay2.tga"
+        },
+        {
+          "id": "peasant_stay3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t002_peasant_stay__peasant_stay3.tga"
+        },
+        {
+          "id": "peasant_stay4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t003_peasant_stay__peasant_stay4.tga"
+        },
+        {
+          "id": "peasant_stay5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t004_peasant_stay__peasant_stay5.tga"
+        },
+        {
+          "id": "peasant_stay6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t005_peasant_stay__peasant_stay6.tga"
+        },
+        {
+          "id": "peasant_stay7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t006_peasant_stay__peasant_stay7.tga"
+        },
+        {
+          "id": "peasant_stay8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g052_t007_peasant_stay__peasant_stay8.tga"
+        }
+      ]
+    },
+    {
+      "name": "peasant_zombie",
+      "textures": [
+        {
+          "id": "peasant_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 18,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g053_t000_peasant_zombie__peasant_zombie1.tga"
+        },
+        {
+          "id": "peasant_zombie2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 20,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g053_t001_peasant_zombie__peasant_zombie2.tga"
+        },
+        {
+          "id": "peasant_zombie3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 20,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g053_t002_peasant_zombie__peasant_zombie3.tga"
+        },
+        {
+          "id": "peasant_zombie4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 18,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g053_t003_peasant_zombie__peasant_zombie4.tga"
+        },
+        {
+          "id": "peasant_zombie5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 15,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g053_t004_peasant_zombie__peasant_zombie5.tga"
+        },
+        {
+          "id": "peasant_zombie6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 14,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g053_t005_peasant_zombie__peasant_zombie6.tga"
+        },
+        {
+          "id": "peasant_zombie7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 11,
+          "pointy": 11,
+          "ttype": 0,
+          "file": "textures/g053_t006_peasant_zombie__peasant_zombie7.tga"
+        },
+        {
+          "id": "peasant_zombie8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 13,
+          "pointy": 11,
+          "ttype": 0,
+          "file": "textures/g053_t007_peasant_zombie__peasant_zombie8.tga"
+        }
+      ]
+    },
+    {
+      "name": "moleman_picture",
+      "textures": [
+        {
+          "id": "moleman_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g054_t000_moleman_picture__moleman_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "moleman_stay",
+      "textures": [
+        {
+          "id": "moleman_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t000_moleman_stay__moleman_stay1.tga"
+        },
+        {
+          "id": "moleman_stay2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t001_moleman_stay__moleman_stay2.tga"
+        },
+        {
+          "id": "moleman_stay3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t002_moleman_stay__moleman_stay3.tga"
+        },
+        {
+          "id": "moleman_stay4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t003_moleman_stay__moleman_stay4.tga"
+        },
+        {
+          "id": "moleman_stay5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t004_moleman_stay__moleman_stay5.tga"
+        },
+        {
+          "id": "moleman_stay6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t005_moleman_stay__moleman_stay6.tga"
+        },
+        {
+          "id": "moleman_stay7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t006_moleman_stay__moleman_stay7.tga"
+        },
+        {
+          "id": "moleman_stay8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g055_t007_moleman_stay__moleman_stay8.tga"
+        }
+      ]
+    },
+    {
+      "name": "moleman_zombie",
+      "textures": [
+        {
+          "id": "moleman_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 18,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g056_t000_moleman_zombie__moleman_zombie1.tga"
+        },
+        {
+          "id": "moleman_zombie2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 20,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g056_t001_moleman_zombie__moleman_zombie2.tga"
+        },
+        {
+          "id": "moleman_zombie3",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 20,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g056_t002_moleman_zombie__moleman_zombie3.tga"
+        },
+        {
+          "id": "moleman_zombie4",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 18,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g056_t003_moleman_zombie__moleman_zombie4.tga"
+        },
+        {
+          "id": "moleman_zombie5",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 15,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g056_t004_moleman_zombie__moleman_zombie5.tga"
+        },
+        {
+          "id": "moleman_zombie6",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 14,
+          "pointy": 6,
+          "ttype": 0,
+          "file": "textures/g056_t005_moleman_zombie__moleman_zombie6.tga"
+        },
+        {
+          "id": "moleman_zombie7",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 11,
+          "pointy": 11,
+          "ttype": 0,
+          "file": "textures/g056_t006_moleman_zombie__moleman_zombie7.tga"
+        },
+        {
+          "id": "moleman_zombie8",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 13,
+          "pointy": 11,
+          "ttype": 0,
+          "file": "textures/g056_t007_moleman_zombie__moleman_zombie8.tga"
+        }
+      ]
+    },
+    {
+      "name": "wall_picture",
+      "textures": [
+        {
+          "id": "wall_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g057_t000_wall_picture__wall_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "wall_stay",
+      "textures": [
+        {
+          "id": "wall_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 33,
+          "pointy": 10,
+          "ttype": 0,
+          "file": "textures/g058_t000_wall_stay__wall_stay1.tga"
+        }
+      ]
+    },
+    {
+      "name": "wall_zombie",
+      "textures": [
+        {
+          "id": "wall_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 16,
+          "pointy": 4,
+          "ttype": 0,
+          "file": "textures/g059_t000_wall_zombie__wall_zombie1.tga"
+        }
+      ]
+    },
+    {
+      "name": "citadel_picture",
+      "textures": [
+        {
+          "id": "citadel_picture",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 0,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g060_t000_citadel_picture__citadel_picture.tga"
+        }
+      ]
+    },
+    {
+      "name": "citadel_stay",
+      "textures": [
+        {
+          "id": "citadel_stay1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": -4,
+          "ttype": 0,
+          "file": "textures/g061_t000_citadel_stay__citadel_stay1.tga"
+        }
+      ]
+    },
+    {
+      "name": "citadel_build",
+      "textures": [
+        {
+          "id": "citadel_build1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": -4,
+          "ttype": 0,
+          "file": "textures/g062_t000_citadel_build__citadel_build1.tga"
+        },
+        {
+          "id": "citadel_build2",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 32,
+          "pointy": -4,
+          "ttype": 0,
+          "file": "textures/g062_t001_citadel_build__citadel_build2.tga"
+        }
+      ]
+    },
+    {
+      "name": "citadel_zombie",
+      "textures": [
+        {
+          "id": "citadel_zombie1",
+          "hcount": 1,
+          "vcount": 1,
+          "atime": 0,
+          "pointx": 25,
+          "pointy": 0,
+          "ttype": 0,
+          "file": "textures/g063_t000_citadel_zombie__citadel_zombie1.tga"
+        }
+      ]
+    }
+  ],
+  "sounds": [
+    {
+      "id": "airship_comm1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0000_airship_comm1.ogg"
+    },
+    {
+      "id": "airship_comm2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0001_airship_comm2.ogg"
+    },
+    {
+      "id": "airship_comm3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0002_airship_comm3.ogg"
+    },
+    {
+      "id": "airship_comm4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0003_airship_comm4.ogg"
+    },
+    {
+      "id": "airship_comm5",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0004_airship_comm5.ogg"
+    },
+    {
+      "id": "airship_dead1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0005_airship_dead1.ogg"
+    },
+    {
+      "id": "airship_dead2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0006_airship_dead2.ogg"
+    },
+    {
+      "id": "airship_dead3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0007_airship_dead3.ogg"
+    },
+    {
+      "id": "airship_ready",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0008_airship_ready.ogg"
+    },
+    {
+      "id": "airship_sel1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0009_airship_sel1.ogg"
+    },
+    {
+      "id": "airship_sel2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0010_airship_sel2.ogg"
+    },
+    {
+      "id": "catapult_comm",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0011_catapult_comm.ogg"
+    },
+    {
+      "id": "catapult_fireoff",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0012_catapult_fireoff.ogg"
+    },
+    {
+      "id": "catapult_hit",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0013_catapult_hit.ogg"
+    },
+    {
+      "id": "catapult_sel",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0014_catapult_sel.ogg"
+    },
+    {
+      "id": "footman_comm1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0015_footman_comm1.ogg"
+    },
+    {
+      "id": "footman_comm2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0016_footman_comm2.ogg"
+    },
+    {
+      "id": "footman_comm3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0017_footman_comm3.ogg"
+    },
+    {
+      "id": "footman_comm4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0018_footman_comm4.ogg"
+    },
+    {
+      "id": "footman_comm5",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0019_footman_comm5.ogg"
+    },
+    {
+      "id": "footman_comm6",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0020_footman_comm6.ogg"
+    },
+    {
+      "id": "footman_comm7",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0021_footman_comm7.ogg"
+    },
+    {
+      "id": "footman_dead1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0022_footman_dead1.ogg"
+    },
+    {
+      "id": "footman_dead2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0023_footman_dead2.ogg"
+    },
+    {
+      "id": "footman_dead3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0024_footman_dead3.ogg"
+    },
+    {
+      "id": "footman_dead4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0025_footman_dead4.ogg"
+    },
+    {
+      "id": "footman_hit01",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0026_footman_hit01.ogg"
+    },
+    {
+      "id": "footman_hit02",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0027_footman_hit02.ogg"
+    },
+    {
+      "id": "footman_hit03",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0028_footman_hit03.ogg"
+    },
+    {
+      "id": "footman_hit04",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0029_footman_hit04.ogg"
+    },
+    {
+      "id": "footman_hit05",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0030_footman_hit05.ogg"
+    },
+    {
+      "id": "footman_hit06",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0031_footman_hit06.ogg"
+    },
+    {
+      "id": "footman_hit07",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0032_footman_hit07.ogg"
+    },
+    {
+      "id": "footman_hit08",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0033_footman_hit08.ogg"
+    },
+    {
+      "id": "footman_hit09",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0034_footman_hit09.ogg"
+    },
+    {
+      "id": "footman_hit10",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0035_footman_hit10.ogg"
+    },
+    {
+      "id": "footman_hit11",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0036_footman_hit11.ogg"
+    },
+    {
+      "id": "footman_ready",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0037_footman_ready.ogg"
+    },
+    {
+      "id": "footman_sel1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0038_footman_sel1.ogg"
+    },
+    {
+      "id": "footman_sel2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0039_footman_sel2.ogg"
+    },
+    {
+      "id": "footman_sel3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0040_footman_sel3.ogg"
+    },
+    {
+      "id": "footman_sel4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0041_footman_sel4.ogg"
+    },
+    {
+      "id": "footman_sel5",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0042_footman_sel5.ogg"
+    },
+    {
+      "id": "shed_sel",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0043_shed_sel.ogg"
+    },
+    {
+      "id": "townhall_sel",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0044_townhall_sel.ogg"
+    },
+    {
+      "id": "peasant_comm1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0045_peasant_comm1.ogg"
+    },
+    {
+      "id": "peasant_comm2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0046_peasant_comm2.ogg"
+    },
+    {
+      "id": "peasant_comm3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0047_peasant_comm3.ogg"
+    },
+    {
+      "id": "peasant_dead1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0048_peasant_dead1.ogg"
+    },
+    {
+      "id": "peasant_dead2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0049_peasant_dead2.ogg"
+    },
+    {
+      "id": "peasant_dead3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0050_peasant_dead3.ogg"
+    },
+    {
+      "id": "peasant_dead4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0051_peasant_dead4.ogg"
+    },
+    {
+      "id": "peasant_dead5",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0052_peasant_dead5.ogg"
+    },
+    {
+      "id": "peasant_dead6",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0053_peasant_dead6.ogg"
+    },
+    {
+      "id": "peasant_chop1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0054_peasant_chop1.ogg"
+    },
+    {
+      "id": "peasant_chop2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0055_peasant_chop2.ogg"
+    },
+    {
+      "id": "peasant_chop3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0056_peasant_chop3.ogg"
+    },
+    {
+      "id": "peasant_chop4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0057_peasant_chop4.ogg"
+    },
+    {
+      "id": "peasant_chop5",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0058_peasant_chop5.ogg"
+    },
+    {
+      "id": "peasant_chop6",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0059_peasant_chop6.ogg"
+    },
+    {
+      "id": "peasant_chop7",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0060_peasant_chop7.ogg"
+    },
+    {
+      "id": "peasant_ready",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0061_peasant_ready.ogg"
+    },
+    {
+      "id": "peasant_sel1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0062_peasant_sel1.ogg"
+    },
+    {
+      "id": "peasant_sel2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0063_peasant_sel2.ogg"
+    },
+    {
+      "id": "peasant_sel3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0064_peasant_sel3.ogg"
+    },
+    {
+      "id": "peasant_sel4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0065_peasant_sel4.ogg"
+    },
+    {
+      "id": "peasant_wc1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0066_peasant_wc1.ogg"
+    },
+    {
+      "id": "peasant_wc2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0067_peasant_wc2.ogg"
+    },
+    {
+      "id": "peasant_wc3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0068_peasant_wc3.ogg"
+    },
+    {
+      "id": "building_selected",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0069_building_selected.ogg"
+    },
+    {
+      "id": "burning",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0070_burning.ogg"
+    },
+    {
+      "id": "construction",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0071_construction.ogg"
+    },
+    {
+      "id": "error",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0072_error.ogg"
+    },
+    {
+      "id": "explosion1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0073_explosion1.ogg"
+    },
+    {
+      "id": "explosion2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0074_explosion2.ogg"
+    },
+    {
+      "id": "explosion3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0075_explosion3.ogg"
+    },
+    {
+      "id": "explosion4",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0076_explosion4.ogg"
+    },
+    {
+      "id": "placement",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0077_placement.ogg"
+    },
+    {
+      "id": "farm_sel1",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0078_farm_sel1.ogg"
+    },
+    {
+      "id": "farm_sel2",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0079_farm_sel2.ogg"
+    },
+    {
+      "id": "farm_sel3",
+      "format": 3,
+      "stype": 0,
+      "file": "sounds/s0080_farm_sel3.ogg"
+    }
+  ]
+}
