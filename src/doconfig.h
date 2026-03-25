@@ -58,9 +58,9 @@ struct TCONFIG;
 #define CFG_DEF_TEX_MAG_FILTER GL_LINEAR
 #define CFG_DEF_TEX_MIN_FILTER GL_LINEAR
 #define CFG_DEF_PLAYER_NAME     "Player"
-/** Default IP address.
+/** Default server address (may include :port; see parse_server_address in doengine.cpp).
  *  @sa TCONFIG::address */
-#define CFG_DEF_ADDRESS         ""
+#define CFG_DEF_ADDRESS         "oberon-game.cloud.digitalmind.cz:17000"
 /** Default configuration's mouse sensitivity.
  *  @sa TCONFIG::ip_address */
 #define CFG_DEF_SENSITIVITY     40

@@ -41,6 +41,10 @@
 #else // on UNIX
  #include <sys/types.h>
  #include <dirent.h>
+ #if HEADLESS
+ #include <poll.h>
+ #include <unistd.h>
+ #endif
 #endif
 
 
@@ -48,6 +52,7 @@
 #include "doglfw_sdl.h"
 
 #include <atomic>
+#include <cctype>
 #include <cmath>
 #include <string>
 
@@ -383,10 +388,43 @@ TSAFE_BOOL_SWITCH *need_redraw = NULL;
 // Thread for connecting in menu
 //========================================================================
 
+static void trim_string (string &s) {
+  while (!s.empty() && (s[0] == ' ' || s[0] == '\t'))
+    s.erase (0, 1);
+  while (!s.empty() && (s.back () == ' ' || s.back () == '\t'))
+    s.pop_back ();
+}
+
+/** "host:17000" uses that port; otherwise @p default_port (from config). IPv4 host:port supported. */
+static void parse_server_address (const string &server, in_port_t default_port,
+                                  string &host_out, in_port_t &port_out) {
+  host_out = server;
+  port_out = default_port;
+  size_t colon = server.find_last_of (':');
+  if (colon == string::npos || colon + 1 >= server.size ())
+    return;
+  const string tail = server.substr (colon + 1);
+  for (unsigned char c : tail) {
+    if (!std::isdigit (c))
+      return;
+  }
+  int p = atoi (tail.c_str ());
+  if (p < 1024 || p > 65535)
+    return;
+  host_out = server.substr (0, colon);
+  trim_string (host_out);
+  if (host_out.empty ())
+    return;
+  port_out = static_cast<in_port_t> (p);
+}
+
 struct TCONNECT_DATA {
   string server_name;
   in_port_t port;
 };
+
+static void ProcessRequestStart (TNET_MESSAGE *msg);
+bool StartGame (double stime);
 
 static void connecting_in_menu_thread_impl (void *_data) {
   TCONNECT_DATA *data = static_cast<TCONNECT_DATA *>(_data);
@@ -420,8 +458,8 @@ static void connecting_in_menu_thread_impl (void *_data) {
     action_key = MNU_CONNECT2;
     gui->ShowMessageBox (message.c_str (), GUI_MB_CANCEL);
 
-    // Start follower. It will listen on config.net_server_port.
-    host = follower = NEW TFOLLOWER (follower_in_queue_size, config.net_server_port, follower_out_queue_size, ip_address, port);
+    /* Port 0 = ephemeral TCP listen port (avoids EADDRINUSE vs leader on same host:17000). */
+    host = follower = NEW TFOLLOWER (follower_in_queue_size, 0, follower_out_queue_size, ip_address, port);
     connected = true;
 
     gui->HideMessageBox ();
@@ -1184,7 +1222,7 @@ void UpdateGameMenu()
   map_label->SetVisible(follower);
   map_info_scroll->SetVisible (!none);
 
-  play_button->SetVisible(leader);
+  play_button->SetVisible(leader || follower);
 
   if (leader) disconn_button->SetPos(20, 15);
   if (follower || none) disconn_button->SetPos(157, 15);
@@ -1224,11 +1262,13 @@ void UpdateGameMenu()
 void UpdatePlayersAndMenu () {
   player_array.Lock ();
 
+#if !HEADLESS
   SynchronisePlayersAndMenu ();
   UpdateGameMenu ();
+#endif
 
   giant->Lock ();
-  if (host->GetType () == THOST::ht_leader)
+  if (host != NULL && host->GetType () == THOST::ht_leader)
     dynamic_cast<TLEADER *>(host)->SendPlayerArray (selected_map_name, false);
   giant->Unlock ();
 
@@ -1262,8 +1302,11 @@ bool Disconnect() {
 
   // show message box first
   if (config.show_disconnect_warning && !action_force) {
+#if !HEADLESS
     gui->ShowMessageBox("Do you really want to disconnect?", GUI_MB_YES | GUI_MB_NO);
     return false;
+#endif
+    /* HEADLESS: no confirmation dialog */
   }
 
   action_force = false;
@@ -1320,6 +1363,7 @@ bool CreateGame()
   host->RegisterExtendedFunction (net_protocol_synchronise, ProcessSynchronise);
   host->RegisterExtendedFunction (net_protocol_ping, ProcessPingRequest);
   host->RegisterExtendedFunction (net_protocol_disconnect, ProcessDisconnect);
+  host->RegisterExtendedFunction (net_protocol_request_start, ProcessRequestStart);
 
   host->RegisterOnDisconnect (OnDisconnect);
 
@@ -1341,9 +1385,14 @@ bool Connect (string server)
   if (!Disconnect ())
     return false;
 
+  trim_string (server);
+  string hostpart;
+  in_port_t remote_port;
+  parse_server_address (server, static_cast<in_port_t> (config.net_server_port), hostpart, remote_port);
+
   TCONNECT_DATA *data = NEW TCONNECT_DATA;
-  data->port = config.net_server_port;
-  data->server_name = server;
+  data->port = remote_port;
+  data->server_name = hostpart;
 
   connecting_thread_finished.store (false);
   connecting_thread = SDL_CreateThread (connecting_in_menu_thread_sdl, "menu_connect", data);
@@ -1569,6 +1618,15 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
       giant->Lock ();
 
+      if (host->GetType () == THOST::ht_follower) {
+        /* Ask leader to start; we enter ST_GAME when ProcessPlayerArray runs. */
+        TFOLLOWER *fol = dynamic_cast<TFOLLOWER *>(host);
+        fol->SendRequestStartGame ();
+        giant->Unlock ();
+        player_array.Unlock ();
+        break;
+      }
+
       /* Leader will inform all followers that the game is starting. */
       if (host->GetType () == THOST::ht_leader) {
         TLEADER *leader = dynamic_cast<TLEADER *>(host);
@@ -1576,7 +1634,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         /* XXX: netreba... leader->FillRemoteAddresses (); */
         leader->SendPlayerArray (selected_map_name, true);
       }
- 
+
       state = ST_GAME;
 
       giant->Unlock ();
@@ -1812,6 +1870,7 @@ void MenuCheckBoxOnClick(TGUI_BOX *sender)
 
 void MenuPanelOnDraw(TGUI_BOX *sender)
 {
+#if !HEADLESS
   glDisable(GL_TEXTURE_2D);
 
   glColor3f(0.8f, 0.8f, 0.8f);
@@ -1828,13 +1887,18 @@ void MenuPanelOnDraw(TGUI_BOX *sender)
   glEnd();
 
   glEnable(GL_TEXTURE_2D);
+#else
+  (void)sender;
+#endif
 }
 
 void MenuUpdateMapInfo (string map_name) {
+#if !HEADLESS
   char buff[4096];
   TMAP_RAC_INFO_NODE * act_rac;
   int i, count_rac;
   string races;
+#endif
 
   player_array.Lock ();
 
@@ -1843,6 +1907,9 @@ void MenuUpdateMapInfo (string map_name) {
   if (map_info_list.LoadMapInfo(false, map_name.c_str ())) { // selected map exists
     selected_map_name = map_name; // put map id_name to global variable ... if menu quits, this map will be loaded
 
+    player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
+
+#if !HEADLESS
     map_label->SetCaption (map_info_list.GetMapName (map_name).c_str ());
 
     play_button->SetEnabled(true);
@@ -1852,7 +1919,6 @@ void MenuUpdateMapInfo (string map_name) {
 
     // scheme
     map_scheme_label->SetCaption(map_info_list.map_ext_info.scheme_name);
-    player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
     
     // map size
     sprintf(buff, "%dx%d", map_info_list.map_ext_info.width, map_info_list.map_ext_info.height);
@@ -1876,12 +1942,14 @@ void MenuUpdateMapInfo (string map_name) {
       pl_race_combo[i]->SetItems(races.c_str ());
 
     SynchronisePlayersAndMenu ();
+#endif
   }
   else{ // can not find file of selected map
+    selected_map_name = "";
+#if !HEADLESS
     map_label->SetCaption ("Missing or corrupted map");
 
     // clear global map name and disable play button
-    selected_map_name = "";
     play_button->SetEnabled(false);
     
     // set empty info map labels
@@ -1899,6 +1967,7 @@ void MenuUpdateMapInfo (string map_name) {
 
       pl_race_combo[i]->SetItems("");
     }
+#endif
   }
 
   player_array.Unlock ();
@@ -2389,6 +2458,7 @@ void GameBuildOnDraw(TGUI_BOX *sender)
 
   if (!b->IsChecked()) return;
 
+#if !HEADLESS
   glDisable(GL_TEXTURE_2D);
 
   // frame rectangle
@@ -2406,6 +2476,9 @@ void GameBuildOnDraw(TGUI_BOX *sender)
   glEnd();
 
   glEnable(GL_TEXTURE_2D);
+#else
+  (void)b;
+#endif
 }
 
 
@@ -2450,6 +2523,10 @@ void GameBuildOnTooltip(TGUI_BOX *sender)
  */
 void GameOnKeyDown(int key)
 {
+#if HEADLESS
+  (void)key;
+  return;
+#else
   if (!started) return;
   if (gui->KeyDown(key)) return;
 
@@ -2673,6 +2750,7 @@ void GameOnKeyDown(int key)
       break;
     }
   }
+#endif /* !HEADLESS */
 }
 
 
@@ -2761,6 +2839,67 @@ void GameOnRadarDraw(TGUI_BOX *sender)
 //========================================================================
 // Callbacks for network messages
 //========================================================================
+
+/**
+ *  Follower asked the leader to start the game (menu Play or future UI).
+ *  used: pointer only stored via RegisterExtendedFunction (table read in donet.cpp).
+ */
+static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg */) {
+  if (host == NULL || host->GetType () != THOST::ht_leader)
+    return;
+
+  giant->Lock ();
+  if (started) {
+    giant->Unlock ();
+    return;
+  }
+  giant->Unlock ();
+
+  player_array.Lock ();
+  allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
+
+  int max_players = map_info_list.map_ext_info.max_players;
+  if (player_array.GetCount () > max_players + 1) {
+    Warning ("request_start: too many players for this map");
+    player_array.Unlock ();
+    return;
+  }
+  if (!player_array.EveryPlayerHasDifferentRace ()) {
+    Warning ("request_start: every player must have a different race");
+    player_array.Unlock ();
+    return;
+  }
+  player_array.Unlock ();
+
+  giant->Lock ();
+  if (host != NULL && host->GetType () == THOST::ht_leader) {
+    TLEADER *leader = dynamic_cast<TLEADER *>(host);
+    leader->SendPlayerArray (selected_map_name, true);
+  }
+  giant->Unlock ();
+
+#if HEADLESS
+  TTIME clock;
+  if (!StartGame (clock.GetActual ()))
+    Warning ("request_start: StartGame failed");
+  else {
+    leader_ready = true;
+    giant->Lock ();
+    if (host != NULL && host->GetType () == THOST::ht_leader) {
+      TLEADER *L = dynamic_cast<TLEADER *>(host);
+      if (player_array.AllRemoteReady ()) {
+        allowed_to_start_process_function = true;
+        L->SendAllowProcessFunction ();
+      }
+    }
+    giant->Unlock ();
+  }
+#else
+  giant->Lock ();
+  state = ST_GAME;
+  giant->Unlock ();
+#endif
+}
 
 /**
  *  Callback function which is called whenever a connect request is received.
@@ -2925,7 +3064,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
       }
     }
 
-    MenuButtonOnClickKey (MNU_PLAY2);
+    state = ST_GAME;
   }
 
   player_array.Unlock ();
@@ -3052,6 +3191,11 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
   if (host == NULL) {
     giant->Unlock ();
     return;
+  }
+
+  /* Net events can arrive in lobby (before StartGame); pool is normally created there. */
+  if (!pool_events) {
+    pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
   }
 
   int size = msg->GetSize();
@@ -4173,12 +4317,14 @@ void GLFWCALL SizeCallback(int w, int h)
   config.scr_width = w;
   config.scr_height = h;
 
+#if !HEADLESS
   /* Logical size w,h matches mouse/GUI; viewport must cover full GL drawable (HiDPI). */
   int fbw = w, fbh = h;
   glfwGetFramebufferSize(&fbw, &fbh);
   glViewport(0, 0, fbw, fbh);
 
   glfSetFontDisplayMode(font0, w, h);
+#endif
 }
 
 
@@ -4480,6 +4626,7 @@ bool StartGame(double stime)
 
   process_thread = NULL;
 
+#if !HEADLESS
   // create loading gui
   gui->SetFont(font0);
   gui->SetFontColor(1, 0.93f, 0.82f);
@@ -4489,6 +4636,7 @@ bool StartGame(double stime)
 
   gui->Draw();
   glfwSwapBuffers();
+#endif
 
   // create mutexes
   delete_mutex  = SDL_CreateMutex ();
@@ -4504,7 +4652,8 @@ bool StartGame(double stime)
   pool_sel_node     = NEW TPOOL<TSEL_NODE>(EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
 
   pool_nearest_info = NEW TPOOL<TNEAREST_INFO>(EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
-  pool_events       = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
+  if (!pool_events)
+    pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
 
   // load map
   char map_name[MAP_MAX_NAME_LENGTH];
@@ -4512,7 +4661,8 @@ bool StartGame(double stime)
   
   strcpy (map_name, selected_map_name.c_str ());
   last = strrchr(map_name, '.');
-  *last = 0;
+  if (last)
+    *last = 0;
 
   // set player options
   view_segment = DRW_ALL_SEGMENTS;
@@ -4557,7 +4707,9 @@ bool StartGame(double stime)
     goto error;
   }
 
+#if !HEADLESS
   gui->Reset();
+#endif
   
   // clear menu structures
   map_info_list.ClearRacList();
@@ -4569,7 +4721,9 @@ error_with_own_state:
  
   // clear menu structures
   map_info_list.ClearRacList();
+#if !HEADLESS
   gui->Reset();
+#endif
 
   if (process_thread) {
     SDL_WaitThread (process_thread, NULL);
@@ -4788,6 +4942,157 @@ void Game(void)
     build_tooltip = NULL;
   }
 }
+
+
+#if HEADLESS
+/** Write s as a JSON string literal (quotes + escapes) to f. */
+static void fprint_json_string(FILE *f, const std::string &s)
+{
+  fputc('"', f);
+  for (size_t i = 0; i < s.size(); i++) {
+    unsigned char c = (unsigned char)s[i];
+    switch (c) {
+      case '"':  fputs("\\\"", f); break;
+      case '\\': fputs("\\\\", f); break;
+      case '\b': fputs("\\b", f); break;
+      case '\f': fputs("\\f", f); break;
+      case '\n': fputs("\\n", f); break;
+      case '\r': fputs("\\r", f); break;
+      case '\t': fputs("\\t", f); break;
+      default:
+        if (c < 0x20u)
+          fprintf(f, "\\u%04x", (unsigned)c);
+        else
+          fputc((int)c, f);
+        break;
+    }
+  }
+  fputc('"', f);
+}
+
+void RunDedicatedServer(const char *map_basename, int port)
+{
+  std::string map_base = map_basename ? map_basename : "";
+  if (map_base.size() > 4 && map_base.compare(map_base.size() - 4, 4, ".map") == 0)
+    map_base.resize(map_base.size() - 4);
+
+  config.net_server_port = port;
+
+  /* LoadMapInfo() joins MAP_PATH + file_name like opendir entries: must include ".map". */
+  std::string map_file = map_base + ".map";
+  if (!map_info_list.LoadMapInfo(false, map_file.c_str())) {
+    Critical("Dedicated server: unknown or invalid map (use id_name without path, e.g. trial). "
+             "Check MAP_PATH / --data and that maps/<id>.map exists.");
+    return;
+  }
+  /* StartGame() strips trailing extension from selected_map_name before map.LoadMap(). */
+  selected_map_name = map_file;
+  Info(LogMsg("Dedicated server map=%s port=%d", map_base.c_str(), port));
+
+  if (!CreateGame()) {
+    Critical("Dedicated server: CreateGame failed");
+    return;
+  }
+
+  /* Without GUI, hyper + host never get races from MenuUpdateMapInfo — empty races
+   * make EveryPlayerHasDifferentRace() fail ("" == ""). Mirror quick-play defaults. */
+  player_array.Lock();
+  player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
+  if (map_info_list.rac_list != NULL)
+    player_array.SetRaceIdName(1, map_info_list.rac_list->id_name);
+  player_array.Unlock();
+
+  fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
+  fprintf(stderr, "Clients connect to this host:%d — then type: start\n", port);
+  fprintf(stderr, "Commands: status | players | start | quit\n");
+
+  bool running = true;
+  while (running) {
+#ifndef WINDOWS
+    struct pollfd pfd;
+    pfd.fd = fileno(stdin);
+    pfd.events = POLLIN;
+    int pr = poll(&pfd, 1, 100);
+    if (pr > 0 && (pfd.revents & POLLIN)) {
+      char buf[256];
+      if (fgets(buf, sizeof buf, stdin) == NULL) {
+        running = false;
+        break;
+      }
+      if (strncmp(buf, "quit", 4) == 0)
+        running = false;
+      else if (strncmp(buf, "status", 6) == 0)
+        fprintf(stderr, "players=%d connected=%d started=%d\n",
+                player_array.GetCount(), connected ? 1 : 0, started ? 1 : 0);
+      else if (strncmp(buf, "players", 7) == 0) {
+        fputs("{\"players\":[", stderr);
+        player_array.Lock();
+        int n = player_array.GetCount();
+        for (int i = 0; i < n; i++) {
+          if (i > 0)
+            fputc(',', stderr);
+          fprint_json_string(stderr, player_array.GetPlayerName(i));
+        }
+        player_array.Unlock();
+        fputs("],\"connected\":", stderr);
+        fputs(connected ? "true" : "false", stderr);
+        fputs(",\"started\":", stderr);
+        fputs(started ? "true" : "false", stderr);
+        fputs(",\"map\":", stderr);
+        fprint_json_string(stderr, map_base);
+        fprintf(stderr, ",\"port\":%d}\n", port);
+      }
+      else if (strncmp(buf, "start", 5) == 0) {
+        player_array.Lock();
+        int max_players = map_info_list.map_ext_info.max_players;
+        if (player_array.GetCount() > max_players + 1) {
+          Warning("start: too many players for this map");
+          player_array.Unlock();
+          continue;
+        }
+        if (!player_array.EveryPlayerHasDifferentRace()) {
+          Warning("start: every player must have a different race");
+          player_array.Unlock();
+          continue;
+        }
+        player_array.Unlock();
+
+        giant->Lock();
+        if (host != NULL && host->GetType() == THOST::ht_leader) {
+          TLEADER *leader = dynamic_cast<TLEADER *>(host);
+          leader->SendPlayerArray(selected_map_name, true);
+        }
+        giant->Unlock();
+
+        TTIME clock;
+        if (!StartGame(clock.GetActual()))
+          Warning("start: StartGame failed");
+        else {
+          leader_ready = true;
+          giant->Lock();
+          if (host != NULL && host->GetType() == THOST::ht_leader) {
+            TLEADER *L = dynamic_cast<TLEADER *>(host);
+            if (player_array.AllRemoteReady()) {
+              allowed_to_start_process_function = true;
+              L->SendAllowProcessFunction();
+            }
+          }
+          giant->Unlock();
+        }
+      }
+    }
+#else
+    (void)running;
+    break;
+#endif
+    SDL_PumpEvents();
+  }
+
+  if (started)
+    StopGame();
+  Disconnect();
+}
+#endif /* HEADLESS */
 
 
 //=========================================================================

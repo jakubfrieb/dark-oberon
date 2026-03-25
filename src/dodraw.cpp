@@ -38,6 +38,7 @@
 #include "domouse.h"
 #include "doselection.h"
 
+#if !HEADLESS
 
 //=========================================================================
 // Global Variables
@@ -492,6 +493,83 @@ void TOST::Draw ()
   SDL_UnlockMutex (mutex);
 }
 
+#else /* HEADLESS */
+
+#include <cstdio>
+#include <cstring>
+
+TFPS fps;
+TFPS fps_of_update;
+TOST *ost = NULL;
+TGUI *gui = NULL;
+T_BYTE view_segment = DRW_ALL_SEGMENTS;
+TPROJECTION projection;
+bool reduced_drawing = false;
+bool show_all = false;
+
+void TPROJECTION::SetProjection(TPROJECTION_TYPE p)
+{
+  type = p;
+  GLfloat w = (GLfloat)(config.scr_width > 0 ? config.scr_width : 1024);
+  GLfloat h = (GLfloat)(config.scr_height > 0 ? config.scr_height : 768);
+  left = 0;
+  right = w;
+  top = h;
+  bottom = 0;
+  width = w;
+  height = h;
+  game_h_coef = 1.0f;
+  game_v_coef = 1.0f;
+}
+
+void TPROJECTION::Update() {}
+
+void TFPS::Update(double) {}
+
+void TFPS::Reset(void)
+{
+  frames_count = 0;
+  shift_time = 0;
+  fps = 0;
+}
+
+TOST::TOST()
+{
+  count = 0;
+  for (int i = 0; i < OST_MAX_LINES; i++)
+    unused_texts_stack[i] = i;
+  first = last = OST_NULL;
+  mutex = SDL_CreateMutex();
+}
+
+TOST::~TOST()
+{
+  if (mutex)
+    SDL_DestroyMutex(mutex);
+}
+
+void TOST::AddText(const char *s, double, float, float, float)
+{
+  (void)s;
+}
+
+bool TOST::Update(double) { return false; }
+
+void TOST::Draw() {}
+
+void InitOpenGL(void) {}
+
+void DrawFps(void) {}
+
+void DrawGame(void) {}
+
+void LogToOst(int level, const char *header, const char *msg)
+{
+  (void)level;
+  fprintf(stderr, "[%s] %s\n", header ? header : "", msg ? msg : "");
+}
+
+#endif /* !HEADLESS */
 
 //=========================================================================
 // END

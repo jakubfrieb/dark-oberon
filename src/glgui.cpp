@@ -221,6 +221,15 @@ void SetHoverBox(TGUI_BOX *box)
 // TGUI_TEXTURE
 //=========================================================================
 
+TGUI_TEXTURE::~TGUI_TEXTURE(void)
+{
+  if (id)
+    delete[] id;
+#if !HEADLESS
+  glDeleteTextures(1, &gl_id);
+#endif
+}
+
 void TGUI_TEXTURE::DrawFrame(int frame, GLfloat w, GLfloat h)
 {
   float fvwidth = (float)frame_width / width;    // frame virtual width in texture

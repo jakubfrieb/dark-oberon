@@ -1,0 +1,11 @@
+.git
+version-from-internet
+dat_unpacked
+.cursor
+logs
+*.o
+dark-oberon
+dark-oberon-server
+**/__pycache__
+**/*.pyc
+.pytest_cache

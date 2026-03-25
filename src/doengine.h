@@ -28,6 +28,8 @@
 #ifndef __doengine_h__
 #define __doengine_h__
 
+#include "cfg.h"
+
 
 //=========================================================================
 // Forward declarations
@@ -370,6 +372,11 @@ void SetOrderVisibility(bool vis);
 
 // preparing methods
 void PrepareSounds();
+
+#if HEADLESS
+/** Headless dedicated server main loop (CLI stdin: status | start | quit). */
+void RunDedicatedServer(const char *map_basename, int port);
+#endif
 
 
 //========================================================================

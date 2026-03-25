@@ -27,6 +27,8 @@
 #ifndef __dounits_h__
 #define __dounits_h__
 
+#include "cfg.h"
+
 //=========================================================================
 // Forward declarations
 //=========================================================================
@@ -163,12 +165,16 @@ class TMAP_POOLED_LIST;
 // Macros
 //========================================================================
 
+#if !HEADLESS
 #define SetUnitColor(style) \
   do { \
     if ((style) == DS_UNDERGROUND) glColor4f(1, 1, 1, 0.5f); \
     else if ((style) == DS_BUILDING) glColor4f(1, 1, 1, 0.3f); \
     else glColor3f(1, 1, 1); \
   } while(0)
+#else
+#define SetUnitColor(style) ((void)(style))
+#endif
 
 
 #define ReleaseCountedPointer(unit) \
@@ -201,7 +207,6 @@ enum TUNIT_ACTION {
 // Included Files
 //========================================================================
 
-#include "cfg.h"
 #include "doalloc.h"
 
 #include "doraces.h"
@@ -227,9 +232,15 @@ class TDRAW_UNIT {
 
 public:
 
+#if !HEADLESS
   virtual void Draw() { Draw(DS_NORMAL); };
   virtual void Draw(T_BYTE style);
   virtual void DrawToRadar() {};
+#else
+  virtual void Draw() {}
+  virtual void Draw(T_BYTE) {}
+  virtual void DrawToRadar() {}
+#endif
   virtual bool UpdateGraphics(double time_shift);
   virtual void Dead(bool local);                        // The method correctly kills the unit.
 
@@ -276,7 +287,7 @@ public:
   bool IsInActiveArea() { return in_active_area; }
 
 
-#if SOUND
+#if SOUND && !HEADLESS
   TSND_GROUP *snd_played;                       //!< Last played sound.
   /** Playes sound snd and stores it into snd_played.
       @param force 0 - dont play, 1 - stop previous, 2 - double play
@@ -290,6 +301,9 @@ public:
     snd_played = snd;
     snd->Play();
   }
+#elif SOUND
+  TSND_GROUP *snd_played;
+  void PlaySound(TSND_GROUP *, T_BYTE = 0) {}
 #endif
 
 

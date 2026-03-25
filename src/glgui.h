@@ -110,6 +110,7 @@ enum TGUI_SLIDER_TYPE {
 // Included files
 //=========================================================================
 
+#include "cfg.h"
 #include "doglfw_sdl.h"
 #include <stdio.h>
 #include <string.h>
@@ -171,8 +172,8 @@ public:
   void DrawFrame(int frame) { DrawFrame(frame, GLfloat(frame_width), GLfloat(frame_height)); }
   void DrawFrame(int frame, GLfloat w, GLfloat h);
 
-  /** Destructor */
-  ~TGUI_TEXTURE(void) { if (id) delete[] id; glDeleteTextures(1, &gl_id); };
+  /** Destructor (defined in glgui.cpp — uses OpenGL when HEADLESS=0). */
+  ~TGUI_TEXTURE(void);
 };
 
 
@@ -204,7 +205,11 @@ public:
    *  Draws actual frame of the animation.
    */
   void Draw()
+#if !HEADLESS
     { if (visible && tex_item) tex_item->DrawFrame(act_frame); }
+#else
+    { }
+#endif
   /**
    *  Draws actual frame of the animation with different size.
    *
@@ -212,7 +217,11 @@ public:
    *  @param height   New height.
    */
   void Draw(GLfloat w, GLfloat h)
+#if !HEADLESS
     { if (visible && tex_item) tex_item->DrawFrame(act_frame, w, h); }
+#else
+    { (void)w; (void)h; }
+#endif
 
   //! Assigns texture item @p titem to animation.
   bool SetTexItem(TGUI_TEXTURE *titem);
@@ -1176,8 +1185,18 @@ public:
 
   // message box
   TGUI_MESSAGE_BOX *GetMessageBox() { return message_box; }
-  void ShowMessageBox(const char *txt, int butt) { message_box->Show(txt, butt); }
-  void HideMessageBox() { message_box->Hide(); }
+  void ShowMessageBox(const char *txt, int butt)
+#if !HEADLESS
+    { message_box->Show(txt, butt); }
+#else
+    { (void)txt; (void)butt; }
+#endif
+  void HideMessageBox()
+#if !HEADLESS
+    { message_box->Hide(); }
+#else
+    { }
+#endif
 
   // events
   virtual bool MouseMove(GLfloat mouse_x, GLfloat mouse_y);

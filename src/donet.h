@@ -349,11 +349,14 @@ private:
   std::vector<SDL_Thread *> subthread_thread;
 
   int fd;   //!< File descriptior.
-  in_port_t port;  //!< Port on which the listener is listening.
+  in_port_t port;  //!< Port on which the listener is listening (0 = ephemeral).
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.
 
   void (* on_disconnect)(in_addr, in_port_t);
+
+  SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
+  bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
 };
 
 

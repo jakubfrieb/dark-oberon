@@ -85,6 +85,9 @@ public:
   void SendPingRequest ();
   void SendSynchronise ();
 
+  /** Ask the leader to start the game (same as host stdin / web "start"). */
+  void SendRequestStartGame ();
+
 
 private:
   bool have_my_address;

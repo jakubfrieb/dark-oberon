@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 
+#include "cfg.h"
 #include "doselection.h"
 #include "domouse.h"
 #include "doengine.h"
@@ -37,6 +38,7 @@
 
 TSELECTION *selection;       //!< Selection of units or one building.
 
+#if !HEADLESS
 
 //=========================================================================
 // class TSTORED_SELECTION
@@ -1272,6 +1274,78 @@ void TSELECTION::DeleteStoredUnit(int gid, TMAP_UNIT *unit)
   SDL_UnlockMutex(mutex);
 }
 
+#else /* HEADLESS */
+
+void TSTORED_SELECTION::Reset() {}
+
+void TSTORED_SELECTION::PrepareField(int) {}
+
+void TSTORED_SELECTION::DeleteUnit(TMAP_UNIT *) {}
+
+TSELECTION::TSELECTION(void)
+{
+  units = NULL;
+  units_count = 0;
+  is_my = false;
+  can_move = can_attack = can_mine = can_build = can_repair = false;
+  builder_item = NULL;
+  units_action = UA_NONE;
+  aggressivity_mode = AM_NONE;
+  timer = 0.0;
+  mutex = SDL_CreateMutex();
+}
+
+TSELECTION::~TSELECTION()
+{
+  if (mutex)
+    SDL_DestroyMutex(mutex);
+}
+
+void TSELECTION::SelectUnit(TMAP_UNIT *) {}
+
+void TSELECTION::AddDeleteUnit(TMAP_UNIT *) {}
+
+void TSELECTION::_AddUnit(TMAP_UNIT *, bool, bool) {}
+
+bool TSELECTION::DeleteUnit(TMAP_UNIT *) { return false; }
+
+void TSELECTION::_UnselectAll(bool) {}
+
+void TSELECTION::Update(double) {}
+
+void TSELECTION::UpdateInfo(bool, bool) {}
+
+void TSELECTION::UpdateAction(bool) {}
+
+void TSELECTION::DrawUnitsLines() {}
+
+bool TSELECTION::TestCanHide(TMAP_UNIT *) { return false; }
+
+bool TSELECTION::TestCanAttack(TMAP_UNIT *) { return false; }
+
+bool TSELECTION::TestCanMine(TSOURCE_UNIT *) { return false; }
+
+bool TSELECTION::TestCanUnload(TBUILDING_UNIT *) { return false; }
+
+bool TSELECTION::TestCanBuildOrRepair(TBASIC_UNIT *) { return false; }
+
+bool TSELECTION::TestCanBuild(TBUILDING_ITEM *, TPOSITION, bool **) { return false; }
+
+void TSELECTION::StopUnits() {}
+
+bool TSELECTION::ReactUnits() { return false; }
+
+bool TSELECTION::MoveUnits(TPOSITION) { return false; }
+
+void TSELECTION::SetAggressivity(TAGGRESSIVITY_MODE) {}
+
+void TSELECTION::StoreSelection(int) {}
+
+void TSELECTION::RestoreSelection(int, bool, bool) {}
+
+void TSELECTION::DeleteStoredUnit(int, TMAP_UNIT *) {}
+
+#endif /* !HEADLESS */
 
 //=========================================================================
 // END

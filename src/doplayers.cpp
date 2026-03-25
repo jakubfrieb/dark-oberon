@@ -1210,8 +1210,9 @@ bool TPLAYER_ARRAY::EveryPlayerHasDifferentRace () {
 
   bool ret = true;
 
-  for (int i = 0; i < GetCount (); i++) {
-    for (int j = 0; j < GetCount (); j++) {
+  /* Index 0 is HyperPlayer (system); do not require unique race vs real players. */
+  for (int i = 1; i < GetCount (); i++) {
+    for (int j = 1; j < GetCount (); j++) {
       if (i != j && GetRaceIdName (i) == GetRaceIdName (j))
         ret = false;
     }

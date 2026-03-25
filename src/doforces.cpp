@@ -1690,6 +1690,7 @@ bool TFORCE_UNIT::UpdateGraphics(double time_shift)
  */
 void TFORCE_UNIT::DrawLine()
 {
+#if !HEADLESS
   if (
     TestState(US_MOVE) || TestState(US_NEXT_STEP) ||
     TestState(US_LEFT_ROTATING) || TestState(US_RIGHT_ROTATING) ||
@@ -1709,6 +1710,7 @@ void TFORCE_UNIT::DrawLine()
     glEnd();
     glEnable(GL_TEXTURE_2D);
   }
+#endif
 }
 
 
@@ -1925,17 +1927,21 @@ void TFORCE_UNIT::SetViewDirection(int direction)
             if (local_map->map[seg_num][i][j].state == WLK_UNKNOWN_AREA) {
               local_map->map[seg_num][i][j].state  = 1;
               if (player == myself) {
+#if !HEADLESS
                  map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 0] = map.war_fog.tex[seg_num][tex_id + 0] = config.pr_warfog_color[0];
                  map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 1] = map.war_fog.tex[seg_num][tex_id + 1] = config.pr_warfog_color[1];
                  map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 2] = map.war_fog.tex[seg_num][tex_id + 2] = config.pr_warfog_color[2];
                  map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 3] = map.war_fog.tex[seg_num][tex_id + 3] = 0;
+#endif
                }
             }
             else {
               local_map->map[seg_num][i][j].state++;
 
               if (player == myself && local_map->map[seg_num][i][j].state == 1) {
+#if !HEADLESS
                 map.war_fog.tex[seg_num][tex_id + 3] = 0;
+#endif
               }
             }
 
@@ -1957,6 +1963,7 @@ void TFORCE_UNIT::SetViewDirection(int direction)
 
           // update warfog for multi segment view
           if (player == myself) {
+#if !HEADLESS
             int vis_seg = -1;
             int wf_seg = -1;
             for (int s = 2; s >= 0 && vis_seg < 0; s--)
@@ -1971,6 +1978,7 @@ void TFORCE_UNIT::SetViewDirection(int direction)
               map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 3] = map.war_fog.tex[vis_seg][tex_id + 3];
             else
               map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 3] = map.war_fog.tex[wf_seg][tex_id + 3];
+#endif
           }
 
         } // if IsSeenByUnit
@@ -1988,7 +1996,9 @@ void TFORCE_UNIT::SetViewDirection(int direction)
 
             if (!local_map->map[seg_num][i][j].state) {
               if (player == myself) {
+#if !HEADLESS
                 map.war_fog.tex[seg_num][tex_id + 3] = config.pr_warfog_color[3];
+#endif
               }
 
               local_map->map[seg_num][i][j].player_id = WLK_EMPTY_FIELD;
@@ -1997,6 +2007,7 @@ void TFORCE_UNIT::SetViewDirection(int direction)
 
           // update warfog for multi segment view
           if (player == myself) {
+#if !HEADLESS
             int vis_seg = -1;
             int wf_seg = -1;
             for (int s = 2; s >= 0 && vis_seg < 0; s--)
@@ -2011,6 +2022,7 @@ void TFORCE_UNIT::SetViewDirection(int direction)
               map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 3] = map.war_fog.tex[vis_seg][tex_id + 3];
             else
               map.war_fog.tex[DRW_ALL_SEGMENTS][tex_id + 3] = map.war_fog.tex[wf_seg][tex_id + 3];
+#endif
           }
 
         }  // if !IsSeenByUnit

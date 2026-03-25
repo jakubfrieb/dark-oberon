@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dark Oberon — Lobby</title>
+  <style>
+    :root {
+      --bg: #0f1114;
+      --panel: #1a1e24;
+      --border: #2d333b;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --ok: #3fb950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    header p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.875rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+    }
+    label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+    select, input[type="number"] {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      min-width: 12rem;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    .btn-primary { background: var(--accent); color: #0d1117; }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-small { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+    .meta { color: var(--muted); font-size: 0.8125rem; margin-bottom: 0.75rem; }
+    .players { font-size: 0.875rem; margin: 0.5rem 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-lobby { background: #3d2f00; color: #d29922; }
+    .badge-run { background: #033a16; color: var(--ok); }
+    .badge-dead { background: #3d0d0d; color: var(--danger); }
+    .row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    #msg { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; font-size: 0.875rem; display: none; }
+    #msg.err { display: block; background: #3d0d0d; border: 1px solid var(--danger); }
+    #msg.ok { display: block; background: #033a16; border: 1px solid var(--ok); }
+    .empty { color: var(--muted); text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dark Oberon — server lobby</h1>
+    {% if game_public_host %}
+    <p>Start headless game servers; clients connect to <strong>{{ game_public_host }}:&lt;port&gt;</strong> (TCP). In the game client use that full <code>host:port</code> string in the connect address field (or set <code>net_server_port</code> in <code>config.cfg</code> and hostname only).</p>
+    {% else %}
+    <p>Start headless game servers; clients connect to the published TCP port.</p>
+    {% endif %}
+  </header>
+  <main>
+    <div class="toolbar">
+      <div>
+        <label for="mapSelect">Map</label>
+        <select id="mapSelect"></select>
+      </div>
+      <div>
+        <label for="portInput">Port (optional)</label>
+        <input type="number" id="portInput" placeholder="auto" min="17000" max="17099">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button type="button" class="btn-primary" id="btnNew">New server</button>
+      </div>
+    </div>
+    <div id="msg"></div>
+    <section id="list"></section>
+  </main>
+  <script>
+    const POLL_MS = 2000;
+    const listEl = document.getElementById('list');
+    const mapSelect = document.getElementById('mapSelect');
+    const portInput = document.getElementById('portInput');
+    const msgEl = document.getElementById('msg');
+    const btnNew = document.getElementById('btnNew');
+
+    function showMsg(text, ok) {
+      msgEl.textContent = text;
+      msgEl.className = ok ? 'ok' : 'err';
+      msgEl.style.display = 'block';
+      if (ok) setTimeout(() => { msgEl.style.display = 'none'; }, 3000);
+    }
+
+    async function loadMaps() {
+      const r = await fetch('/api/maps');
+      const data = await r.json();
+      mapSelect.innerHTML = '';
+      (data.maps || []).forEach(m => {
+        const o = document.createElement('option');
+        o.value = m;
+        o.textContent = m;
+        mapSelect.appendChild(o);
+      });
+      if (!mapSelect.options.length) {
+        const o = document.createElement('option');
+        o.value = '';
+        o.textContent = '(no maps)';
+        mapSelect.appendChild(o);
+      }
+    }
+
+    function renderInstances(instances) {
+      if (!instances.length) {
+        listEl.innerHTML = '<div class="empty">No running servers. Create one above.</div>';
+        return;
+      }
+      listEl.innerHTML = instances.map(inst => {
+        const st = inst.status || {};
+        const players = (st.players || []).join(', ') || '—';
+        const started = !!st.started;
+        const alive = inst.alive;
+        const badge = !alive ? '<span class="badge badge-dead">stopped</span>'
+          : started ? '<span class="badge badge-run">in game</span>'
+          : '<span class="badge badge-lobby">lobby</span>';
+        return `
+          <div class="card" data-id="${inst.id}">
+            <h3>${badge} ${inst.map}</h3>
+            <div class="meta">${inst.connect ? `Connect <strong>${inst.connect}</strong>` : `TCP port <strong>${inst.port}</strong>`} · id <code style="font-size:0.75rem">${inst.id.slice(0, 8)}…</code></div>
+            <div class="players">Players: ${players}</div>
+            <div class="row-actions">
+              ${alive && !started ? `<button type="button" class="btn-primary btn-small" data-action="start" data-id="${inst.id}">Start game</button>` : ''}
+              ${alive ? `<button type="button" class="btn-danger btn-small" data-action="stop" data-id="${inst.id}">Stop</button>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+      listEl.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (btn.getAttribute('data-action') === 'start') startGame(id);
+          else stopServer(id);
+        });
+      });
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch('/api/instances');
+        const data = await r.json();
+        renderInstances(data.instances || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function startGame(id) {
+      try {
+        const r = await fetch('/api/instances/' + id + '/start', { method: 'POST' });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || r.statusText);
+        showMsg('Start sent to server.', true);
+        refresh();
+      } catch (e) {
+        showMsg(String(e.message || e), false);
+      }
+    }
+
+    async function stopServer(id) {
+      try {
+        const r = await fetch('/api/instances/' + id, { method: 'DELETE' });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || r.statusText);
+        showMsg('Server stopped.', true);
+        refresh();
+      } catch (e) {
+        showMsg(String(e.message || e), false);
+      }
+    }
+
+    btnNew.addEventListener('click', async () => {
+      const map = mapSelect.value;
+      if (!map) { showMsg('Select a map.', false); return; }
+      const body = { map };
+      const p = portInput.value.trim();
+      if (p) body.port = parseInt(p, 10);
+      try {
+        const r = await fetch('/api/instances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || r.statusText);
+        showMsg(data.connect ? ('Server started — ' + data.connect) : ('Server started on port ' + data.port), true);
+        refresh();
+      } catch (e) {
+        showMsg(String(e.message || e), false);
+      }
+    });
+
+    loadMaps();
+    refresh();
+    setInterval(refresh, POLL_MS);
+  </script>
+</body>
+</html>

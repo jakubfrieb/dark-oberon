@@ -24,9 +24,11 @@
  *  @date 2003, 2004
  */
 
+#include "cfg.h"
 #include "domouse.h"
 #include "doselection.h"
 
+#if !HEADLESS
 
 //=========================================================================
 // Variables
@@ -847,6 +849,46 @@ void TMOUSE::Center(void)
   glfwSetMousePos(x, y);
 }
 
+#else /* HEADLESS */
+
+TMOUSE mouse;
+
+GLfloat circle_color[MC_COUNT][3] = {
+  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+  {1.0f, 0.1f, 0.0f}, {1.0f, 0.1f, 0.0f}, {1.0f, 0.1f, 0.0f}, {1.0f, 1.0f, 1.0f},
+  {1.0f, 0.1f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.1f, 0.0f}, {1.0f, 1.0f, 1.0f},
+  {1.0f, 0.1f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.1f, 0.0f}, {1.0f, 1.0f, 1.0f},
+};
+
+void MouseToMap(GLfloat, GLfloat, double *mx, double *my)
+{
+  if (mx) *mx = 0;
+  if (my) *my = 0;
+}
+
+TMOUSE::TMOUSE(void) {}
+
+bool TMOUSE::LoadData(const char *) { return true; }
+
+void TMOUSE::DeleteData(void) {}
+
+void TMOUSE::Update(bool, double) {}
+
+void TMOUSE::UpdateCursorID(void) {}
+
+void TMOUSE::FindOverUnit(int) {}
+
+bool TMOUSE::RectSelect() { return false; }
+
+void TMOUSE::Draw(void) {}
+
+void TMOUSE::DrawSelection(void) {}
+
+void TMOUSE::DrawBuildMap(void) {}
+
+void TMOUSE::Center(void) {}
+
+#endif /* !HEADLESS */
 
 //=========================================================================
 // END

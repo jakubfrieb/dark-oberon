@@ -27,8 +27,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "cfg.h"
 #include "glfont.h"
 
+#if !HEADLESS
 
 //========================================================================
 // Variables
@@ -242,6 +244,17 @@ void glfDisable(int flag)
   glfSetEnable(flag, false);
 }
 
+#else /* HEADLESS */
+
+GLFfont *glfNewFont(GLuint, int, int, int, int, int, int, int, int) { return NULL; }
+void glfDeleteFont(GLFfont *) {}
+void glfSetFontBase(GLFfont *, int, int) {}
+void glfSetFontDisplayMode(GLFfont *, int, int) {}
+void glfDisable(int) {}
+void glfEnable(int) {}
+void glfPrint(GLFfont *, GLfloat, GLfloat, char *, bool) {}
+
+#endif /* !HEADLESS */
 
 //========================================================================
 // END

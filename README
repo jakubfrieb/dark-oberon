@@ -1,10 +1,26 @@
-		      ====================================
-		      Dark Oberon README for version 1.0.2
-		      ====================================
+    ====================================
+    Dark Oberon README
+    ====================================
 
-  Dark oberon is a real-time strategy released under GPL.
-  
-  Homepage: http://dark-oberon.sourceforge.net/
+Dark oberon is a real-time strategy released under GPL.
+
+Homepage: http://dark-oberon.sourceforge.net/
+
+Original Authors
+
+Valeria Sventova    <liberty@matfyz.cz>
+Jiri Krejsa         <crazych@matfyz.cz>
+Peter Knut          <peterpp@matfyz.cz>
+Martin Kosalko      <cauchy@matfyz.cz>
+Marian Cerny        <jojo@matfyz.cz>
+Michal Kral         <index@matfyz.cz>
+
+I am currently trying to modernise this version and getting it to run on modern
+operating systems. The build in this tree is maintained for Linux; see section 4
+for ways to run or compile on Windows.
+
+What currently works is adding Quads that display an image and playing music.
+Everything else is still WIP.
 
 Content
 =======
@@ -12,11 +28,12 @@ Content
   1. Requirements
   2. How to compile
   3. How to run
+  4. Windows (build / run)
 
 1. Requirements
 ===============
 
-Hardware requirements 
+Hardware requirements
 ---------------------
 
   o Athlon 1 GHz (or equivalent Pentium)
@@ -26,10 +43,8 @@ Hardware requirements
 Software requirements
 ---------------------
 
-  UNIX like OS (tested on FreeBSD and Linux).
-
-  Note: Dark Oberon works also under Windows 95+, but README is only for UNIX
-  like OSes.
+  UNIX-like OS for the default build (Linux is what this fork is tested on;
+  Windows options are described in section 4).
 
   Additional libraries required (Linux / current tree):
 
@@ -40,19 +55,14 @@ Software requirements
 2. How to compile
 =================
 
-   1. Download installation package dark-oberon-1.0.2.tar.gz
+   From a release tarball:
 
-   2. Extract it with command:
+   1. Extract, e.g.  tar xzf dark-oberon-1.0.2.tar.gz
+   2. cd dark-oberon-1.0.2/src
+   3. make
 
-       tar xzf dark-oberon-1.0.2.tar.gz
-
-   3. Change into created directory:
-
-       cd dark-oberon-1.0.2
-
-   4. Compile it with make:
-
-       make
+   From this git repository, use the same steps from the repository root or
+   enter src/ and run make.
 
    For sound and music, build from src/ with:
 
@@ -65,12 +75,57 @@ Software requirements
    packages for SDL2 / SDL2_mixer or adjust src/Makefile (SDL2_LIBS /
    SDL2_MIXER_LIBS).
 
-   If you had any troubles with compiling, tell us on our Help forum. The link
-   for the forum can be found at our homepage.
+   If you had any troubles with compiling, the original project help forum is
+   linked from the homepage above.
 
 3. How to run
 =============
 
-  You can run Dark Oberon with command:
+  You can run Dark Oberon with:
 
     ./dark-oberon
+
+4. Windows (build / run)
+========================
+
+  This repository's `src/Makefile` targets a typical Linux toolchain: GNU make,
+  `pkg-config` (or `sdl2-config`), and `-lGL` / `-lGLU`. It is not regularly
+  built on Windows here, but you still have several options.
+
+  A) Run the Linux build under WSL2 (most practical for this fork)
+  ----------------------------------------------------------------
+
+  Install a Linux distro in WSL2, then follow sections 1–3 inside that
+  environment (same packages as on native Linux; see `need_install.md` for
+  Arch/Manjaro-style names). You need a GUI path from WSL to Windows:
+
+    o Windows 11: WSLg often works out of the box for OpenGL/SDL apps.
+    o Otherwise: an X server on Windows (e.g. VcXsrv, X410) and correct
+      `DISPLAY`, or another supported graphics forwarding setup.
+
+  B) Use a legacy native Windows binary (original stack)
+  ------------------------------------------------------
+
+  The upstream project shipped Windows builds (older GLFW + FMOD stack), not
+  SDL2. The game homepage / SourceForge release may still provide them. A copy
+  of such a tree (including `dark-oberon.exe` and `dat/`) may also be kept
+  locally for reference only — it is not the same code path as this SDL2 fork.
+
+  C) Native compile on Windows (MSYS2 / MinGW-w64) — manual / unsupported
+  -------------------------------------------------------------------------
+
+  In principle you can install MSYS2, then the `mingw-w64-x86_64-gcc`,
+  `mingw-w64-x86_64-SDL2`, and (for sound) `mingw-w64-x86_64-SDL2_mixer`
+  packages, and try to compile from `src/` with a Makefile adjusted for Windows:
+
+    o Replace Linux GL link flags with MinGW equivalents, typically
+      `-lopengl32 -lglu32` instead of `-lGL -lGLU`.
+    o If `pkg-config` is unavailable in your shell, set `SDL2_CFLAGS` and
+      `SDL2_LIBS` (and mixer variables) by hand to match your install paths.
+    o Keep `-DUNIX=1` (as in the current Makefile) so the code uses the
+      POSIX-style networking paths that MinGW’s environment provides; do not
+      switch to `-DWINDOWS` unless you port the build to MSVC and Winsock.
+
+  There is no checked-in Windows project file; expect to maintain local Makefile
+  overrides or a small wrapper Makefile. Patches that add a clean, tested
+  Windows/MinGW target are welcome.

@@ -154,6 +154,7 @@ const char *EventToString(const int event)
 /**
  *  Method draws unit.
  */
+#if !HEADLESS
 void TDRAW_UNIT::Draw(T_BYTE style)
 {
   if (!visible || !in_active_area) return;
@@ -163,6 +164,7 @@ void TDRAW_UNIT::Draw(T_BYTE style)
 
   animation->Draw();
 }
+#endif
 
 
 /**

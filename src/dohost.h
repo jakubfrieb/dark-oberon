@@ -57,6 +57,7 @@ enum NetworkingProtocolMessage {
   net_protocol_synchronise  = 0x07,   //!< Synchronisation.
   net_protocol_disconnect   = 0x08,   //!< Disconnect message.
   net_protocol_ping         = 0x09,   //!< Ping request.
+  net_protocol_request_start = 0x0A,  //!< Follower asks leader to start the game.
   net_protocol_end
 };
 

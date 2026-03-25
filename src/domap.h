@@ -477,6 +477,7 @@ extern TRADAR radar;
 // Macros
 //=========================================================================
 
+#if !HEADLESS
 #define RadarPosition(x, y) \
 do { \
   glTranslated(radar.zoom * ((x) - (y)), \
@@ -498,6 +499,11 @@ do { \
   glLoadIdentity(); \
   MapPosition((x), (y)); \
 } while (0)
+#else
+#define RadarPosition(x, y) ((void)0)
+#define MapPosition(x, y) ((void)0)
+#define SetMapPosition(x, y) ((void)0)
+#endif
 
 
 //=========================================================================

@@ -1,0 +1,40 @@
+# Lobby UI: Traefik → https://oberon.cloud.digitalmind.cz (HTTP/S na portu 8080 uvnitř sítě).
+# Herní TCP: klienti se připojují na oberon-game.cloud.digitalmind.cz:<port> (17000–17009).
+# Nastav stejnou A záznamu na IP serveru jako u lobby; Traefik pro tyto porty neproxyuje (je to vlastní protokol).
+#
+# Stabilní project name = stejné labely/Traefik i když compose leží v /server nebo v repo/server/.
+# (Bez `name` by Compose bral název z nadřazené složky → jiný projekt než dřív z kořene repa → orphan / duplicitní kontejnery.)
+name: dark-oberon
+
+services:
+  lobby:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    ports:
+      - "17000-17009:17000-17009/tcp"
+    volumes:
+      - ../maps:/app/maps:ro
+    environment:
+      - PORT_RANGE_START=17000
+      - PORT_RANGE_END=17009
+      - DATA_DIR=/app
+      - WEB_PORT=8080
+      - GAME_PUBLIC_HOST=oberon-game.cloud.digitalmind.cz
+      # Veřejná doména = skenery; access log v kontejneru jen zahlcuje (Traefik má vlastní logy).
+      - GUNICORN_ACCESS_LOG=/dev/null
+    networks:
+      - public_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=public_proxy
+      - traefik.http.services.darkoberon-lobby.loadbalancer.server.port=8080
+      - traefik.http.routers.darkoberon-lobby.rule=Host(`oberon.cloud.digitalmind.cz`)
+      - traefik.http.routers.darkoberon-lobby.entrypoints=websecure
+      - traefik.http.routers.darkoberon-lobby.tls=true
+      - traefik.http.routers.darkoberon-lobby.tls.certresolver=lets-encr
+      - traefik.http.routers.darkoberon-lobby.service=darkoberon-lobby
+
+networks:
+  public_proxy:
+    external: true

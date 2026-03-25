@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "cfg.h"
 #include "doconfig.h"
 #include "dodata.h"
 #include "doengine.h"
@@ -103,7 +104,9 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
   }
 
   TGA_INFO tga;
+#if !HEADLESS
   int format, iformat;
+#endif
 
   char   header[257];
   T_BYTE version;
@@ -150,7 +153,9 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
     return false;
   }
 
+#if !HEADLESS
   glEnable(GL_TEXTURE_2D);
+#endif
 
   // texture groups table
   fseek(fr, textures_seek, SEEK_SET);
@@ -188,8 +193,12 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
       fread(&ttype, sizeof(ttype), 1, fr);
       fread(&dsize, sizeof(dsize), 1, fr);
 
+#if !HEADLESS
       // generate id for texture
       glGenTextures(1, &tex->gl_id);
+#else
+      tex->gl_id = 0;
+#endif
 
       // read TGA image
       if (!tgaRead(fr, &tga, TGA_RESCALE)) {
@@ -197,6 +206,7 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
         return false;
       }
 
+#if !HEADLESS
       if (tga.bytesperpixel == 3) format = iformat = GL_RGB;
       else format = iformat = GL_RGBA;
 
@@ -210,6 +220,7 @@ bool TTEX_TABLE::Load(const char *file_name, int mag_filter, int min_filter)
       if (min_filter == GL_NEAREST || min_filter == GL_LINEAR)
         glTexImage2D(GL_TEXTURE_2D, 0, iformat, tga.width, tga.height, 0, format, GL_UNSIGNED_BYTE, (void *)tga.data);
       else gluBuild2DMipmaps(GL_TEXTURE_2D, iformat, tga.width, tga.height, format, GL_UNSIGNED_BYTE, (void *)tga.data);
+#endif
 
       // fill texture
       tex->type = (TGUI_TEX_TYPE)ttype;
@@ -425,6 +436,11 @@ void TSND_TABLE::RefreshAllSfxVolumes(void)
  */
 bool LoadData(void)
 {
+#if HEADLESS
+  (void)sizeof(fonts_table);
+  Info("LoadData skipped (headless server)");
+  return true;
+#else
   Info("Loading data");
 
   if (fonts_table.Load(DAT_FONTS_NAME, config.tex_mag_filter, config.tex_min_filter) &&
@@ -447,6 +463,7 @@ bool LoadData(void)
     Critical("Can not load data.");
     return false;
   }
+#endif /* !HEADLESS */
 }
 
 /**
@@ -454,12 +471,16 @@ bool LoadData(void)
  */
 void DeleteData(void)
 {
+#if HEADLESS
+  return;
+#else
   fonts_table.Clear();
   mouse.DeleteData();
   gui_table.Clear();
 
 #if SOUND
   sounds_table.Clear();
+#endif
 #endif
 }
 
@@ -476,6 +497,10 @@ void DeleteData(void)
  */
 bool CreateFonts(void)
 {
+#if HEADLESS
+  font0 = NULL;
+  return true;
+#else
   // common font
   if ((font0 = glfNewFont(fonts_table.groups[DAT_TGID_BASIC_FONT].textures[0].gl_id,
                           128, 256,
@@ -490,6 +515,7 @@ bool CreateFonts(void)
     Critical("Can not create fonts");
     return false;
   }
+#endif /* !HEADLESS */
 }
 
 
@@ -498,7 +524,9 @@ bool CreateFonts(void)
  */
 void DestroyFonts(void)
 {
+#if !HEADLESS
   glfDeleteFont(font0);
+#endif
 }
 
 

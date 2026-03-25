@@ -351,23 +351,45 @@ void TNET_MESSAGE_QUEUE::Die () {
  */
 TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   this->port = port;
+  fd = -1;
   incoming_messages = NEW TNET_MESSAGE_QUEUE (queue_size);
   consumer_thread = NULL;
 
   on_disconnect = NULL;
+  bind_sem = SDL_CreateSemaphore (0);
+  listener_bind_ok = false;
+
+  if (bind_sem == NULL)
+    Critical ("Listener: SDL_CreateSemaphore failed");
 
   thread = SDL_CreateThread (listener_thread_function, "net_listen", this);
 
   if (thread == NULL) {
+    SDL_DestroySemaphore (bind_sem);
+    bind_sem = NULL;
     Critical ("Could not create listener thread");
+  }
+
+  SDL_SemWait (bind_sem);
+
+  if (!listener_bind_ok) {
+    SDL_WaitThread (thread, NULL);
+    thread = NULL;
+    SDL_DestroySemaphore (bind_sem);
+    bind_sem = NULL;
+    Critical ("Listener: could not bind (port in use or permission denied). "
+              "If you host a server on the same machine, use a follower listen port of 0 (auto).");
   }
 }
 
 TNET_LISTENER::~TNET_LISTENER () {
   incoming_messages->Die ();
 
-  shutdown (fd, 2);
-  do_close (fd);
+  if (fd >= 0) {
+    shutdown (fd, 2);
+    do_close (fd);
+    fd = -1;
+  }
 
   /* Wait until listener thread is dead. */
   if (thread)
@@ -376,6 +398,11 @@ TNET_LISTENER::~TNET_LISTENER () {
   /* Wait until consumer of incoming_messages is dead. */
   if (consumer_thread)
     SDL_WaitThread (consumer_thread, NULL);
+
+  if (bind_sem) {
+    SDL_DestroySemaphore (bind_sem);
+    bind_sem = NULL;
+  }
 
   delete incoming_messages;
 }
@@ -398,6 +425,9 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   if ((fd = socket (PF_INET, SOCK_STREAM, 0)) == -1) {
     Error (SOCKET_ERROR_MESSAGE ("Listener: Calling socket failed"));
+    self->fd = -1;
+    self->listener_bind_ok = false;
+    SDL_SemPost (self->bind_sem);
     return 0;
   }
 
@@ -418,8 +448,22 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   if (bind (fd, (struct sockaddr *)&address, sizeof (address)) == -1) {
     Error (SOCKET_ERROR_MESSAGE ("Listener: Error binding socket to address"));
+    do_close (fd);
+    self->fd = -1;
+    self->listener_bind_ok = false;
+    SDL_SemPost (self->bind_sem);
     return 0;
   }
+
+  if (self->port == 0) {
+    struct sockaddr_in sa;
+    socklen_t slen = sizeof (sa);
+    if (getsockname (fd, (struct sockaddr *)&sa, &slen) != -1)
+      self->port = ntohs (sa.sin_port);
+  }
+
+  self->listener_bind_ok = true;
+  SDL_SemPost (self->bind_sem);
 
   Info (LogMsg ("Listener running on port %hu", self->port));
 

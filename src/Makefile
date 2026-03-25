@@ -1,9 +1,10 @@
 SOUND ?= 1
 DEBUG ?= 0
+HEADLESS ?= 0
 
 CPP = g++ $(CPPFLAGS) $(INCLUDES) $(DEFINES)
 CPPFLAGS = -g -Wall -O
-DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG)
+DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG) -DHEADLESS=$(HEADLESS)
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cflags 2>/dev/null)
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
 SDL2_MIXER_CFLAGS := $(shell pkg-config --cflags SDL2_mixer 2>/dev/null)
@@ -18,7 +19,10 @@ ifeq ($(SOUND),1)
 INCLUDES += $(SDL2_MIXER_CFLAGS)
 LIBRARIES += $(SDL2_MIXER_LIBS)
 endif
+# Dedicated server is always SOUND=0; do not link SDL2_mixer (LIBRARIES is parsed before target-specific SOUND).
+SERVER_LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
 OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodraw.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
+OBJECTS_SERVER = $(filter-out doberon.o,$(OBJECTS)) doserver.o
 TARGETS = ../dark-oberon
 
 BUILD_INFO = build_info.h
@@ -42,7 +46,12 @@ checking: .checking
 	@touch .checking
 
 clean: 
-	rm -f $(OBJECTS) $(TARGETS) *core core.* tags $(BUILD_INFO)
+	rm -f $(OBJECTS) doserver.o $(TARGETS) ../dark-oberon-server *core core.* tags $(BUILD_INFO)
+
+# Same .o names as client but different -DHEADLESS/-DSOUND; always wipe before server link.
+# After `make server`, rebuild the GUI client with `make clean && make` (or `make ../dark-oberon`).
+clean-server:
+	rm -f $(OBJECTS) doserver.o ../dark-oberon-server
 
 tags: *.h *.cpp
 	-exctags * 2> /dev/null || ctags * 2> /dev/null
@@ -54,11 +63,25 @@ docs:
 ../dark-oberon: $(OBJECTS)
 	$(CPP) $(OBJECTS) $(LIBPATHS) $(LIBRARIES) -o ../dark-oberon
 
+# Dedicated headless server (relay leader); glgui still compiled with HEADLESS=0 for GL texture paths.
+server: $(BUILD_INFO)
+	@$(MAKE) clean-server
+	@$(MAKE) HEADLESS=1 SOUND=0 ../dark-oberon-server
+
+# Building the server object tree must use HEADLESS=1 (not only `make server` recursive invoke).
+../dark-oberon-server: HEADLESS = 1
+../dark-oberon-server: SOUND = 0
+../dark-oberon-server: $(OBJECTS_SERVER)
+	$(CPP) $(OBJECTS_SERVER) $(LIBPATHS) $(SERVER_LIBRARIES) -o ../dark-oberon-server
+
 doalloc.o: doalloc.cpp cfg.h doalloc.h dologs.h
 	$(CPP) -c doalloc.cpp
 
 doberon.o: doberon.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h utils.h
 	$(CPP) -c doberon.cpp
+
+doserver.o: doserver.cpp cfg.h doalloc.h doconfig.h doengine.h doevents.h dohost.h doipc.h dologs.h domap.h donet.h doplayers.h dosimpletypes.h utils.h
+	$(CPP) -c doserver.cpp
 
 dobuildings.o: dobuildings.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c dobuildings.cpp
@@ -157,7 +180,11 @@ glfont.o: glfont.cpp glfont.h
 	$(CPP) -c glfont.cpp
 
 glgui.o: glgui.cpp cfg.h doipc.h glfont.h glgui.h
+ifeq ($(HEADLESS),1)
+	g++ $(CPPFLAGS) $(INCLUDES) -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG) -DHEADLESS=0 -c glgui.cpp
+else
 	$(CPP) -c glgui.cpp
+endif
 
 tga.o: tga.cpp tga.h
 	$(CPP) -c tga.cpp

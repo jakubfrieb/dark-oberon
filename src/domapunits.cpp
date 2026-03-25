@@ -36,6 +36,7 @@
 #include <math.h>
 #include <stdarg.h>
 
+#include "cfg.h"
 #include "dodata.h"
 #include "dodraw.h"
 #include "dologs.h"
@@ -53,6 +54,7 @@
 // Definitions
 //=========================================================================
 
+#if !HEADLESS
 #define SET_FRAME_COLOR \
   do { \
     if (player == myself) glColor3f(0.5f, 0.8f, 0.5f); \
@@ -67,6 +69,10 @@
     else if (player == hyper_player) glColor3f(0.8f, 0.8f, 0); \
     else glColor3f(1, 0.2f, 0.2f); \
   } while(0)
+#else
+#define SET_FRAME_COLOR ((void)0)
+#define SET_RADAR_COLOR ((void)0)
+#endif
 
 
 //=========================================================================
@@ -75,6 +81,9 @@
 
 inline void DrawStatusCube(GLfloat x, GLfloat y, GLfloat l, GLfloat p, GLfloat r, GLfloat g, GLfloat b)
 {
+#if HEADLESS
+  (void)x; (void)y; (void)l; (void)p; (void)r; (void)g; (void)b;
+#else
   GLfloat lp = l * p;
 
   glBegin(GL_QUADS);
@@ -127,11 +136,15 @@ inline void DrawStatusCube(GLfloat x, GLfloat y, GLfloat l, GLfloat p, GLfloat r
     glVertex2d(x + UNI_LIFE_BAR_SIZE, y + UNI_LIFE_BAR_SIZE_2 + lp);
   }
   glEnd();
+#endif
 }
 
 
 inline void DrawStatusQuad(GLfloat x, GLfloat y, GLfloat w, GLfloat p, GLfloat r, GLfloat g, GLfloat b)
 {
+#if HEADLESS
+  (void)x; (void)y; (void)w; (void)p; (void)r; (void)g; (void)b;
+#else
   GLfloat wp = w * p;
 
   glBegin(GL_QUADS);
@@ -153,6 +166,7 @@ inline void DrawStatusQuad(GLfloat x, GLfloat y, GLfloat w, GLfloat p, GLfloat r
   }
 
   glEnd();
+#endif
 }
 
 
@@ -349,6 +363,10 @@ float TMAP_UNIT::Heal(const float value)
  */
 void TMAP_UNIT::Draw(T_BYTE style)
 {
+#if HEADLESS
+  (void)style;
+  return;
+#else
   if (!(visible || TestState(US_GHOST)) || !in_active_area) return;
 
   bool use_depth = false;
@@ -466,6 +484,7 @@ void TMAP_UNIT::Draw(T_BYTE style)
   }
 
   if (use_depth) glDisable(GL_DEPTH_TEST);
+#endif
 }
 
 
@@ -474,6 +493,9 @@ void TMAP_UNIT::Draw(T_BYTE style)
  */
 void TMAP_UNIT::DrawToRadar(void)
 {
+#if HEADLESS
+  return;
+#else
   if (!(visible || TestState(US_GHOST))) return;
 
   GLfloat zoom = radar.zoom;
@@ -499,6 +521,7 @@ void TMAP_UNIT::DrawToRadar(void)
 
   glEnable(GL_TEXTURE_2D);
   glPopMatrix();
+#endif
 }
 
 /**
@@ -506,6 +529,10 @@ void TMAP_UNIT::DrawToRadar(void)
  */
 void TMAP_UNIT::DrawBGSelection(T_BYTE style)
 {
+#if HEADLESS
+  (void)style;
+  return;
+#else
   TMAP_ITEM *pit = static_cast<TMAP_ITEM *>(pitem);
   T_BYTE w = pit->GetWidth();
   T_BYTE h = pit->GetHeight();
@@ -546,6 +573,7 @@ void TMAP_UNIT::DrawBGSelection(T_BYTE style)
   }
 
   glEnable(GL_TEXTURE_2D);
+#endif
 }
 
 
@@ -554,6 +582,10 @@ void TMAP_UNIT::DrawBGSelection(T_BYTE style)
  */
 void TMAP_UNIT::DrawFGSelection(T_BYTE style)
 {
+#if HEADLESS
+  (void)style;
+  return;
+#else
   TMAP_ITEM *pit = static_cast<TMAP_ITEM *>(pitem);
 
   T_BYTE w = pit->GetWidth();
@@ -615,6 +647,7 @@ void TMAP_UNIT::DrawFGSelection(T_BYTE style)
   }
 
   glEnable(GL_TEXTURE_2D);
+#endif
 }
 
 

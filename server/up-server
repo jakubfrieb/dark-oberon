@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE="$SERVER_DIR/docker-compose.yml"
+# Compose Bake vyžaduje buildx; bez něj WARN při každém buildu — klasický builder stačí.
+export COMPOSE_BAKE=false
+
+usage() {
+  echo "Usage: ${0##*/} [--rebuild]" >&2
+  echo "  --rebuild  docker compose build --no-cache, then up" >&2
+  exit 1
+}
+
+REBUILD=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      ;;
+    --rebuild)
+      REBUILD=true
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      ;;
+  esac
+  shift
+done
+
+if [[ "$REBUILD" == true ]]; then
+  docker compose -f "$COMPOSE" build --no-cache
+fi
+
+exec docker compose -f "$COMPOSE" up --remove-orphans

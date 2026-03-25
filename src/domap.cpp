@@ -281,7 +281,9 @@ TMAP_SEGMENT::~TMAP_SEGMENT()
 {
   Clear();
 
+#if !HEADLESS
   if (tex_radar_id) glDeleteTextures(1, &tex_radar_id);
+#endif
 }
 
 
@@ -406,6 +408,7 @@ do { \
  */
 void TMAP_SEGMENT::Draw(void)
 {
+#if !HEADLESS
   int i, j, k;
   T_BYTE seg_id = this - map.segments;
   double w;
@@ -477,6 +480,7 @@ void TMAP_SEGMENT::Draw(void)
     if (view_segment == DRW_ALL_SEGMENTS) glDisable(GL_DEPTH_TEST);
   }
   */
+#endif
 }
 
 
@@ -485,11 +489,13 @@ void TMAP_SEGMENT::Draw(void)
  */
 void TMAP_SEGMENT::DrawSurface(void)
 {
+#if !HEADLESS
   int i;
 
   glColor4f(1.0, 1.0, 1.0, 1.0);
   for (i = 0; i < terrf_count; i++) if (terrf[i]->IsInActiveArea()) terrf[i]->Draw();
   terrl.ApplyFunction(&TTERR_LAYER::Draw);
+#endif
 }
 
 
@@ -1092,6 +1098,7 @@ bool TWARFOG::Create(void)
   // fill texture and field
   for (i = 0; i < tex_all; i++) pom_tex[i] = (i % 4 == 3) ? 255 : 0;
   
+#if !HEADLESS
   glEnable(GL_TEXTURE_2D);
   
   // warfog texture
@@ -1107,6 +1114,10 @@ bool TWARFOG::Create(void)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void *)pom_tex);
+#else
+  tex_id = 0;
+  radar_tex_id = 0;
+#endif
 
   // delete temporary texture
   delete[] pom_tex;
@@ -1134,11 +1145,15 @@ void TWARFOG::Clear(void)
   x3_coord = y3_coord = 0;
 
   if (tex_id) {
+#if !HEADLESS
     glDeleteTextures(1, &tex_id);
+#endif
     tex_id = 0;
   }
   if (radar_tex_id) {
+#if !HEADLESS
     glDeleteTextures(1, &radar_tex_id);
+#endif
     radar_tex_id = 0;
   }
 
@@ -1154,6 +1169,10 @@ void TWARFOG::Clear(void)
  */
 void TWARFOG::Update(void)
 {
+#if HEADLESS
+  (void)sizeof(map);
+  return;
+#else
   // warfog texture
   glBindTexture(GL_TEXTURE_2D, tex_id);
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, map.width + MAP_AREA_SIZE + 1, map.height + MAP_AREA_SIZE + 1, GL_RGBA, GL_UNSIGNED_BYTE, tex[view_segment]);
@@ -1167,6 +1186,7 @@ void TWARFOG::Update(void)
     else
       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, map.width + MAP_AREA_SIZE + 1, map.height + MAP_AREA_SIZE + 1, GL_RGBA, GL_UNSIGNED_BYTE, tex[view_segment]);
   }
+#endif
 }
 
 
@@ -1175,6 +1195,9 @@ void TWARFOG::Update(void)
  */
 void TWARFOG::Draw(void)
 {
+#if HEADLESS
+  return;
+#else
   GLfloat px1 = (GLfloat)map.active_area.GetX();
   GLfloat py1 = (GLfloat)map.active_area.GetY();
   GLfloat pw = (GLfloat)map.active_area.GetWidth() + MAP_AREA_SIZE;
@@ -1202,6 +1225,7 @@ void TWARFOG::Draw(void)
     glTexCoord2f(x1, y2);
     glVertex2f(-ph * DAT_MAPEL_STRAIGHT_SIZE_2, ph * DAT_MAPEL_DIAGONAL_SIZE_2);
   glEnd();
+#endif
 }
 
 
@@ -1210,6 +1234,9 @@ void TWARFOG::Draw(void)
  */
 void TWARFOG::DrawToRadar(void)
 {
+#if HEADLESS
+  return;
+#else
   T_SIMPLE w = map.width;
   T_SIMPLE h = map.height;
   GLdouble zoom = radar.zoom;
@@ -1237,6 +1264,7 @@ void TWARFOG::DrawToRadar(void)
   glEnd();
 
   glPopMatrix();
+#endif
 }
 
 
@@ -1543,6 +1571,7 @@ void TMAP::MouseMove(int mflag)
  */
 void TMAP::Draw()
 {
+#if !HEADLESS
   // terrain segments
   if (view_segment == DRW_ALL_SEGMENTS) {
     for (int i = 0; i < DAT_SEGMENTS_COUNT; i++) segments[i].Draw();
@@ -1553,6 +1582,7 @@ void TMAP::Draw()
   if (!show_all) war_fog.Draw();
 
   DrawBorder();
+#endif
 }
 
 
@@ -1561,6 +1591,9 @@ void TMAP::Draw()
  */
 void TMAP::DrawBorder()
 {
+#if HEADLESS
+  return;
+#else
   int i, j;
   int tex_id;
 
@@ -1700,6 +1733,7 @@ void TMAP::DrawBorder()
   }
 
   glEnable(GL_TEXTURE_2D);
+#endif
 }
 
 
@@ -1708,6 +1742,9 @@ void TMAP::DrawBorder()
  */
 void TMAP::DrawToRadar()
 {
+#if HEADLESS
+  return;
+#else
   glColor3f(1, 1, 1);
   GLenum tex_id = 0;
 
@@ -1766,6 +1803,7 @@ void TMAP::DrawToRadar()
 
   glEnable(GL_TEXTURE_2D);
   glPopMatrix();
+#endif
 }
 
 
@@ -1840,7 +1878,9 @@ bool TMAP::LoadMap(char *name) // load map from file
   radar.dx = GLfloat(map.height) * DRW_RADAR_SIZE / (map.height + map.width);
   radar.zoom = radar.dx / map.height;
 
+#if !HEADLESS
   RenderRadarTextures();
+#endif
      
   return ok;
 }
@@ -2308,6 +2348,9 @@ bool TMAP::LoadMapPlayers()
  */
 void TMAP::RenderRadarTextures()
 {
+#if HEADLESS
+  return;
+#else
   GLubyte pom_tex[DRW_RADAR_TEX_SIZE * DRW_RADAR_TEX_SIZE * 3];
   int i;
 
@@ -2333,6 +2376,7 @@ void TMAP::RenderRadarTextures()
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, DRW_RADAR_TEX_SIZE, DRW_RADAR_TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, (void *)pom_tex);
   }
+#endif
 }
 
 
@@ -2342,6 +2386,9 @@ void TMAP::RenderRadarTextures()
 
 void TRADAR::Draw(void)
 {
+#if HEADLESS
+  return;
+#else
   map.DrawToRadar();
 
   double koef = radar.zoom / DAT_MAPEL_DIAGONAL_SIZE;
@@ -2371,6 +2418,7 @@ void TRADAR::Draw(void)
   glEnd();
 
   glEnable(GL_TEXTURE_2D);
+#endif
 }
 
 

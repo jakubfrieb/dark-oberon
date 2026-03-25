@@ -4,6 +4,8 @@
 
 #include "doglfw_sdl.h"
 
+#if !HEADLESS
+
 static SDL_Window *g_win = NULL;
 static SDL_GLContext g_ctx = NULL;
 
@@ -574,3 +576,45 @@ int glfwGetVideoModes(GLFWvidmode *list, int maxcount)
 
   return out;
 }
+
+#else /* HEADLESS */
+
+int glfwInit(void) { return 1; }
+void glfwTerminate(void) {}
+int glfwOpenWindow(int, int, int, int, int, int, int, int, int) { return 0; }
+void glfwCloseWindow(void) {}
+void glfwSetWindowTitle(const char *) {}
+void glfwGetWindowSize(int *width, int *height) {
+  if (width) *width = 0;
+  if (height) *height = 0;
+}
+void glfwGetFramebufferSize(int *width, int *height) {
+  if (width) *width = 0;
+  if (height) *height = 0;
+}
+void glfwSetWindowSize(int, int) {}
+void glfwRestoreWindow(void) {}
+void glfwSwapBuffers(void) {}
+void glfwSwapInterval(int) {}
+int glfwGetWindowParam(int) { return 0; }
+void glfwPollEvents(void) {}
+void glfwEnable(int) {}
+void glfwDisable(int) {}
+int glfwGetKey(int) { return 0; }
+int glfwGetMouseButton(int) { return 0; }
+void glfwGetMousePos(int *xpos, int *ypos) {
+  if (xpos) *xpos = 0;
+  if (ypos) *ypos = 0;
+}
+void glfwSetMousePos(int, int) {}
+int glfwGetMouseWheel(void) { return 0; }
+void glfwSetMouseWheel(int) {}
+void glfwSetWindowSizeCallback(GLFWwindowsizefun) {}
+void glfwSetKeyCallback(GLFWkeyfun) {}
+void glfwSetMouseButtonCallback(GLFWmousebuttonfun) {}
+void glfwSetMousePosCallback(GLFWmouseposfun) {}
+void glfwSetMouseWheelCallback(GLFWmousewheelfun) {}
+void glfwSetWindowRefreshCallback(GLFWwindowrefreshfun) {}
+int glfwGetVideoModes(GLFWvidmode *, int) { return 0; }
+
+#endif /* HEADLESS */

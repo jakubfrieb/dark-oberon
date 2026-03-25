@@ -139,6 +139,13 @@
 # endif
 #endif
 
+/**
+ *  When 1, build without OpenGL/window (dedicated server). Set via -DHEADLESS=1.
+ */
+#ifndef HEADLESS
+#define HEADLESS 0
+#endif
+
 #endif // __cfg_h__
 
 //========================================================================

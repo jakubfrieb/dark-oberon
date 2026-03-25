@@ -5,9 +5,28 @@
 #ifndef __doglfw_sdl_h__
 #define __doglfw_sdl_h__
 
+#include "cfg.h"
 #include <SDL2/SDL.h>
 
-#if defined(__APPLE_CC__) || defined(__APPLE__)
+#if HEADLESS
+/* No libGL on dedicated server; types/constants only for compiling headers. */
+typedef unsigned char GLboolean;
+typedef unsigned char GLubyte;
+typedef int GLint;
+typedef unsigned int GLuint;
+typedef unsigned int GLenum;
+typedef float GLfloat;
+typedef double GLdouble;
+typedef int GLsizei;
+
+#define GL_LINEAR                         0x2601
+#define GL_NEAREST                        0x2600
+#define GL_LINEAR_MIPMAP_NEAREST          0x2701
+#define GL_LINEAR_MIPMAP_LINEAR           0x2703
+#define GL_NEAREST_MIPMAP_NEAREST         0x2700
+#define GL_NEAREST_MIPMAP_LINEAR          0x2702
+
+#elif defined(__APPLE_CC__) || defined(__APPLE__)
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #else
