@@ -919,6 +919,10 @@ public:
   /** Returns reference to products list.*/
   TLIST_OF_PRODUCTS& GetProductsList()
     {return products;};
+
+  /** True if the factory can queue at least one unit type (production UI / rally). */
+  bool HasAnyProduct() const
+    { return products.GetFirstNode() != NULL; }
   
   //! Constructor.
   TFACTORY_ITEM():TBUILDING_ITEM()

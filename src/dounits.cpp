@@ -138,6 +138,7 @@ const char *EventToString(const int event)
   case RQ_ZOMBIE:             return "RQ_ZOMBIE";
   case RQ_DELETE:             return "RQ_DELETE";
   case RQ_FEEDING:            return "RQ_FEEDING";
+  case RQ_SYNC_RALLY:         return "RQ_SYNC_RALLY";
 
   default:                    return "ENDEFINED";
   }

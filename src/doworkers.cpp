@@ -33,6 +33,7 @@
 #include <math.h>
 
 #include "dodata.h"
+#include "dodevcheat.h"
 #include "dodraw.h"
 #include "dologs.h"
 #include "domouse.h"
@@ -1732,8 +1733,23 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
         Build();
         new_state = US_NEXT_CONSTRUCTING;
       }
-      
-      new_time_stamp = proc_event->GetTimeStamp() + itm->GetRepairingTime();
+
+      {
+        float work_remaining = 1.f;
+        if (proc_event->TestEvent(US_REPAIRING)) {
+          TBASIC_UNIT *bru = dynamic_cast<TBASIC_UNIT *>(built_or_repaired_unit);
+          if (bru) {
+            int max_life = static_cast<TBASIC_ITEM *>(bru->GetPointerToItem())->GetMaxLife();
+            work_remaining = static_cast<float>(max_life) - bru->GetLife();
+            if (work_remaining < 1.f)
+              work_remaining = 1.f;
+          }
+        } else {
+          TBUILDING_UNIT *building = (TBUILDING_UNIT *)built_or_repaired_unit;
+          work_remaining = building->GetPrepayed();
+        }
+        new_time_stamp = proc_event->GetTimeStamp() + DevCheatsEffectiveRepairDelta(itm->GetRepairingTime(), work_remaining);
+      }
  
       // send event to queue
       SendEvent(false, new_time_stamp, new_state, -1, pos.x, pos.y, pos.segment, move_direction);
@@ -3168,7 +3184,7 @@ bool TWORKER_UNIT::CanBuildOrRepair(TBASIC_UNIT *unit, bool write_msg, bool auto
   TWORKER_ITEM* it = static_cast<TWORKER_ITEM*>(pitem);
   bool ok;
 
-  ok = (unit->GetPlayer() == myself);
+  ok = (unit->GetPlayer() == GetPlayer());
   if (!ok && write_msg) MessageText(false, "Can not buid or repair enemy unit.");
 
   if (ok) {

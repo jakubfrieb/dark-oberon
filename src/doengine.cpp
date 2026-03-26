@@ -53,6 +53,7 @@
 
 #include <atomic>
 #include <cctype>
+#include <cstdlib>
 #include <cmath>
 #include <string>
 
@@ -62,9 +63,11 @@
 #include "dofollower.h"
 #include "doengine.h"
 #include "dodraw.h"
+#include "dodevcheat.h"
 #include "domap.h"
 #include "domouse.h"
 #include "doplayers.h"
+#include "doai.h"
 #include "doleader.h"
 #include "doselection.h"
 #include "dosimpletypes.h"
@@ -108,6 +111,7 @@ using std::string;
 #define MNU_PLAY2             15
 #define MNU_MAP_LIST          16
 #define MNU_KILL_PLAYER       17
+#define MNU_ADD_COMPUTER      18
 
 // options menu keys
 #define MNU_VIDEO             21
@@ -122,6 +126,7 @@ using std::string;
 #define MNU_1152              35
 #define MNU_1280              36
 #define MNU_1600              37
+#define MNU_1920              38
 
 // filters keys
 #define MNU_TF_NEAREST        40
@@ -320,10 +325,12 @@ TGUI_PANEL *active_menu = NULL;
 TGUI_PANEL *main_panel = NULL;
 TGUI_PANEL *little_panel = NULL;
 TGUI_PANEL *chat_panel = NULL;
+TGUI_PANEL *dev_console_panel = NULL;
 TGUI_PANEL *radar_panel = NULL;
 bool main_panel_visible = true;
 
 TGUI_EDIT_BOX *chat_edit = NULL;
+TGUI_EDIT_BOX *dev_console_edit = NULL;
 
 // menu objects
 TGUI_EDIT_BOX *ip_edit = NULL;
@@ -357,6 +364,7 @@ TGUI_SCROLL_BOX *map_info_scroll = NULL;
 TGUI_LABEL     *pl_name_label[PL_MAX_PLAYERS];
 TGUI_COMBO_BOX *pl_race_combo[PL_MAX_PLAYERS];
 TGUI_BUTTON    *pl_kill_button[PL_MAX_PLAYERS];
+TGUI_BUTTON    *add_comp_button = NULL;
 
 // loading game
 TGUI_PANEL     *load_panel = NULL;
@@ -1084,7 +1092,12 @@ void ToggleMainPanel()
   if (chat_panel->IsVisible()) {
     chat_panel->SetAlpha(main_panel->IsVisible() ? GAME_PANEL_ALPHA : 0);
   }
-  else little_panel->ToggleVisible();
+  if (dev_console_panel && dev_console_panel->IsVisible()) {
+    dev_console_panel->SetAlpha(main_panel->IsVisible() ? GAME_PANEL_ALPHA : 0);
+  }
+  if (!chat_panel->IsVisible() && !(dev_console_panel && dev_console_panel->IsVisible())) {
+    little_panel->ToggleVisible();
+  }
 
   if (radar.IsHideable()) radar_panel->SetVisible(main_panel->IsVisible());
   if (!radar_panel->IsVisible() && radar.GetMoving()) radar.SetMoving(false);
@@ -1102,9 +1115,35 @@ void ToggleRadarPanel()
 }
 
 
+void ToggleChatPanel();
+
+void ToggleDevConsole()
+{
+  if (!dev_console_panel)
+    return;
+
+  if (!dev_console_panel->IsVisible()) {
+    if (chat_panel->IsVisible())
+      ToggleChatPanel();
+    little_panel->Hide();
+    dev_console_panel->SetAlpha(main_panel->IsVisible() ? GAME_PANEL_ALPHA : 0);
+    dev_console_panel->Show();
+    dev_console_edit->Focus();
+  }
+  else {
+    little_panel->SetVisible(main_panel->IsVisible());
+    dev_console_panel->Hide();
+    dev_console_edit->Unfocus();
+    dev_console_edit->SetText(NULL);
+  }
+}
+
+
 void ToggleChatPanel()
 {
   if (!chat_panel->IsVisible()) {
+    if (dev_console_panel && dev_console_panel->IsVisible())
+      ToggleDevConsole();
     little_panel->Hide();
     chat_panel->SetAlpha(main_panel->IsVisible() ? GAME_PANEL_ALPHA : 0);
     chat_panel->Show();
@@ -1247,6 +1286,9 @@ void UpdateGameMenu()
     pl_race_combo[i]->SetVisible (false);
     pl_kill_button[i]->SetVisible (false);
   }
+
+  if (add_comp_button)
+    add_comp_button->SetVisible (leader);
 
   /* Something could change. */
   need_redraw->SetTrue ();
@@ -1566,6 +1608,42 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     player_array.Unlock ();
     break;
 
+  case MNU_ADD_COMPUTER:
+    if (host && host->GetType () == THOST::ht_leader) {
+      player_array.Lock ();
+      {
+        int max_p = map_info_list.map_ext_info.max_players;
+        if (player_array.GetCount () >= max_p + 1) {
+#if !HEADLESS
+          gui->ShowMessageBox ("Too many players for this map.", GUI_MB_OK);
+#endif
+        } else {
+          player_array.AddComputerPlayer ();
+          host->AddEmptyAddress ();
+          int idx = player_array.GetCount () - 1;
+          string chosen;
+          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
+            bool taken = false;
+            for (int j = 0; j < player_array.GetCount (); j++) {
+              if (player_array.GetRaceIdName (j) == string (r->id_name)) {
+                taken = true;
+                break;
+              }
+            }
+            if (!taken) {
+              chosen = r->id_name;
+              break;
+            }
+          }
+          if (!chosen.empty ())
+            player_array.SetRaceIdName (idx, chosen);
+        }
+      }
+      player_array.Unlock ();
+      UpdatePlayersAndMenu ();
+    }
+    break;
+
   case MNU_CREATE2:
     action_key = MNU_CREATE2;
 
@@ -1790,6 +1868,14 @@ void MenuCheckBoxOnClick(intptr_t key)
     config.scr_height = 1200;
     config.file->WriteStr("resolution", "1600x1200");
     glfwSetWindowSize(1600, 1200);
+    state = ST_RESET_VIDEO_MENU;
+    break;
+
+  case MNU_1920:
+    config.scr_width = 1920;
+    config.scr_height = 1080;
+    config.file->WriteStr("resolution", "1920x1080");
+    glfwSetWindowSize(1920, 1080);
     state = ST_RESET_VIDEO_MENU;
     break;
 
@@ -2153,7 +2239,16 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
     break;
 
   case GLFW_MOUSE_BUTTON_RIGHT:
-    switch (mouse.cursor_id) {
+    if (selection->TestCanSetRally() && map.IsInMap(mouse.map_pos.x, mouse.map_pos.y) && !mouse.over_unit) {
+      TFACTORY_UNIT *fu = static_cast<TFACTORY_UNIT *>(selection->GetFirstUnit());
+      T_BYTE seg = view_segment;
+      if (seg == DRW_ALL_SEGMENTS)
+        seg = fu->GetPosition().segment;
+      TPOSITION_3D goal;
+      goal.SetPosition(mouse.map_pos.x, mouse.map_pos.y, seg);
+      fu->SetRallyGoalFromLocal(goal);
+      mouse.action = UA_NONE;
+    } else switch (mouse.cursor_id) {
     case MC_SELECT:
     case MC_CAN_MOVE:
     case MC_CANT_MOVE:
@@ -2182,8 +2277,10 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
     case MC_CANT_BUILD:
       {
         TBUILDING_UNIT *building;
+        TWORKER_UNIT *build_worker = selection->GetBuildWorker();
 
-        if (myself->build_item && ((building = ((TWORKER_UNIT *)selection->GetFirstUnit())->StartBuild(myself->build_item, mouse.map_pos, false)))) {
+        if (myself->build_item && build_worker &&
+            (building = build_worker->StartBuild(myself->build_item, mouse.map_pos, false))) {
 
           // other units iterract with new building
           TNODE_OF_UNITS_LIST *ul = selection->GetUnitsList();
@@ -2515,6 +2612,129 @@ void GameBuildOnTooltip(TGUI_BOX *sender)
 // Game Key Callbacks
 //========================================================================
 
+#if !HEADLESS
+static void DevConsoleOstLineSink(void *user, const char *line)
+{
+  TOST *o = static_cast<TOST *>(user);
+  if (o && line)
+    o->AddText(line);
+}
+
+static void ProcessDevConsoleCommand(const char *raw)
+{
+  if (!raw)
+    return;
+  while (*raw == ' ' || *raw == '\t')
+    raw++;
+  if (!*raw)
+    return;
+
+  string line(raw);
+  while (!line.empty() && (line.back() == ' ' || line.back() == '\t'))
+    line.pop_back();
+  if (line.empty())
+    return;
+
+  string cmd;
+  string arg;
+  size_t sp = line.find(' ');
+  if (sp == string::npos) {
+    cmd = line;
+  } else {
+    cmd = line.substr(0, sp);
+    arg = line.substr(sp + 1);
+    while (!arg.empty() && (arg[0] == ' ' || arg[0] == '\t'))
+      arg.erase(0, 1);
+    while (!arg.empty() && (arg.back() == ' ' || arg.back() == '\t'))
+      arg.pop_back();
+  }
+
+  for (size_t i = 0; i < cmd.size(); i++)
+    cmd[i] = (char)tolower((unsigned char)cmd[i]);
+  for (size_t i = 0; i < arg.size(); i++)
+    arg[i] = (char)tolower((unsigned char)arg[i]);
+
+  if (cmd == "help") {
+    ost->AddText("Dev: map | map off | resource [all] | speed on | speed off");
+    ost->AddText("Dev: logs | logs on | logs off | logs think on | logs think off | logs <cpu_slot>");
+    return;
+  }
+  if (cmd == "map") {
+    if (arg == "off") {
+      DevCheatsSetRevealMap(false);
+      ost->AddText("Dev: war fog restored");
+    } else {
+      DevCheatsSetRevealMap(true);
+      ost->AddText("Dev: full map reveal");
+    }
+    return;
+  }
+  if (cmd == "resource") {
+    if (arg == "all") {
+      int n = player_array.GetCount();
+      for (int i = 1; i < n; i++) {
+        if (players[i])
+          DevCheatsApplyResources(players[i]);
+      }
+      ost->AddText("Dev: +10000 each material (all players)");
+    } else if (arg.empty()) {
+      DevCheatsApplyResources(myself);
+      ost->AddText("Dev: +10000 each material");
+    } else {
+      ost->AddText("Dev: resource [all]");
+    }
+    return;
+  }
+  if (cmd == "speed") {
+    if (arg == "off") {
+      dev_fast_timers = false;
+      ost->AddText("Dev: normal build/train times");
+    } else {
+      dev_fast_timers = true;
+      ost->AddText("Dev: ~1s build and train steps");
+    }
+    return;
+  }
+  if (cmd == "logs") {
+    if (arg.empty()) {
+      TAI_EmitCpuPlayersListLines(DevConsoleOstLineSink, ost);
+      return;
+    }
+    if (arg == "enable" || arg == "on") {
+      TAI_SetPhaseTransitionLogging(true);
+      ost->AddText("Dev: AI phase-change log on (stderr)");
+      return;
+    }
+    if (arg == "think" || arg == "think on") {
+      TAI_SetThinkTraceLogging(true);
+      ost->AddText("Dev: AI think trace on (stderr)");
+      return;
+    }
+    if (arg == "think off") {
+      TAI_SetThinkTraceLogging(false);
+      ost->AddText("Dev: AI think trace off");
+      return;
+    }
+    if (arg == "off") {
+      TAI_SetPhaseTransitionLogging(false);
+      TAI_SetThinkTraceLogging(false);
+      ost->AddText("Dev: AI phase + think trace off");
+      return;
+    }
+    char *endp = NULL;
+    long slot = std::strtol(arg.c_str(), &endp, 10);
+    if (endp != arg.c_str() && endp && *endp == '\0' && slot >= 0)
+      TAI_EmitPlayerAIDumpLines(static_cast<int>(slot), DevConsoleOstLineSink, ost);
+    else
+      ost->AddText("Dev: logs | logs on | logs off | logs think on | logs think off | logs <cpu_slot>");
+    return;
+  }
+
+  ost->AddText("Dev: unknown command (try help)");
+}
+#endif
+
+
 /**
  *  This function is called when we are in game (#state == #ST_GAME) and a key
  *  was pressed.
@@ -2528,12 +2748,29 @@ void GameOnKeyDown(int key)
   return;
 #else
   if (!started) return;
+
+  if (key == '`') {
+    if (!dev_console_panel || !dev_console_panel->IsVisible()) {
+      ToggleDevConsole();
+      return;
+    }
+    if (TGUI::focus_box == static_cast<TGUI_BOX *>(dev_console_edit)) {
+      if (gui->KeyDown(key))
+        return;
+      return;
+    }
+    ToggleDevConsole();
+    return;
+  }
+
   if (gui->KeyDown(key)) return;
 
   switch (key) {
  
   case GLFW_KEY_ESC:
-    if (chat_panel->IsVisible()) ToggleChatPanel();
+    if (dev_console_panel && dev_console_panel->IsVisible())
+      ToggleDevConsole();
+    else if (chat_panel->IsVisible()) ToggleChatPanel();
     else if (mouse.draw_selection) mouse.draw_selection = false;
     else if (mouse.action == UA_NONE) {
       radar.SetMoving(false);
@@ -2552,7 +2789,11 @@ void GameOnKeyDown(int key)
 
   case GLFW_KEY_ENTER:
   case GLFW_KEY_KP_ENTER:
-    if (chat_panel->IsVisible()) {
+    if (dev_console_panel && dev_console_panel->IsVisible()) {
+      ProcessDevConsoleCommand(dev_console_edit->GetText());
+      dev_console_edit->SetText(NULL);
+    }
+    else if (chat_panel->IsVisible()) {
       char txt[1024];
       sprintf(txt, "%s: %s", myself->name, chat_edit->GetText());
       host->SendChatMessage(chat_edit->GetText());
@@ -3401,9 +3642,11 @@ void ClearGuiVars()
   main_panel = NULL;
   little_panel = NULL;
   chat_panel = NULL;
+  dev_console_panel = NULL;
   radar_panel = NULL;
 
   chat_edit = NULL;
+  dev_console_edit = NULL;
 
   ip_edit = NULL;
   ip_label = NULL;
@@ -3645,11 +3888,9 @@ void CreateMenuGUI()
     button->SetFontColor(0, 0, 0);
   }
 
-  /*
   add_comp_button = button = panel->AddButton(MNU_ADD_COMPUTER, 446, 150, 100, 16, "Add computer");
   button->SetFontColor(0, 0, 0);
   button->SetOnMouseClick(MenuButtonOnClick);
-  */
 
   // options menu
   if (config.scr_height >= 600) y = GLfloat(config.scr_height / 2 - 128 + 40);
@@ -3725,6 +3966,10 @@ void CreateMenuGUI()
         else if (vid_modes[i].Width == 1600 && vid_modes[i].Height == 1200) {
           check = panel->AddGroupBox(MNU_1600, x, y, check_width, 17, "1600x1200", 1);
           w = 1600;
+        }
+        else if (vid_modes[i].Width == 1920 && vid_modes[i].Height == 1080) {
+          check = panel->AddGroupBox(MNU_1920, x, y, check_width, 17, "1920x1080", 1);
+          w = 1920;
         }
 
         if (w) {
@@ -3939,6 +4184,18 @@ void CreateGameGUI()
   label->SetOnMouseUp(GameOnMouseUp);
 
   chat_edit = edit = panel->AddEditBox(0, 40, 2, panel->GetWidth() - 40, 17, 256);
+  edit->SetAlpha(0);
+  edit->SetPadding(0);
+  edit->SetOnMouseUp(GameOnMouseUp);
+
+  // developer console (local commands only; key `)
+  dev_console_panel = panel = gui->AddPanel(0, 0, 22, GLfloat(config.scr_width - 200), 20);
+  SetGamePanel(false);
+
+  label = panel->AddLabel(0, 10, 2, "Dev:");
+  label->SetOnMouseUp(GameOnMouseUp);
+
+  dev_console_edit = edit = panel->AddEditBox(0, 40, 2, panel->GetWidth() - 40, 17, 256);
   edit->SetAlpha(0);
   edit->SetPadding(0);
   edit->SetOnMouseUp(GameOnMouseUp);
@@ -4612,6 +4869,15 @@ static int SDLCALL ProcessFunction(void *arg)
       pool_events->PutToPool(act_event);
     }
 
+    {
+      int pc = player_array.GetCount ();
+      for (int ai = 1; ai < pc; ai++) {
+        if (players[ai] && players[ai]->active && player_array.IsComputer (ai)
+            && !player_array.IsRemote (ai))
+          players[ai]->UpdateAI (time.GetShift ());
+      }
+    }
+
     // sleep that long, we get 50 fps
     time.SleepToGetExpectedFrameDuration (0.02);
   }
@@ -5004,7 +5270,7 @@ void RunDedicatedServer(const char *map_basename, int port)
 
   fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
   fprintf(stderr, "Clients connect to this host:%d — then type: start\n", port);
-  fprintf(stderr, "Commands: status | players | start | quit\n");
+  fprintf(stderr, "Commands: status | players | addcpu | start | quit | logs ...\n");
 
   bool running = true;
   while (running) {
@@ -5041,6 +5307,87 @@ void RunDedicatedServer(const char *map_basename, int port)
         fputs(",\"map\":", stderr);
         fprint_json_string(stderr, map_base);
         fprintf(stderr, ",\"port\":%d}\n", port);
+      }
+      else if (strncmp(buf, "addcpu", 6) == 0) {
+        player_array.Lock();
+        int max_p = map_info_list.map_ext_info.max_players;
+        if (player_array.GetCount() >= max_p + 1) {
+          Warning("addcpu: too many players for this map");
+          player_array.Unlock();
+          continue;
+        }
+        player_array.AddComputerPlayer();
+        if (host)
+          host->AddEmptyAddress();
+        {
+          int idx = player_array.GetCount() - 1;
+          string chosen;
+          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
+            bool taken = false;
+            for (int j = 0; j < player_array.GetCount(); j++) {
+              if (player_array.GetRaceIdName(j) == string(r->id_name)) {
+                taken = true;
+                break;
+              }
+            }
+            if (!taken) {
+              chosen = r->id_name;
+              break;
+            }
+          }
+          if (!chosen.empty())
+            player_array.SetRaceIdName(idx, chosen);
+        }
+        player_array.Unlock();
+        fprintf(stderr, "addcpu: players=%d\n", player_array.GetCount());
+      }
+      else if (strncmp(buf, "logs", 4) == 0) {
+        const char *p = buf + 4;
+        while (*p == ' ' || *p == '\t')
+          p++;
+        if (*p == '\0' || *p == '\n' || *p == '\r') {
+          TAI_LogListCpuPlayers(stderr);
+        } else if (strncmp(p, "enable", 6) == 0
+                   && (p[6] == '\0' || p[6] == ' ' || p[6] == '\t' || p[6] == '\n'
+                       || p[6] == '\r')) {
+          TAI_SetPhaseTransitionLogging(true);
+          fputs("logs: phase transition logging on\n", stderr);
+        } else if (p[0] == 'o' && p[1] == 'n'
+                   && (p[2] == '\0' || p[2] == ' ' || p[2] == '\t' || p[2] == '\n'
+                       || p[2] == '\r')) {
+          TAI_SetPhaseTransitionLogging(true);
+          fputs("logs: phase transition logging on\n", stderr);
+        } else if (strncmp(p, "think", 5) == 0) {
+          const char *q = p + 5;
+          while (*q == ' ' || *q == '\t')
+            q++;
+          if (*q == '\0' || *q == '\n' || *q == '\r'
+              || (q[0] == 'o' && q[1] == 'n'
+                  && (q[2] == '\0' || q[2] == ' ' || q[2] == '\t' || q[2] == '\n' || q[2] == '\r'))) {
+            TAI_SetThinkTraceLogging(true);
+            fputs("logs: AI think trace on\n", stderr);
+          } else if (q[0] == 'o' && q[1] == 'f' && q[2] == 'f'
+                     && (q[3] == '\0' || q[3] == ' ' || q[3] == '\t' || q[3] == '\n'
+                         || q[3] == '\r')) {
+            TAI_SetThinkTraceLogging(false);
+            fputs("logs: AI think trace off\n", stderr);
+          } else {
+            fputs("logs: usage — logs think | logs think on | logs think off | …\n", stderr);
+          }
+        } else if (strncmp(p, "off", 3) == 0
+                   && (p[3] == '\0' || p[3] == ' ' || p[3] == '\t' || p[3] == '\n'
+                       || p[3] == '\r')) {
+          TAI_SetPhaseTransitionLogging(false);
+          TAI_SetThinkTraceLogging(false);
+          fputs("logs: phase + think trace off\n", stderr);
+        } else {
+          int slot = -1;
+          if (std::sscanf(p, "%d", &slot) == 1 && slot >= 0)
+            TAI_LogDumpPlayerAI(slot, stderr);
+          else
+            fputs("logs: usage — logs | logs on | logs off | logs think on | logs think off | logs <slot>\n",
+                  stderr);
+        }
       }
       else if (strncmp(buf, "start", 5) == 0) {
         player_array.Lock();

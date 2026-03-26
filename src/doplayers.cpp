@@ -39,6 +39,7 @@
 #include <list>
 
 #include "doplayers.h"
+#include "doai.h"
 #include "doengine.h"
 
 //using std::string;
@@ -1373,20 +1374,13 @@ bool CreatePlayers()
 
   for (int i = 0; i < count; i++) 
   {
-    /*
-    if (player_array.IsComputer(i))
-    {
-      if (!(players[i] = NEW TCOMPUTER_PLAYER))
+    if (player_array.IsComputer(i)) {
+      if (!(players[i] = NEW TAI_PLAYER))
         return false;
-    } 
-    else 
-    {
-       if (!(players[i] = NEW TPLAYER))
-         return false;
+    } else {
+      if (!(players[i] = NEW TPLAYER))
+        return false;
     }
-    */
-    if (!(players[i] = NEW TPLAYER))
-      return false;
 
     players[i]->SetPlayerID(i);
     players[i]->pathtools = NEW TA_STAR_ALG(i);

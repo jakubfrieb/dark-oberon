@@ -30,16 +30,29 @@
 #include <math.h>
 
 #include "dodata.h"
+#include "dodevcheat.h"
 #include "dodraw.h"
 #include "dologs.h"
 #include "dosimpletypes.h"
 #include "dounits.h"
 #include "doengine.h"
+#include "dowalk.h"
+#include "dotime.h"
 
 
 //=========================================================================
 // Variables
 //=========================================================================
+
+
+static void FactoryTryOrderRallyMove(TFACTORY_UNIT *fac, TFORCE_UNIT *unit)
+{
+  if (!fac || !unit || !fac->HasRallyPoint())
+    return;
+  const TPOSITION_3D &rg = fac->GetRallyGoal();
+  TFORCE_UNIT *arr[1] = { unit };
+  RequestPathMoveForForceUnits(unit->GetPlayer(), arr, 1, rg.x, rg.y);
+}
 
 
 //=========================================================================
@@ -60,6 +73,8 @@ TFACTORY_UNIT::TFACTORY_UNIT(int uplayer, int ux, int uy, TBUILDING_ITEM *mi, in
 
   for (register int i = 0; i < UNI_MAX_ORDER_LENGTH; i++) 
     order[i] = NULL;
+
+  rally_active = false;
 }
 
 /**
@@ -104,6 +119,14 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
     SetProgress(proc_event->int1);
   }
 
+  // RQ_SYNC_RALLY
+  if (proc_event->TestEvent(RQ_SYNC_RALLY))
+  {
+    rally_active = (proc_event->int1 != 0);
+    if (rally_active)
+      rally_goal.SetPosition(proc_event->simple1, proc_event->simple2, proc_event->simple3);
+  }
+
   /****************** Compute new values - textures, times (ALL UNITS) ********************************/
 
   // RQ_UPGRADE_UNIT
@@ -141,6 +164,8 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
 
     unit->AddToMap(true, true);
     unit->ChangeAnimation();
+
+    FactoryTryOrderRallyMove(this, unit);
   }
 
   // US_DYING, RQ_DYING
@@ -292,6 +317,8 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
                 #endif
 
                 unit->SendEvent(false, proc_event->GetTimeStamp() + TS_MIN_EVENTS_DIFF, US_NEXT_STEP, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+
+                FactoryTryOrderRallyMove(this, unit);
                                 
                 // adding only possitive energy and food
                 if (new_prod_itm->energy > 0)
@@ -372,7 +399,7 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
                 player->DecStoredMaterial(j, order[producing]->GetProduceableItem()->materials[j] / UNI_PRODUCING_COUNT);
 
               production_count --;
-              new_time_stamp = proc_event->GetTimeStamp() + (production_time / UNI_PRODUCING_COUNT);
+              new_time_stamp = proc_event->GetTimeStamp() + DevCheatsEffectiveProductionDelta(production_time);
             }
             else
               new_time_stamp = proc_event->GetTimeStamp() + UNI_TRY_TO_PRODUCE_SHIFT;
@@ -396,6 +423,7 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
           
             // send event to unit
             unit->SendEvent(false, proc_event->GetTimeStamp(), US_NEXT_STEP, -1, unit->GetPosition().x, unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+            FactoryTryOrderRallyMove(this, unit);
             #if SOUND
             // play sound
             if (config.snd_unit_speech && unit->TestPlayer(myself)) 
@@ -465,7 +493,7 @@ void TFACTORY_UNIT::TogglePausedProducing()
   if (!paused) {
     if (order_size) {
       process_mutex->Lock();
-      SendRequest(false, AppGetTimeSeconds() + (production_time / UNI_PRODUCING_COUNT), RQ_PRODUCING, waiting_request_id);
+      SendRequest(false, AppGetTimeSeconds() + DevCheatsEffectiveProductionDelta(production_time), RQ_PRODUCING, waiting_request_id);
       process_mutex->Unlock();
     }
   }
@@ -596,6 +624,37 @@ void TFACTORY_UNIT::TakeOffUnitFromOrder()
   producing = (producing + 1) % UNI_MAX_ORDER_LENGTH;   //shift begin of the queue
   production_time = 0;
   order_size--;         //decrease order length
+}
+
+
+void TFACTORY_UNIT::SetRallyGoalFromLocal(const TPOSITION_3D &goal)
+{
+  rally_active = true;
+  rally_goal = goal;
+  if (!player_array.IsRemote(GetPlayerID()) && pool_events) {
+    TEVENT *hlp = pool_events->GetFromPool();
+    if (hlp) {
+      hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_RALLY, US_NONE, -1,
+                         goal.x, goal.y, goal.segment, 0, 0, 0, 1, 0);
+      SendNetEvent(hlp, all_players);
+      pool_events->PutToPool(hlp);
+    }
+  }
+}
+
+
+void TFACTORY_UNIT::ClearRallyPointFromLocal()
+{
+  rally_active = false;
+  if (!player_array.IsRemote(GetPlayerID()) && pool_events) {
+    TEVENT *hlp = pool_events->GetFromPool();
+    if (hlp) {
+      hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_RALLY, US_NONE, -1,
+                         0, 0, 0, 0, 0, 0, 0, 0);
+      SendNetEvent(hlp, all_players);
+      pool_events->PutToPool(hlp);
+    }
+  }
 }
 
 

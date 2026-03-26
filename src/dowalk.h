@@ -40,6 +40,8 @@ struct TPATH_NODE;
 class TA_STAR_ALG;
 class TSEL_NODE;
 struct TNODE_OF_UNITS_LIST;
+class TPLAYER;
+class TFORCE_UNIT;
 
 
 //========================================================================
@@ -432,6 +434,9 @@ extern TTHREAD_POOL<TNEAREST_INFO, TNEAREST_INFO, TA_STAR_ALG> *threadpool_neare
 //=========================================================================
 // Global functions declaration
 //=========================================================================
+
+/** Issue group path move for one or more force units (same pipeline as selection move). */
+bool RequestPathMoveForForceUnits(TPLAYER *pl, TFORCE_UNIT **units, int n, int goal_x, int goal_y);
 
 
 #endif  // __dowalk_h__

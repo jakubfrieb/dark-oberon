@@ -1764,7 +1764,8 @@ void TMAP::DrawToRadar()
   }
 
   // draw warfog
-  war_fog.DrawToRadar();
+  if (!show_all)
+    war_fog.DrawToRadar();
 
   glPushMatrix();
   glTranslated(radar.dx, 0, 0);

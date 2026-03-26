@@ -101,6 +101,8 @@ public:
   bool OnlyOne() { return (units_count == 1); }
   int  GetUnitsCount() { return units_count; }
   TMAP_UNIT *GetFirstUnit() { if (units) return units->unit; else return NULL; }
+  //! First selected worker that can build (list order = last clicked first); never use GetFirstUnit() for building.
+  TWORKER_UNIT *GetBuildWorker();
   TMAP_ITEM *GetBuilderItem() { return builder_item; }
 
   void UnselectAll() { _UnselectAll(true); }
@@ -121,6 +123,7 @@ public:
   bool CanDrawLines() { return can_move && timer > 0; }
 
   bool TestCanMove() { return can_move; }
+  bool TestCanSetRally();
   bool TestCanHide(TMAP_UNIT *over_unit);
   bool TestCanAttack(TMAP_UNIT *over_unit);
   bool TestCanMine(TSOURCE_UNIT *over_unit);

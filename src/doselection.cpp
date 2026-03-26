@@ -429,9 +429,16 @@ void TSELECTION::Update(double time_shift)
   if (state == ST_GAME && !IsEmpty() && !units->next) {
     TMAP_ITEM *item = static_cast<TMAP_ITEM *>(units->unit->GetPointerToItem());
 
-    // life
-    sprintf(txt, "%d/%d", (int)units->unit->GetLife(), item->GetMaxLife());
-    panel_info.life_label->SetCaption(txt);
+    // life (mines show remaining ore here — their structural HP reads like a bogus "full/ full" stock)
+    if (GetFirstUnit()->GetItemType() == IT_SOURCE) {
+      TSOURCE_UNIT *su = static_cast<TSOURCE_UNIT *>(units->unit);
+      sprintf(txt, "%d", su->GetMaterialBalance());
+      panel_info.life_label->SetCaption(txt);
+    }
+    else {
+      sprintf(txt, "%d/%d", (int)units->unit->GetLife(), item->GetMaxLife());
+      panel_info.life_label->SetCaption(txt);
+    }
 
     // hided units
     if (IsMy() && GetFirstUnit()->AcceptsHidedUnits()) {
@@ -445,12 +452,8 @@ void TSELECTION::Update(double time_shift)
     // progress
     switch (GetFirstUnit()->GetItemType()) {
     case IT_SOURCE:
-      {
-        TSOURCE_UNIT *u = static_cast<TSOURCE_UNIT *>(units->unit);
-
-        sprintf(txt, "Material Left: %d", u->GetMaterialBalance());      
-        panel_info.progress_label->SetCaption(txt);
-      }
+      // progress_label sits at wrong Y in panel; ore is shown on life_label above
+      panel_info.progress_label->SetCaption(NULL);
       break;
 
     case IT_FACTORY:
@@ -706,12 +709,17 @@ void TSELECTION::UpdateInfo(bool update_action, bool lock)
 
       case IT_SOURCE: {
           TSOURCE_ITEM *it = static_cast<TSOURCE_ITEM *>(units->unit->GetPointerToItem());
+          TSOURCE_UNIT *su = static_cast<TSOURCE_UNIT *>(units->unit);
+          char lifebuf[32];
           y += lh;
 
-          sprintf(txt, "     Armor: %d:%d%%\n  Material:\n  Capacity: %d",
+          sprintf(lifebuf, "%d", su->GetMaterialBalance());
+          panel_info.life_label->SetCaption(lifebuf);
+
+          sprintf(txt, "     Armor: %d:%d%%\n  Material:\n  %d",
             it->GetArmament()->GetDefense()->GetArmour(),
             int(it->GetArmament()->GetDefense()->GetProtection() * 100),
-            it->GetCapacity()
+            su->GetMaterialBalance()
           );
 
           panel_info.material_image[it->GetOfferMaterial()]->Show();
@@ -949,17 +957,37 @@ bool TSELECTION::TestCanBuildOrRepair(TBASIC_UNIT *over_unit)
 }
 
 
+TWORKER_UNIT *TSELECTION::GetBuildWorker()
+{
+  TNODE_OF_UNITS_LIST *n;
+
+  for (n = units; n; n = n->next) {
+    if (!n->unit->TestItemType(IT_WORKER))
+      continue;
+    if (!static_cast<TWORKER_ITEM *>(n->unit->GetPointerToItem())->CanBuild())
+      continue;
+    return static_cast<TWORKER_UNIT *>(n->unit);
+  }
+  return NULL;
+}
+
+
 bool TSELECTION::TestCanBuild(TBUILDING_ITEM *building, TPOSITION pos, bool **build_map)
 {
   bool ok = true;
 
   SDL_LockMutex(mutex);
 
+  TWORKER_UNIT *worker;
+
   if (
     !can_build || !building
   ) ok = false;
 
-  if (ok) ok = static_cast<TWORKER_UNIT *>(units->unit)->CanBuild(building, pos, build_map, false, false);
+  worker = ok ? GetBuildWorker() : NULL;
+  if (ok && !worker) ok = false;
+
+  if (ok) ok = worker->CanBuild(building, pos, build_map, false, false);
 
   SDL_UnlockMutex(mutex);
 
@@ -1184,6 +1212,20 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
 }
 
 
+bool TSELECTION::TestCanSetRally()
+{
+  if (!OnlyOne() || !IsMy())
+    return false;
+  TMAP_UNIT *u = GetFirstUnit();
+  if (!u || !u->TestItemType(IT_FACTORY))
+    return false;
+  if (u->TestState(US_IS_BEING_BUILT))
+    return false;
+  TFACTORY_ITEM *fi = static_cast<TFACTORY_ITEM *>(u->GetPointerToItem());
+  return fi->HasAnyProduct();
+}
+
+
 void TSELECTION::SetAggressivity(TAGGRESSIVITY_MODE mode)
 {
   if (IsEmpty()) return;
@@ -1329,6 +1371,8 @@ bool TSELECTION::TestCanUnload(TBUILDING_UNIT *) { return false; }
 
 bool TSELECTION::TestCanBuildOrRepair(TBASIC_UNIT *) { return false; }
 
+TWORKER_UNIT *TSELECTION::GetBuildWorker() { return NULL; }
+
 bool TSELECTION::TestCanBuild(TBUILDING_ITEM *, TPOSITION, bool **) { return false; }
 
 void TSELECTION::StopUnits() {}
@@ -1336,6 +1380,8 @@ void TSELECTION::StopUnits() {}
 bool TSELECTION::ReactUnits() { return false; }
 
 bool TSELECTION::MoveUnits(TPOSITION) { return false; }
+
+bool TSELECTION::TestCanSetRally() { return false; }
 
 void TSELECTION::SetAggressivity(TAGGRESSIVITY_MODE) {}
 

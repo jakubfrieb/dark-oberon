@@ -117,6 +117,7 @@ class TMAP_POOLED_LIST;
 #define RQ_ZOMBIE             1019  //!< State of the zombie unit on remote computer. (dead unit laying on the earth)
 #define RQ_DELETE             1020  //!< State of the unit which is deleted on remote computer.
 #define RQ_FEEDING            1021  //!< State of unit which is reloading gun.
+#define RQ_SYNC_RALLY         1022  //!< Synchronise factory rally point across network.
 
 
 // draw style
@@ -1139,6 +1140,9 @@ public:
   bool StartRepair(TBASIC_UNIT *unit, bool auto_call);  // Finds out, whether the building given as the first parameter can be repaired or not.
   void Repair();                        // Adds 'life' to building, the goal is to repair given building.
 
+  //! Unit currently built or repaired (NULL if none). Used by AI to avoid pulling workers off sites.
+  TBASIC_UNIT *GetBuiltOrRepairedUnit() const { return built_or_repaired_unit; }
+
   bool CanMine(TSOURCE_UNIT *unit, bool write_msg, bool auto_call);
   bool StartMine(TSOURCE_UNIT *unit, bool auto_call);
 
@@ -1307,6 +1311,11 @@ public:
   /** @return -1 if factory can produce next part of unit, 0-food needed, 1-energy needed, >1-material with id i-2 needed */
   signed char GetNeedID() {return need_id;};
 
+  bool HasRallyPoint() const { return rally_active; }
+  const TPOSITION_3D &GetRallyGoal() const { return rally_goal; }
+  void SetRallyGoalFromLocal(const TPOSITION_3D &goal);
+  void ClearRallyPointFromLocal();
+
 private:
   TPRODUCEABLE_NODE* order[UNI_MAX_ORDER_LENGTH];     //!< Order of the units to production.
   int order_size;                   //!< Count of the ordered units.
@@ -1315,6 +1324,9 @@ private:
   int production_count;             //!< Count of left requests of production.
   signed char need_id;              //!< Identifier of missing material / food.
   bool paused;                      //!< If pruducing is paused.
+
+  bool rally_active;                //!< If set, spawned units are ordered to march to rally_goal.
+  TPOSITION_3D rally_goal;          //!< Rally target (segment from view_segment when player set it).
   
   TLIST<TFORCE_UNIT> ready_units;   //!< The list of force units which are ready, but can not get out from factory.
 };

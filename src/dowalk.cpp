@@ -40,6 +40,10 @@
 #include "dowalk.h"
 #include "dosimpletypes.h"
 #include "doselection.h"
+#include "doipc.h"
+#include "doevents.h"
+#include "doplayers.h"
+#include "dotime.h"
 
 //=========================================================================
 // Macros
@@ -1986,6 +1990,95 @@ void TA_STAR_MAP::MarksUnitPosition(TFORCE_UNIT *unit)
     for (int j = unit->GetPosition().y; j < unit->GetPosition().y + unit->GetUnitHeight(); j++)      
       if (map.IsInMap(i,j,unit->GetPosition().segment))
         fields[unit->GetPosition().segment][i][j].is_i_am = true;
+}
+
+
+bool RequestPathMoveForForceUnits(TPLAYER *pl, TFORCE_UNIT **units, int n, int goal_x, int goal_y)
+{
+  if (!pl || !pl->GetLocalMap() || n < 1 || !units || !pool_path_info || !pool_sel_node || !threadpool_astar)
+    return false;
+  if (!map.IsInMap(goal_x, goal_y))
+    return false;
+
+  process_mutex->Lock();
+
+  TPATH_INFO *path_info = pool_path_info->GetFromPool();
+  if (!path_info) {
+    process_mutex->Unlock();
+    return false;
+  }
+
+  path_info->goal.x = goal_x;
+  path_info->goal.y = goal_y;
+  path_info->real_goal.x = goal_x;
+  path_info->real_goal.y = goal_y;
+  path_info->unit_list = NULL;
+  path_info->loc_map = pl->GetLocalMap();
+  path_info->event_type = ET_GROUP_MOVING;
+
+  const double time_stamp = AppGetTimeSeconds();
+  int added = 0;
+
+  for (int i = 0; i < n; i++) {
+    TFORCE_UNIT *raw = units[i];
+    if (!raw)
+      continue;
+
+    TSEL_NODE *new_node = pool_sel_node->GetFromPool();
+    if (!new_node) {
+      TSEL_NODE *node = path_info->unit_list;
+      while (node) {
+        TSEL_NODE *nx = node->next;
+        pool_sel_node->PutToPool(node);
+        node = nx;
+      }
+      path_info->unit_list = NULL;
+      pool_path_info->PutToPool(path_info);
+      process_mutex->Unlock();
+      return false;
+    }
+    new_node->next = new_node->prev = NULL;
+
+    SDL_LockMutex(delete_mutex);
+    new_node->unit = static_cast<TFORCE_UNIT *>(raw->AcquirePointer());
+    SDL_UnlockMutex(delete_mutex);
+
+    if (!new_node->unit) {
+      pool_sel_node->PutToPool(new_node);
+      continue;
+    }
+
+    TFORCE_UNIT *fu = new_node->unit;
+    if (!path_info->unit_list) {
+      path_info->unit_list = new_node;
+      fu->SendEvent(false, time_stamp, US_WAIT_FOR_PATH, 0);
+      path_info->request_id = fu->pevent->GetRequestID();
+    } else {
+      path_info->unit_list->prev = new_node;
+      new_node->next = path_info->unit_list;
+      path_info->unit_list = new_node;
+      fu->SendEvent(false, time_stamp, US_WAIT_FOR_PATH, path_info->request_id);
+    }
+    raw->SetWaitRequestId(path_info->request_id);
+    added++;
+  }
+
+  if (added < 1) {
+    TSEL_NODE *node = path_info->unit_list;
+    while (node) {
+      TSEL_NODE *nx = node->next;
+      pool_sel_node->PutToPool(node);
+      node = nx;
+    }
+    path_info->unit_list = NULL;
+    pool_path_info->PutToPool(path_info);
+    process_mutex->Unlock();
+    return false;
+  }
+
+  threadpool_astar->AddRequest(path_info, &TA_STAR_ALG::DevideToGroups);
+  process_mutex->Unlock();
+  return true;
 }
 
 

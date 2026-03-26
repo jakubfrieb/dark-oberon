@@ -113,7 +113,7 @@ snd_building_selected building_selected
     max_amount 100 20 0
     allowed_materials "gold" "wood"
     can_build "farm" "tower" "cannontower" "barracks" "shed" "manufactory" "townhall" "fort" "castle" "wall" "citadel"
-    can_repair "catapult" "airship"
+    can_repair "catapult" "airship" "townhall" "fort" "castle" "farm" "barracks" "tower" "cannontower" "shed" "manufactory" "wall" "citadel"
     mining_time 0.1 0.33 0
     repairing_time 0.2
     mining_sound_shift 0 0 0

@@ -459,6 +459,10 @@ void TMOUSE::UpdateCursorID(void)
         }
       }
 
+      // factory rally: move cursor on empty map (same as unit move feedback)
+      else if (selection->TestCanSetRally() && is_in_map && !over_unit)
+        cursor_id = MC_CAN_MOVE;
+
       // cursor is not over unit and selected units can move
       else if (selection->TestCanMove()) {
         if (is_in_map) cursor_id = MC_CAN_MOVE;

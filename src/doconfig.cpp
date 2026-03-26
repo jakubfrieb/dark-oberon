@@ -126,9 +126,10 @@ void LoadCfgResolution(void)
       && strcmp(value, "1024x768")
       && strcmp(value, "1152x864") 
       && strcmp(value, "1280x1024")
-      && strcmp(value, "1600x1200"))
+      && strcmp(value, "1600x1200")
+      && strcmp(value, "1920x1080"))
   {
-    Warning(LogMsg("Invalid resolution value '%s'. Possible values are: 640x480 | 800x600 | 1024x768 | 1152x864 | 1280x1024 | 1600x1200", value));
+    Warning(LogMsg("Invalid resolution value '%s'. Possible values are: 640x480 | 800x600 | 1024x768 | 1152x864 | 1280x1024 | 1600x1200 | 1920x1080", value));
     strcpy (value, CFG_DEF_RESOLUTION);
     Info (LogMsg ("Using default value %s", value));
   }

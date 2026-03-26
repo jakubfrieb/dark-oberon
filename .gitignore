@@ -1,0 +1,12 @@
+dark-oberon
+dark-oberon-server
+src/build_info.h
+src/devel_stats.html
+src/tags
+src/checking
+src/annotate.out
+src/doxygen.log
+src/doxygen.conf
+src/doxygen.log
+src/*.o
+

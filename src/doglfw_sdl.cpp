@@ -72,6 +72,7 @@ static int map_keysym_to_glfw(const SDL_Keysym *k)
   case SDL_SCANCODE_LALT: return GLFW_KEY_LALT;
   case SDL_SCANCODE_RALT: return GLFW_KEY_RALT;
   case SDL_SCANCODE_TAB: return GLFW_KEY_TAB;
+  case SDL_SCANCODE_GRAVE: return '`';
   case SDL_SCANCODE_RETURN: return GLFW_KEY_ENTER;
   case SDL_SCANCODE_BACKSPACE: return GLFW_KEY_BACKSPACE;
   case SDL_SCANCODE_INSERT: return GLFW_KEY_INSERT;

@@ -38,7 +38,7 @@ class THASH_UNIT;
 class THASHTABLE_UNITS;
 class TLOC_MAP;
 class TPLAYER;
-class TCOMPUTER_PLAYER;
+class TAI_PLAYER;
 
 //=========================================================================
 // Definitions
@@ -225,6 +225,8 @@ public:
   void DeleteUnit(TPLAYER_UNIT *punit);
 
   void UpdateGraphics(double time_shift);
+  /** Computer-player AI tick (no-op for humans). Called from simulation thread. */
+  virtual void UpdateAI(double time_shift) { (void)time_shift; }
   void Disconnect(void);
   
   //!< Increments global units counter of player.
