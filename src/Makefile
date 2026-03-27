@@ -39,7 +39,7 @@ build_info.h: Makefile
 # First target above is build_info.h; without this, plain `make` / `make -jN` would only refresh it.
 .DEFAULT_GOAL := all
 
-all: $(BUILD_INFO) tags ../dark-oberon checking
+all: $(BUILD_INFO) ../dark-oberon checking
 
 checking: .checking
 .checking: *.h *.cpp

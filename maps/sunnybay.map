@@ -28,7 +28,7 @@ scheme "plastic"
     count 3
     
     <Race 0>
-      name "human"
+      name "human-red"
       
       <Sets>
         count 1
@@ -3896,7 +3896,7 @@ scheme "plastic"
   </Fragments>
   
   <Layers>
-    count 0
+    count 4
     layer_0 0 25 0   layer id, x position, y position
     layer_1 0 25 5   layer id, x position, y position
     layer_2 0 25 10   layer id, x position, y position

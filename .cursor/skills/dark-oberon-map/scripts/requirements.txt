@@ -1,0 +1,2 @@
+# Optional: pip install -r scripts/requirements.txt
+Pillow>=9.0

@@ -26,7 +26,7 @@ scheme "plastic"
     count 2
     
     <Race 0>
-      name "human"
+      name "human-red"
       
       <Sets>
         count 1

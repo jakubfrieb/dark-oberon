@@ -8,7 +8,7 @@ Tento dokument popisuje, co musí být konzistentní mezi `*.rac`, `*.dat` a sch
 
 | Položka | Pravidlo |
 |--------|-----------|
-| ID rasy | Řetězec bez mezer, např. `human`, `orc`. Složka = `races/<id>/`. |
+| ID rasy | Řetězec bez mezer, např. `human-red`, `orc`. Složka = `races/<id>/`. |
 | Soubory | `races/<id>/<id>.rac` a `races/<id>/<id>.dat` (stejné `<id>`). |
 | Schéma | V hlavičce `.rac`: `schemes "plastic"` musí přesně odpovídat `scheme "plastic"` v `.map` (viz `doengine.cpp`). |
 | Materiály | Počet čísel u `materials` / `max_amount` / … = `scheme.materials_count` (u `plastic` jsou 3: gold, wood, coal). |
@@ -78,7 +78,7 @@ AI musí generovat **stabilní `id`** (např. `footman`), na které odkazují bu
   - `max_speed` — max. rychlost v segmentu,
   - `max_rotation_speed` — **ve stupních/s** (engine převádí na radiány).
 
-Další: `min_exist_segment_id`, `max_exist_segment_id`, `min_max_visible_segment_id` (6× — pro každý segment min/max viditelnosti), `land_segment_id`, `energy`, `food`, `selection_height`, `burning_position x y`, `max_hided_units`, `features`, `heal_time`, bojové parametry pokud `is_offensive true`, atd. — přesný výčet polí kopíruj z `human.rac` a z `LoadRacUnit`.
+Další: `min_exist_segment_id`, `max_exist_segment_id`, `min_max_visible_segment_id` (6× — pro každý segment min/max viditelnosti), `land_segment_id`, `energy`, `food`, `selection_height`, `burning_position x y`, `max_hided_units`, `features`, `heal_time`, bojové parametry pokud `is_offensive true`, atd. — přesný výčet polí kopíruj z `human-red.rac` a z `LoadRacUnit`.
 
 ### 4.4 Textury jednotky (`tg_*`)
 
@@ -174,7 +174,7 @@ Vykreslení snímku (`TGUI_TEXTURE::DrawFrame` v `glgui.cpp`):
 
 ## 7. Binární `*.dat` a skupiny textur
 
-- Formát: viz `tools/do_dat_tool.py` a komentář v hlavičce skriptu.
+- Formát: viz `.cursor/skills/dark-oberon-dat/scripts/do_dat_tool.py` a komentář v hlavičce skriptu.
 - Každá **skupina** má řetězcové `name` (shodné s tím, co je v uvozovkách u `tg_*` v `.rac`).
 - Uvnitř skupiny: položky s vlastním `id` (technický řetězec), soubor TGA, `hcount`, `vcount`, `atime`, `pointx`, `pointy`, `ttype`.
 - `pointx` / `pointy` v souboru jsou **kotva** (engine je ukládá se znaménkem jako `-point` při kreslení).
@@ -252,7 +252,7 @@ V `.dat` musí existovat skupiny např. `grunt_picture`, `grunt_stay`, `grunt_mo
 - Výběr textury podle směru: `src/doforces.cpp` / `src/doworkers.cpp` — `ChangeAnimation`.
 - Směry: `src/dolayout.h` — `LAY_SOUTH` … `LAY_SOUTH_EAST`.
 - Mřížka snímků: `src/glgui.cpp` — `TGUI_TEXTURE::DrawFrame`.
-- Pack/unpack dat: `tools/do_dat_tool.py`.
+- Pack/unpack dat: `.cursor/skills/dark-oberon-dat/scripts/do_dat_tool.py` (skill `dark-oberon-dat`).
 
 ---
 
