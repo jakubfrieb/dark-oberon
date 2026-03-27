@@ -40,11 +40,13 @@ class GameInstance:
         threading.Thread(target=self._stderr_reader, daemon=True).start()
 
     def _stderr_reader(self):
+        import sys
         try:
             for line in iter(self.proc.stderr.readline, ""):
                 if not line:
                     break
                 line = line.strip()
+                print(f"[server:{self.port}] {line}", file=sys.stderr, flush=True)
                 if line.startswith('{"players"'):
                     try:
                         data = json.loads(line)

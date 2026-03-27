@@ -45,14 +45,16 @@ flowchart LR
 `UpdateAI()` is called from **`ProcessFunction`** in [`src/doengine.cpp`](../src/doengine.cpp) **after** the event queue is drained for the frame, **only** if:
 
 - `player_array.IsComputer(i)` and
-- `!player_array.IsRemote(i)` (authority on **leader / host**).
+- `!player_array.IsRemote(i)` — the process that **owns** the slot locally runs AI (in today’s setup, CPU slots are always added on the **leader**, so that is the host GUI or the headless dedicated process).
 
-Followers do **not** run AI; they replay `net_protocol_event` for CPU players like any remote peer.
+Followers do **not** run AI for those slots; they receive the same simulation via `net_protocol_event` like for any other remote-owned player.
 
 ### Multiplayer and dedicated server
 
-- **Leader (GUI host)** or **`dark-oberon-server`**: CPU players are local → AI runs here → events broadcast to clients.
-- **Clients**: CPU players are remote → no `UpdateAI()` on that machine.
+- **Lobby sync:** The leader rebroadcasts the full player list (including the CPU flag per slot) with `TLEADER::SendPlayerArray()` in [`src/doleader.cpp`](../src/doleader.cpp). Followers rebuild `player_array` in `ProcessPlayerArray()` in [`src/doengine.cpp`](../src/doengine.cpp). After leader-side changes, `UpdatePlayersAndMenu()` triggers that send so all peers stay consistent.
+- **Desync risk:** Every client must apply the **same** roster, races, and start points from the leader. Followers must not fake a CPU slot locally — use **Add computer** in the lobby (sends `net_protocol_request_add_computer` to the leader, who applies it and rebroadcasts), the leader’s own button, or `addcpu` on a headless dedicated server.
+- **Leader (GUI host)** or **`dark-oberon-server`**: CPU players are local (`!IsRemote`) → `UpdateAI()` runs here → commands become events like a human.
+- **Follower clients**: CPU slots are remote → no `UpdateAI()` on that machine.
 
 ## Adding CPU players
 
@@ -60,9 +62,9 @@ Followers do **not** run AI; they replay `net_protocol_event` for CPU players li
 
 Existing flow still calls `player_array.AddComputerPlayer()` (e.g. quick play with two races).
 
-### Network lobby (leader)
+### Network lobby (leader or follower)
 
-- Button **“Add computer”** on the game setup panel (`MNU_ADD_COMPUTER`).
+- Button **“Add computer”** on the game setup panel (`MNU_ADD_COMPUTER`). **Leader:** adds the slot locally and calls `UpdatePlayersAndMenu()` → `SendPlayerArray`. **Follower:** sends `TFOLLOWER::SendRequestAddComputer()` (`net_protocol_request_add_computer`); the leader performs the same add and rebroadcasts.
 - Picks an **unused** race from the current map’s `rac_list` so `EveryPlayerHasDifferentRace()` can still pass.
 
 ### Dedicated server CLI

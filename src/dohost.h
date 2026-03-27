@@ -58,6 +58,7 @@ enum NetworkingProtocolMessage {
   net_protocol_disconnect   = 0x08,   //!< Disconnect message.
   net_protocol_ping         = 0x09,   //!< Ping request.
   net_protocol_request_start = 0x0A,  //!< Follower asks leader to start the game.
+  net_protocol_request_add_computer = 0x0B,  //!< Follower asks leader to add a CPU player.
   net_protocol_end
 };
 

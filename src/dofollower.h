@@ -88,6 +88,9 @@ public:
   /** Ask the leader to start the game (same as host stdin / web "start"). */
   void SendRequestStartGame ();
 
+  /** Ask the leader to add a computer player (lobby only; leader validates map limits). */
+  void SendRequestAddComputer ();
+
 
 private:
   bool have_my_address;

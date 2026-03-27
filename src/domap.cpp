@@ -2270,9 +2270,13 @@ bool TMAP::LoadMapPlayers()
 
   CreatePlayers ();       // allocate place for active players
 
+#if HEADLESS
+  myself = players[0];
+#else
   /* Find out playerID of player playing on local computer. */
   int my_player_id = player_array.GetMyPlayerID ();
   myself = players[my_player_id];
+#endif
 
   ok = map.file->SelectSection("Players", true);
   

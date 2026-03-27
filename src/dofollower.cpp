@@ -131,6 +131,12 @@ void TFOLLOWER::SendRequestStartGame () {
   SendMessage (m, 0);
 }
 
+void TFOLLOWER::SendRequestAddComputer () {
+  TNET_MESSAGE *m = pool_net_messages->GetFromPool();
+  m->Init_send(net_protocol_request_add_computer, 0);
+  SendMessage (m, 0);
+}
+
 //=========================================================================
 // END
 //=========================================================================

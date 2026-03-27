@@ -6,19 +6,23 @@ COMPOSE="$SERVER_DIR/docker-compose.yml"
 export COMPOSE_BAKE=false
 
 usage() {
-  echo "Usage: ${0##*/} [--rebuild]" >&2
-  echo "  --rebuild  docker compose build --no-cache, then up" >&2
+  echo "Usage: ${0##*/} [--build | --rebuild]" >&2
+  echo "  --build    docker compose up --build (cached, fast C++ recompile)" >&2
+  echo "  --rebuild  docker compose build --no-cache, then up (full rebuild)" >&2
   exit 1
 }
 
-REBUILD=false
+MODE=up
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
       usage
       ;;
+    --build)
+      MODE=build
+      ;;
     --rebuild)
-      REBUILD=true
+      MODE=rebuild
       ;;
     *)
       echo "Unknown option: $1" >&2
@@ -28,8 +32,15 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ "$REBUILD" == true ]]; then
-  docker compose -f "$COMPOSE" build --no-cache
-fi
-
-exec docker compose -f "$COMPOSE" up --remove-orphans
+case "$MODE" in
+  rebuild)
+    docker compose -f "$COMPOSE" build --no-cache
+    exec docker compose -f "$COMPOSE" up --remove-orphans
+    ;;
+  build)
+    exec docker compose -f "$COMPOSE" up --build --remove-orphans
+    ;;
+  *)
+    exec docker compose -f "$COMPOSE" up --remove-orphans
+    ;;
+esac

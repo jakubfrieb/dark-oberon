@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 COPY src/ src/
-RUN make -C src server
+RUN make -C src server -j"$(nproc)"
 
 FROM ubuntu:22.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
@@ -18,15 +18,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /build/dark-oberon-server /app/dark-oberon-server
+COPY server/web/ /app/web/
+RUN pip3 install --no-cache-dir -r /app/web/requirements.txt \
+    && mkdir -p /root/.dark-oberon/logs
+
 COPY dat/ /app/dat/
 COPY races/ /app/races/
 COPY schemes/ /app/schemes/
 COPY maps/ /app/maps/
-COPY server/web/ /app/web/
-
-RUN pip3 install --no-cache-dir -r /app/web/requirements.txt \
-    && mkdir -p /root/.dark-oberon/logs
+COPY --from=builder /build/dark-oberon-server /app/dark-oberon-server
 
 ENV DATA_DIR=/app
 ENV SERVER_BINARY=/app/dark-oberon-server

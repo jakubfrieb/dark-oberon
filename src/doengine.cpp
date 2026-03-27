@@ -281,6 +281,7 @@ static void ProcessPingRequest (TNET_MESSAGE *msg);
 static void ProcessPingReply (TNET_MESSAGE *msg);
 static void ProcessConnectRequest (TNET_MESSAGE *msg);
 static void ProcessChangeRace (TNET_MESSAGE *msg);
+static void ProcessRequestAddComputer (TNET_MESSAGE *msg);
 static void ProcessChatMessage (TNET_MESSAGE *msg);
 static void ProcessSynchronise (TNET_MESSAGE *msg);
 static void ProcessAllowProcessFunction (TNET_MESSAGE *msg);
@@ -1288,7 +1289,7 @@ void UpdateGameMenu()
   }
 
   if (add_comp_button)
-    add_comp_button->SetVisible (leader);
+    add_comp_button->SetVisible (leader || follower);
 
   /* Something could change. */
   need_redraw->SetTrue ();
@@ -1392,7 +1393,9 @@ bool CreateGame()
 
   giant->Lock ();
 
+#if !HEADLESS
   player_array.AddLocalPlayer (config.player_name);
+#endif
 
   // start leader
   host = NEW TLEADER (leader_in_queue_size, config.net_server_port,
@@ -1406,12 +1409,15 @@ bool CreateGame()
   host->RegisterExtendedFunction (net_protocol_ping, ProcessPingRequest);
   host->RegisterExtendedFunction (net_protocol_disconnect, ProcessDisconnect);
   host->RegisterExtendedFunction (net_protocol_request_start, ProcessRequestStart);
+  host->RegisterExtendedFunction (net_protocol_request_add_computer, ProcessRequestAddComputer);
 
   host->RegisterOnDisconnect (OnDisconnect);
 
   leader_ready = false;
 
+#if !HEADLESS
   host->AddEmptyAddress (); /* player on leader */
+#endif
   host->AddEmptyAddress (); /* hyper player */
 
   // XXX: skontrolovat, ci sa podarilo spustit server
@@ -1609,6 +1615,10 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     break;
 
   case MNU_ADD_COMPUTER:
+    if (host && host->GetType () == THOST::ht_follower) {
+      dynamic_cast<TFOLLOWER *> (host)->SendRequestAddComputer ();
+      break;
+    }
     if (host && host->GetType () == THOST::ht_leader) {
       player_array.Lock ();
       {
@@ -3082,6 +3092,54 @@ void GameOnRadarDraw(TGUI_BOX *sender)
 //========================================================================
 
 /**
+ *  Follower asked the leader to add a CPU player (lobby).
+ *  used: pointer only stored via RegisterExtendedFunction (table read in donet.cpp).
+ */
+static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * /* msg */) {
+  if (host == NULL || host->GetType () != THOST::ht_leader)
+    return;
+
+  giant->Lock ();
+  if (started) {
+    giant->Unlock ();
+    return;
+  }
+  giant->Unlock ();
+
+  player_array.Lock ();
+  {
+    int max_p = map_info_list.map_ext_info.max_players;
+    if (player_array.GetCount () >= max_p + 1) {
+      Warning ("request_add_computer: too many players for this map");
+      player_array.Unlock ();
+      return;
+    }
+    player_array.AddComputerPlayer ();
+    host->AddEmptyAddress ();
+    int idx = player_array.GetCount () - 1;
+    string chosen;
+    for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
+      bool taken = false;
+      for (int j = 0; j < player_array.GetCount (); j++) {
+        if (player_array.GetRaceIdName (j) == string (r->id_name)) {
+          taken = true;
+          break;
+        }
+      }
+      if (!taken) {
+        chosen = r->id_name;
+        break;
+      }
+    }
+    if (!chosen.empty ())
+      player_array.SetRaceIdName (idx, chosen);
+  }
+  player_array.Unlock ();
+
+  UpdatePlayersAndMenu ();
+}
+
+/**
  *  Follower asked the leader to start the game (menu Play or future UI).
  *  used: pointer only stored via RegisterExtendedFunction (table read in donet.cpp).
  */
@@ -3277,7 +3335,10 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     /* Fill the follower's talker array of remote addresses with addresses of
      * all remote players' hosts. For local players add empty address. */
     for (i = 1; i < player_array.GetCount (); i++) {
-      if (i < my_id) {
+      if (player_array.IsComputer (i)) {
+        host->AddEmptyAddress ();
+        Debug (LogMsg ("%d: Pridavam prazdnu adresu (computer)", i));
+      } else if (i < my_id) {
         /* Wait until player with id < my_id gets connected to me. */
         int fd;
 
@@ -4955,10 +5016,12 @@ bool StartGame(double stime)
 
   selection = NEW TSELECTION;
 
+#if !HEADLESS
   strcpy(myself->name, config.player_name);
 
   // moves map to player's initial view position
   map.CenterMapel(myself->initial_x, myself->initial_y);
+#endif
 
   // reset events
   map.start_time = stime;
@@ -5260,12 +5323,9 @@ void RunDedicatedServer(const char *map_basename, int port)
     return;
   }
 
-  /* Without GUI, hyper + host never get races from MenuUpdateMapInfo — empty races
-   * make EveryPlayerHasDifferentRace() fail ("" == ""). Mirror quick-play defaults. */
+  /* Without GUI, hyper player never gets its race from MenuUpdateMapInfo. */
   player_array.Lock();
   player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
-  if (map_info_list.rac_list != NULL)
-    player_array.SetRaceIdName(1, map_info_list.rac_list->id_name);
   player_array.Unlock();
 
   fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
@@ -5287,16 +5347,30 @@ void RunDedicatedServer(const char *map_basename, int port)
       }
       if (strncmp(buf, "quit", 4) == 0)
         running = false;
-      else if (strncmp(buf, "status", 6) == 0)
-        fprintf(stderr, "players=%d connected=%d started=%d\n",
-                player_array.GetCount(), connected ? 1 : 0, started ? 1 : 0);
-      else if (strncmp(buf, "players", 7) == 0) {
+      else if (strncmp(buf, "status", 6) == 0) {
+        player_array.Lock();
+        int n = player_array.GetCount();
+        int active = 0;
+        if (players) {
+          for (int i = 0; i < n; i++) {
+            if (players[i] && players[i]->active)
+              active++;
+          }
+        }
+        player_array.Unlock();
+        fprintf(stderr, "slots=%d active=%d connected=%d started=%d\n",
+                n, active, connected ? 1 : 0, started ? 1 : 0);
+      } else if (strncmp(buf, "players", 7) == 0) {
         fputs("{\"players\":[", stderr);
         player_array.Lock();
         int n = player_array.GetCount();
+        bool first_name = true;
         for (int i = 0; i < n; i++) {
-          if (i > 0)
+          if (players && (!players[i] || !players[i]->active))
+            continue;
+          if (!first_name)
             fputc(',', stderr);
+          first_name = false;
           fprint_json_string(stderr, player_array.GetPlayerName(i));
         }
         player_array.Unlock();
