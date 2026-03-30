@@ -497,6 +497,8 @@ static TGUI_SCROLL_BOX *editor_palette_sbox = NULL;
 static TGUI_PANEL      *editor_right_panel = NULL;
 static TGUI_LABEL      *editor_palette_title = NULL;
 static TGUI_BUTTON     *editor_add_player_btn = NULL;
+/** Non-hyper player slots in map editor (index 0 is hyper). Max FFA size 3. */
+static const int EDITOR_MAX_NON_HYPER_PLAYERS = 3;
 #endif
 
 // menu lists
@@ -1821,9 +1823,8 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
   case MNU_EDITOR_ADD_PLAYER: {
     static const char *race_cycle[] = {"human-red", "human-yellow", "human-blue"};
     int old_count = player_array.GetCount();
-    const int EDITOR_MAX_PLAYERS = 3;
-    if (old_count >= EDITOR_MAX_PLAYERS) {
-      gui->ShowMessageBox("Max players reached", GUI_MB_OK);
+    if (old_count >= 1 + EDITOR_MAX_NON_HYPER_PLAYERS) {
+      gui->ShowMessageBox("Max players reached (3 per map)", GUI_MB_OK);
       break;
     }
 
@@ -1837,6 +1838,9 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     player_array.Unlock();
 
     if (!GrowPlayersRuntime(old_count, player_array.GetCount())) {
+      if (host)
+        host->RemoveAddress(pid);
+      player_array.RemovePlayer(pid);
       gui->ShowMessageBox("Failed to grow players array", GUI_MB_OK);
       break;
     }
@@ -1864,6 +1868,10 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     char msg[64];
     sprintf(msg, "Player %d added (%s)", pid, chosen_race);
     ost->AddText(msg, 3.0, INFO_COLOR_R, INFO_COLOR_G, INFO_COLOR_B);
+
+    map_info_list.map_ext_info.max_players = MIN(
+        player_array.GetCount() - 1,
+        MIN(PL_MAX_PLAYERS - 1, EDITOR_MAX_NON_HYPER_PLAYERS));
     break;
   }
 #endif
@@ -5756,8 +5764,11 @@ void EditorRebuildPalette(void)
   if (!editor_palette_sbox) return;
   editor_palette_sbox->Clear();
 
-  if (editor_add_player_btn)
-    editor_add_player_btn->SetVisible(editor_palette_level == EP_PLAYER_LIST);
+  if (editor_add_player_btn) {
+    editor_add_player_btn->SetVisible(
+        editor_palette_level == EP_PLAYER_LIST
+        && player_array.GetCount() < 1 + EDITOR_MAX_NON_HYPER_PLAYERS);
+  }
 
   int sid = editor_paint_segment;
   GLfloat scroll_h = editor_palette_sbox->GetHeight();

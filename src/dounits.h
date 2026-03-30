@@ -1265,6 +1265,8 @@ private:
    *  The first index determines player and second index determines the workers
    *  order between the workers items available for the player's race. */
   TNEAREST_BUILDINGS **my_player_array;
+  /** First dimension length (allocated in ctor); must not use live GetCount() in dtor. */
+  int my_player_array_slots;
 };
 
 

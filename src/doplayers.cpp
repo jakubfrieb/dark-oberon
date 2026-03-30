@@ -1425,7 +1425,10 @@ bool GrowPlayersRuntime(int old_count, int new_count)
     new_arr[i] = players[i];
 
   for (int i = old_count; i < new_count; i++) {
-    new_arr[i] = NEW TPLAYER;
+    if (player_array.IsComputer(i))
+      new_arr[i] = NEW TAI_PLAYER;
+    else
+      new_arr[i] = NEW TPLAYER;
     if (!new_arr[i]) {
       for (int k = old_count; k < i; k++) delete new_arr[k];
       delete[] new_arr;

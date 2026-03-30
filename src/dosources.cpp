@@ -60,9 +60,10 @@ TSOURCE_UNIT::TSOURCE_UNIT(int uplayer, int uid, int ux, int uy, TSOURCE_ITEM *p
   GetPlayer()->sources[j].AddNode(this);    //add new source to the list of sources...
 
   // Create array for all players except hyper player.
-  my_player_array = NEW PTNEAREST_BUILDINGS[player_array.GetCount()-1];
+  my_player_array_slots = player_array.GetCount() - 1;
+  my_player_array = NEW PTNEAREST_BUILDINGS[my_player_array_slots];
 
-  for (i = 0; i < player_array.GetCount()-1; i++) //players except hyper player
+  for (i = 0; i < my_player_array_slots; i++) //players except hyper player
   {    
     ///Debug (LogMsg ("i = %d", i));  !!!! hlasky pre odhalenie bugu [PPP]
     ///Debug (LogMsg ("j = %d", j));
@@ -104,6 +105,7 @@ TSOURCE_UNIT::TSOURCE_UNIT(TSOURCE_UNIT *copy_unit, int new_unit_id, bool global
   material_balance = copy_unit->GetMaterialBalance();
   lieing_down = copy_unit->IsLieingDown();
   my_player_array = NULL;
+  my_player_array_slots = 0;
   renew_count = 0;
 
   PutState(copy_unit->GetState());
@@ -126,7 +128,7 @@ TSOURCE_UNIT::~TSOURCE_UNIT()
 
   if (my_player_array) 
   {
-    for (int i = 0 ; i < player_array.GetCount() - 1; i++) 
+    for (int i = 0 ; i < my_player_array_slots; i++) 
       if (my_player_array[i]) 
       {
         delete[] my_player_array[i];

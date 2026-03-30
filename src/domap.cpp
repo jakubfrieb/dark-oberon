@@ -1998,8 +1998,10 @@ void TMAP::DrawToRadar()
  */
 void TMAP::DeleteMap()
 {
-  map.Clear();
+  /* Destroy units while map/segments are still valid; map.Clear() frees surface
+   * that those units may still reference. */
   DeletePlayers();
+  map.Clear();
   DeleteRaces();
   scheme.Clear();
 }
