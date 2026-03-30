@@ -5,6 +5,13 @@ HEADLESS ?= 0
 CPP = g++ $(CPPFLAGS) $(INCLUDES) $(DEFINES)
 CPPFLAGS = -g -Wall -O
 DEFINES = -DDATA_DIR='""' -DUNIX=1 -DSOUND=$(SOUND) -DDEBUG=$(DEBUG) -DHEADLESS=$(HEADLESS)
+
+# When SOUND/HEADLESS change, force rebuild (otherwise stale dosound.o keeps SDL_mixer refs while link uses no -lSDL2_mixer).
+COMPILE_FLAGS_STAMP := .compile_flags
+$(COMPILE_FLAGS_STAMP): FORCE
+	@printf '%s\n' "SOUND=$(SOUND)" "HEADLESS=$(HEADLESS)" > $(COMPILE_FLAGS_STAMP).new
+	@if test -f $(COMPILE_FLAGS_STAMP) && cmp -s $(COMPILE_FLAGS_STAMP).new $(COMPILE_FLAGS_STAMP); then rm -f $(COMPILE_FLAGS_STAMP).new; else mv $(COMPILE_FLAGS_STAMP).new $(COMPILE_FLAGS_STAMP); fi
+FORCE:
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null || sdl2-config --cflags 2>/dev/null)
 SDL2_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null || sdl2-config --libs 2>/dev/null)
 SDL2_MIXER_CFLAGS := $(shell pkg-config --cflags SDL2_mixer 2>/dev/null)
@@ -24,6 +31,8 @@ SERVER_LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
 OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 OBJECTS_SERVER = $(filter-out doberon.o,$(OBJECTS)) doserver.o
 TARGETS = ../dark-oberon
+
+$(OBJECTS) doserver.o: $(COMPILE_FLAGS_STAMP)
 
 BUILD_INFO = build_info.h
 
@@ -49,7 +58,7 @@ checking: .checking
 	@touch .checking
 
 clean: 
-	rm -f $(OBJECTS) doserver.o $(TARGETS) ../dark-oberon-server *core core.* tags $(BUILD_INFO)
+	rm -f $(OBJECTS) doserver.o $(TARGETS) ../dark-oberon-server *core core.* tags $(BUILD_INFO) $(COMPILE_FLAGS_STAMP)
 
 # Same .o names as client but different -DHEADLESS/-DSOUND; always wipe before server link.
 # After `make server`, rebuild the GUI client with `make clean && make` (or `make ../dark-oberon`).

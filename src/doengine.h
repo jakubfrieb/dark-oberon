@@ -29,6 +29,7 @@
 #define __doengine_h__
 
 #include "cfg.h"
+#include <stdint.h>
 
 
 //=========================================================================
@@ -67,7 +68,12 @@ enum TGAME_STATE {
   ST_RESET_VIDEO_MENU,
 
   /** The game is in the state of playing. */
-  ST_GAME
+  ST_GAME,
+
+#if !HEADLESS
+  /** Map editor (no simulation thread). */
+  ST_EDITOR
+#endif
 };
 
 
@@ -177,9 +183,10 @@ public:
   T_SIMPLE height;              //!< Map height.
 
   int max_players;              //!< Maximum players count in map NOT including hyper player.
-  
 
-  TMAP_EXT_INFO_NODE (void) { *author = *scheme_name = *scheme_id_name = 0; width = 0; height = 0; max_players = 0;};
+  uint32_t file_hash;         //!< FNV-1a of raw .map file bytes (0 if unknown / basic load only).
+
+  TMAP_EXT_INFO_NODE (void) { *author = *scheme_name = *scheme_id_name = 0; width = 0; height = 0; max_players = 0; file_hash = 0;};
 };
 
 /**
@@ -361,6 +368,18 @@ void GLFWCALL WindowRefreshCallback ();
 // engine methods
 void Menu(void);
 void Game(void);
+#if !HEADLESS
+void Editor(void);
+#endif
+
+/** Map editor: skip selection lines in DrawGame; save prologue for SaveMapToFile. */
+extern bool in_editor_mode;
+/** Map file text from start through the line before `<Players>` (used when saving). */
+extern std::string g_editor_saved_map_prologue;
+
+#if !HEADLESS
+bool EditorGetPlacementPreview(int *out_x, int *out_y, int *out_w, int *out_h);
+#endif
 
 void ChangeActionPanel(int panel);
 void UpdateGuardButtons();

@@ -49,6 +49,7 @@ TSCHEME  scheme;
 
 void TTERR_ITEM::SetTextures(TTEX_GROUP *group)
 {
+  tex_group = group;
   if (group) {
     if (animation) ClearAnimations();
     else {

@@ -37,6 +37,7 @@
 #include "doraces.h"
 #include "domouse.h"
 #include "doselection.h"
+#include "doengine.h"
 
 #if !HEADLESS
 
@@ -240,8 +241,53 @@ void DrawGame(void)
   if (!reduced_drawing) {
     // map
     map.Draw();
-    selection->DrawUnitsLines();
+    if (!in_editor_mode)
+      selection->DrawUnitsLines();
     mouse.DrawBuildMap();
+#if !HEADLESS
+    if (in_editor_mode) {
+      int pc = player_array.GetCount();
+      static const GLfloat colors[][3] = {
+        {1,0,0}, {0,0.5f,1}, {0,0.8f,0}, {1,1,0},
+        {1,0.5f,0}, {0.8f,0,1}, {0,1,1}, {1,1,1}
+      };
+      for (int pi = 1; pi < pc && pi < PL_MAX_PLAYERS; pi++) {
+        if (!players[pi]) continue;
+        T_SIMPLE px = players[pi]->initial_x;
+        T_SIMPLE py = players[pi]->initial_y;
+        if (px == 0 && py == 0) continue;
+        const GLfloat *c = colors[(pi - 1) % 8];
+        glColor3f(c[0], c[1], c[2]);
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        double cx = DAT_MAPEL_STRAIGHT_SIZE_2 * px - DAT_MAPEL_STRAIGHT_SIZE_2 * py;
+        double cy_pos = DAT_MAPEL_DIAGONAL_SIZE_2 * px + DAT_MAPEL_DIAGONAL_SIZE_2 * py;
+        double r = 40.0;
+        for (int a = 0; a < 24; a++) {
+          double angle = 2.0 * M_PI * a / 24.0;
+          glVertex2d(cx + r * cos(angle), cy_pos + 0.5 * r * sin(angle));
+        }
+        glEnd();
+        glLineWidth(1.0f);
+      }
+
+      int pvx, pvy, pvw, pvh;
+      if (EditorGetPlacementPreview(&pvx, &pvy, &pvw, &pvh)) {
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glLineWidth(2.0f);
+        SetMapPosition(pvx, pvy);
+        glBegin(GL_LINE_LOOP);
+          glVertex2d(0.0, 0.0);
+          glVertex2d(pvw * DAT_MAPEL_STRAIGHT_SIZE_2, pvw * DAT_MAPEL_DIAGONAL_SIZE_2);
+          glVertex2d((pvw - pvh) * DAT_MAPEL_STRAIGHT_SIZE_2, (pvw + pvh) * DAT_MAPEL_DIAGONAL_SIZE_2);
+          glVertex2d(-pvh * DAT_MAPEL_STRAIGHT_SIZE_2, pvh * DAT_MAPEL_DIAGONAL_SIZE_2);
+        glEnd();
+        glLineWidth(1.0f);
+        glEnable(GL_TEXTURE_2D);
+      }
+    }
+#endif
   }
 
   // menu projection

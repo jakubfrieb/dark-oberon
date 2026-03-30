@@ -116,6 +116,12 @@ public:
   void SetUsed(bool use) { used = use; }
   bool IsUsed() { return used; }
   int  GetAnimCount() { return anim_count; }
+  TTEX_GROUP *GetTexGroup() { return tex_group; }
+  TGUI_TEXTURE *GetFirstTexture() {
+    if (animation && anim_count > 0 && animation[0])
+      return animation[0]->GetTexItem();
+    return NULL;
+  }
   void ClearAnimations() {
     if (animation) {
       for (int i = 0; i < anim_count; i++) if (animation[i]) delete animation[i];
@@ -131,6 +137,7 @@ public:
     terrain_field = NULL;
     used = false;
     anim_count = 0;
+    tex_group = NULL;
   }
 
   ~TTERR_ITEM() {
@@ -142,6 +149,7 @@ protected:
   bool used;                     //!< If item is used by some fragment or layer.
   TGUI_ANIMATION **animation;    //!< Field of fragment animations. All same fragments in the map use the same animation.
   int anim_count;
+  TTEX_GROUP *tex_group;         //!< Texture group used by this item (for editor name lookup).
 };
 
 

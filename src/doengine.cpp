@@ -56,6 +56,8 @@
 #include <cstdlib>
 #include <cmath>
 #include <string>
+#include <vector>
+#include <map>
 
 #include "dosdl.h"
 #include "dotime.h"
@@ -67,6 +69,7 @@
 #include "domap.h"
 #include "domouse.h"
 #include "doplayers.h"
+#include "doraces.h"
 #include "doai.h"
 #include "doleader.h"
 #include "doselection.h"
@@ -112,6 +115,33 @@ using std::string;
 #define MNU_MAP_LIST          16
 #define MNU_KILL_PLAYER       17
 #define MNU_ADD_COMPUTER      18
+
+#define MNU_MAP_EDITOR        14
+
+#define MNU_EDITOR_BACK       501
+#define MNU_EDITOR_OPEN       502
+#define MNU_EDITOR_NEW        503
+#define MNU_EDITOR_MAP_LIST   504
+#define MNU_EDITOR_FRAG_LIST  505
+#define MNU_EDITOR_SAVE       506
+#define MNU_EDITOR_EXIT       507
+#define MNU_EDITOR_FRAG_BASE  1000
+#define MNU_EDITOR_OBJ_BASE   2000
+#define MNU_EDITOR_NAV_BACK   2500
+#define MNU_EDITOR_NAV_TERRAIN 2501
+#define MNU_EDITOR_NAV_OBJECTS 2502
+#define MNU_EDITOR_NAV_PLAYER  2503
+#define MNU_EDITOR_NAV_PLY_BLD 2504
+#define MNU_EDITOR_NAV_PLY_UNI 2505
+#define MNU_EDITOR_GROUP_BASE 2600
+#define MNU_EDITOR_SOURCE_BASE 3000
+#define MNU_EDITOR_SCHEME_UNIT_BASE 3100
+#define MNU_EDITOR_SCHEME_BLD_BASE 3200
+#define MNU_EDITOR_STARTPOS_BASE 3300
+#define MNU_EDITOR_PLAYER_SELECT_BASE 3400
+#define MNU_EDITOR_PLAYER_BLD_BASE 3500
+#define MNU_EDITOR_PLAYER_UNIT_BASE 3600
+#define MNU_EDITOR_ADD_PLAYER       3700
 
 // options menu keys
 #define MNU_VIDEO             21
@@ -271,7 +301,7 @@ void StopGame();
 void BackgroundResolveFinished ();
 void SetActiveMenu(TGUI_PANEL *menu);
 void UpdateGameMenu();
-void MenuUpdateMapInfo (string map_name);
+void MenuUpdateMapInfo (string map_name, uint32_t remote_map_hash);
 bool Disconnect();
 
 static void ProcessNetEvent (TNET_MESSAGE *msg);
@@ -289,6 +319,41 @@ static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
 static void OnDisconnect (in_addr address, in_port_t port);
+
+#if !HEADLESS
+void EditorMenuOnShow(TGUI_BOX *sender);
+void EditorMapListOnChange(TGUI_BOX *sender, int item_index);
+void EditorFragListOnChange(TGUI_BOX *sender, int item_index);
+void EditorFragButtonOnClick(TGUI_BOX *sender);
+void EditorObjButtonOnClick(TGUI_BOX *sender);
+void EditorSourceButtonOnClick(TGUI_BOX *sender);
+void EditorSchemeUnitButtonOnClick(TGUI_BOX *sender);
+void EditorSchemeBldButtonOnClick(TGUI_BOX *sender);
+void EditorStartPosButtonOnClick(TGUI_BOX *sender);
+void EditorPlayerSelectOnClick(TGUI_BOX *sender);
+void EditorPlayerBldButtonOnClick(TGUI_BOX *sender);
+void EditorPlayerUnitButtonOnClick(TGUI_BOX *sender);
+void EditorNavButtonOnClick(TGUI_BOX *sender);
+void EditorBuildFragGroups(int sid);
+void EditorRebuildPalette(void);
+void EditorCaptureMapHead(const char *basename_no_ext);
+bool EditorBootstrap(const char *basename_no_ext);
+void EditorShutdown(void);
+void CreateEditorGUI(void);
+void EditorOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button);
+void EditorOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button);
+void EditorOnKeyDown(int key);
+
+static string EditorMapBaseId(const char *id)
+{
+  if (!id || !*id)
+    return string();
+  string s(id);
+  if (s.size() > 4 && s.compare(s.size() - 4, 4, ".map") == 0)
+    s.resize(s.size() - 4);
+  return s;
+}
+#endif
 
 //========================================================================
 // Variables
@@ -369,6 +434,69 @@ TGUI_BUTTON    *add_comp_button = NULL;
 
 // loading game
 TGUI_PANEL     *load_panel = NULL;
+
+#if !HEADLESS
+TGUI_PANEL     *editor_menu = NULL;
+TGUI_LIST_BOX  *editor_map_list = NULL;
+TGUI_EDIT_BOX  *editor_new_name_edit = NULL;
+TGUI_COMBO_BOX *editor_size_combo = NULL;
+TGUI_LIST_BOX  *editor_frag_list = NULL;
+#endif
+
+bool in_editor_mode = false;
+std::string g_editor_saved_map_prologue;
+#if !HEADLESS
+static std::string editor_entry_basename;
+static int editor_selected_fid = 0;
+static int editor_selected_oid = -1;
+static int editor_paint_segment = 1;
+static int editor_object_segment = 1;
+
+enum EditorTool {
+  ET_TERRAIN,
+  ET_OBJECTS,
+  ET_SOURCE,
+  ET_SCHEME_UNIT,
+  ET_SCHEME_BUILDING,
+  ET_PLAYER_BUILDING,
+  ET_PLAYER_UNIT,
+  ET_START_POS,
+  ET_ERASE
+};
+static EditorTool editor_tool = ET_TERRAIN;
+
+enum EditorPaletteLevel {
+  EP_ROOT,
+  EP_TERRAIN_TYPES,
+  EP_TERRAIN_VARIANTS,
+  EP_OBJECTS,
+  EP_PLAYER_LIST,
+  EP_PLAYER_CATEGORY,
+  EP_PLAYER_BUILDINGS,
+  EP_PLAYER_UNITS
+};
+static EditorPaletteLevel editor_palette_level = EP_ROOT;
+static int editor_palette_group = -1;
+static int editor_selected_pid = 1;
+static int editor_selected_source_idx = -1;
+static int editor_selected_scheme_uid = -1;
+static int editor_selected_scheme_bid = -1;
+static int editor_selected_player_bid = -1;
+static int editor_selected_player_uid = -1;
+static int editor_selected_start_point = -1;
+
+struct EditorFragGroup {
+  std::string name;
+  std::vector<int> frag_ids;
+  int representative_fid;
+};
+static std::vector<EditorFragGroup> editor_frag_groups;
+
+static TGUI_SCROLL_BOX *editor_palette_sbox = NULL;
+static TGUI_PANEL      *editor_right_panel = NULL;
+static TGUI_LABEL      *editor_palette_title = NULL;
+static TGUI_BUTTON     *editor_add_player_btn = NULL;
+#endif
 
 // menu lists
 TMAP_INFO_LIST map_info_list; //!< List of maps info in menu.
@@ -664,6 +792,24 @@ public:
 // Structures of map list used in menu
 //=========================================================================
 
+/** FNV-1a 32-bit over raw .map file bytes (for network map sync). */
+static uint32_t ComputeMapFileHash (const char *file_name)
+{
+  TFILE_NAME path;
+  snprintf (path, sizeof path, "%s%s", MAP_PATH, file_name);
+  FILE *f = fopen (path, "rb");
+  if (!f)
+    return 0;
+  uint32_t h = 2166136261u;
+  int c;
+  while ((c = fgetc (f)) != EOF) {
+    h ^= (uint32_t)(unsigned char)c;
+    h *= 16777619u;
+  }
+  fclose (f);
+  return h;
+}
+
 /**
  *  Fills list of maps from directory MAP_PATH.
  */
@@ -838,6 +984,13 @@ bool TMAP_INFO_LIST::LoadMapInfo(bool basic, const char *file_name){
   }
 
   CloseConfFile(cf);
+
+  if (!basic) {
+    if (ok)
+      map_ext_info.file_hash = ComputeMapFileHash (file_name);
+    else
+      map_ext_info.file_hash = 0;
+  }
 
   if (!ok) Warning(LogMsg("Map '%s' is not complet or is corrupted.", file_name));
   
@@ -1568,6 +1721,152 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
   
   case MNU_CREDITS:       SetActiveMenu(credits_menu); break;
 
+#if !HEADLESS
+  case MNU_MAP_EDITOR:
+    SetActiveMenu(editor_menu);
+    break;
+
+  case MNU_EDITOR_BACK:
+    SetActiveMenu(main_menu);
+    break;
+
+  case MNU_EDITOR_OPEN: {
+    if (!editor_map_list || !map_info_list.map_list) {
+      gui->ShowMessageBox("No maps available", GUI_MB_OK);
+      break;
+    }
+    /* List selection is often -1 until the user clicks a row; default to first map. */
+    int idx = editor_map_list->GetItemIndex();
+    if (idx < 0 && editor_map_list->GetItemsCount() > 0) {
+      char *first_line = editor_map_list->GetItem(0);
+      if (first_line)
+        editor_map_list->SetItem(first_line);
+      idx = editor_map_list->GetItemIndex();
+    }
+    if (idx < 0) {
+      gui->ShowMessageBox("Select a map in the list", GUI_MB_OK);
+      break;
+    }
+    TMAP_BASIC_INFO_NODE *act;
+    int i;
+    for (act = map_info_list.map_list, i = 0; act != NULL && i < idx; act = act->next, i++) {}
+    if (act == NULL) {
+      gui->ShowMessageBox("Map list out of sync; try again", GUI_MB_OK);
+      break;
+    }
+    editor_entry_basename = EditorMapBaseId(act->id_name);
+    if (editor_entry_basename.empty()) {
+      gui->ShowMessageBox("Invalid map id", GUI_MB_OK);
+      break;
+    }
+    selected_map_name = editor_entry_basename + ".map";
+    state = ST_EDITOR;
+    break;
+  }
+
+  case MNU_EDITOR_NEW: {
+    const char *raw = editor_new_name_edit->GetText();
+    if (raw == NULL || !*raw) {
+      gui->ShowMessageBox("Enter a map id (letters, digits, _ -)", GUI_MB_OK);
+      break;
+    }
+    string id = raw;
+    bool ok_id = !id.empty() && id.size() < MAP_MAX_NAME_LENGTH;
+    for (size_t j = 0; ok_id && j < id.size(); j++) {
+      unsigned char c = (unsigned char)id[j];
+      if (!isalnum(c) && id[j] != '_' && id[j] != '-')
+        ok_id = false;
+    }
+    if (!ok_id) {
+      gui->ShowMessageBox("Invalid map id", GUI_MB_OK);
+      break;
+    }
+    int cidx = editor_size_combo->GetItemIndex();
+    if (cidx < 0)
+      cidx = 0;
+    char *szline = editor_size_combo->GetItem(cidx);
+    if (!szline)
+      break;
+    string szs = szline;
+    int w = atoi(szs.c_str());
+    if (w != 80 && w != 128 && w != 160) {
+      gui->ShowMessageBox("Pick size 80, 128, or 160", GUI_MB_OK);
+      break;
+    }
+    if (!TMAP::EditorWriteBlankPlasticMap(id.c_str(), w, w, id.c_str())) {
+      gui->ShowMessageBox("Could not create map file (maps/ writable?)", GUI_MB_OK);
+      break;
+    }
+    map_info_list.LoadMapList();
+    editor_entry_basename = id;
+    selected_map_name = id + ".map";
+    state = ST_EDITOR;
+    break;
+  }
+
+  case MNU_EDITOR_SAVE:
+    if (state == ST_EDITOR && map.width > 0) {
+      if (map.SaveMapToFile(map.id_name))
+        ost->AddText("Map saved", 3.0, INFO_COLOR_R, INFO_COLOR_G, INFO_COLOR_B);
+      else
+        gui->ShowMessageBox("Save failed (missing prologue or I/O error)", GUI_MB_OK);
+    }
+    break;
+
+  case MNU_EDITOR_EXIT:
+    state = ST_MAIN_MENU;
+    break;
+
+  case MNU_EDITOR_ADD_PLAYER: {
+    static const char *race_cycle[] = {"human-red", "human-yellow", "human-blue"};
+    int old_count = player_array.GetCount();
+    const int EDITOR_MAX_PLAYERS = 3;
+    if (old_count >= EDITOR_MAX_PLAYERS) {
+      gui->ShowMessageBox("Max players reached", GUI_MB_OK);
+      break;
+    }
+
+    player_array.Lock();
+    player_array.AddComputerPlayer();
+    if (host) host->AddEmptyAddress();
+    int pid = player_array.GetCount() - 1;
+
+    const char *chosen_race = race_cycle[(pid - 1) % 3];
+    player_array.SetRaceIdName(pid, chosen_race);
+    player_array.Unlock();
+
+    if (!GrowPlayersRuntime(old_count, player_array.GetCount())) {
+      gui->ShowMessageBox("Failed to grow players array", GUI_MB_OK);
+      break;
+    }
+
+    string rn = player_array.GetRaceIdName(pid);
+    TRACE *r;
+    for (r = races; r; r = r->next)
+      if (rn == r->id_name) break;
+    if (!r) {
+      LoadRace((char *)rn.c_str(), false);
+      for (r = races; r; r = r->next)
+        if (rn == r->id_name) break;
+    }
+    if (r) players[pid]->race = r;
+
+    players[pid]->initial_x = map.width / 2;
+    players[pid]->initial_y = map.height / 2;
+
+    EditorAddStartPoint((T_SIMPLE)(map.width / 2), (T_SIMPLE)(map.height / 2));
+    player_array.SetStartPoint(pid, EditorGetStartPointCount() - 1);
+
+    if (editor_palette_level == EP_PLAYER_LIST)
+      EditorRebuildPalette();
+
+    char msg[64];
+    sprintf(msg, "Player %d added (%s)", pid, chosen_race);
+    ost->AddText(msg, 3.0, INFO_COLOR_R, INFO_COLOR_G, INFO_COLOR_B);
+    break;
+  }
+#endif
+
   case MNU_OPTIONS:       SetActiveMenu(options_menu); break;
   case MNU_VIDEO:
     SetActiveMenu(video_menu);
@@ -1776,6 +2075,11 @@ void MenuOnKeyDown(int key)
   switch (key) {
   // On ESC we end Menu and change to Quit.
   case GLFW_KEY_ESC:
+#if !HEADLESS
+    if (editor_menu && editor_menu->IsVisible())
+      MenuButtonOnClickKey(MNU_EDITOR_BACK);
+    else
+#endif
     if (main_menu->IsVisible())
       MenuButtonOnClickKey(MNU_QUIT);
 
@@ -1988,7 +2292,7 @@ void MenuPanelOnDraw(TGUI_BOX *sender)
 #endif
 }
 
-void MenuUpdateMapInfo (string map_name) {
+void MenuUpdateMapInfo (string map_name, uint32_t remote_map_hash) {
 #if !HEADLESS
   char buff[4096];
   TMAP_RAC_INFO_NODE * act_rac;
@@ -1999,8 +2303,16 @@ void MenuUpdateMapInfo (string map_name) {
   player_array.Lock ();
 
   map_info_list.ClearRacList();
-        
-  if (map_info_list.LoadMapInfo(false, map_name.c_str ())) { // selected map exists
+
+  bool loaded = map_info_list.LoadMapInfo (false, map_name.c_str ());
+  bool hash_mismatch = false;
+  if (loaded && remote_map_hash != 0
+      && map_info_list.map_ext_info.file_hash != remote_map_hash) {
+    hash_mismatch = true;
+    loaded = false;
+  }
+
+  if (loaded) { // selected map exists and matches server hash (if server sent one)
     selected_map_name = map_name; // put map id_name to global variable ... if menu quits, this map will be loaded
 
     player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
@@ -2040,14 +2352,21 @@ void MenuUpdateMapInfo (string map_name) {
     SynchronisePlayersAndMenu ();
 #endif
   }
-  else{ // can not find file of selected map
+  else{ // can not find file of selected map, parse error, or hash mismatch with server
     selected_map_name = "";
 #if !HEADLESS
-    map_label->SetCaption ("Missing or corrupted map");
+    {
+      string cap;
+      if (hash_mismatch)
+        cap = "Map version mismatch with server";
+      else
+        cap = string ("Map not found: ") + map_name;
+      map_label->SetCaption (cap.c_str ());
+    }
 
     // clear global map name and disable play button
     play_button->SetEnabled(false);
-    
+
     // set empty info map labels
     map_scheme_label->SetCaption("");
     map_size_label->SetCaption("");
@@ -2063,6 +2382,8 @@ void MenuUpdateMapInfo (string map_name) {
 
       pl_race_combo[i]->SetItems("");
     }
+#else
+    (void)hash_mismatch;
 #endif
   }
 
@@ -2078,7 +2399,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
     for (act = map_info_list.map_list, i = 0; (act != NULL) && (i < item_index); act = act->next, i++); // finds pointer to item_index.th map
 
     if (act != NULL) {
-      MenuUpdateMapInfo (act->id_name);
+      MenuUpdateMapInfo (act->id_name, 0);
       UpdatePlayersAndMenu ();
     }
   }
@@ -3282,7 +3603,10 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
-  MenuUpdateMapInfo (msg->ExtractString ());    // Map name.
+  string net_map_name = msg->ExtractString ();    // Map name.
+  uint32_t remote_map_hash;
+  msg->Extract (&remote_map_hash, sizeof remote_map_hash);
+  MenuUpdateMapInfo (net_map_name, remote_map_hash);
   T_BYTE player_count = msg->ExtractByte ();    // Count of players.
 
   /* Clear the array completely, remove hyper player too. */
@@ -3735,6 +4059,14 @@ void ClearGuiVars()
   }
 
   load_panel = NULL;
+
+#if !HEADLESS
+  editor_menu = NULL;
+  editor_map_list = NULL;
+  editor_new_name_edit = NULL;
+  editor_size_combo = NULL;
+  editor_frag_list = NULL;
+#endif
 }
 
 
@@ -3782,17 +4114,21 @@ void CreateMenuGUI()
   panel->SetAlpha(0.0f);
   panel->SetVisible(false);
 
-  button = panel->AddButton(MNU_PLAY, 0, 190, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 0));
+  button = panel->AddButton(MNU_PLAY, 0, 205, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 0));
   SetMenuButton(true);
 
-  button = panel->AddButton(MNU_QUICK_PLAY, 0, 155, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 1));
+  button = panel->AddButton(MNU_QUICK_PLAY, 0, 175, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 1));
   SetMenuButton(true);
 
-  button = panel->AddButton(MNU_OPTIONS, 0, 120, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 2));
+  button = panel->AddButton(MNU_OPTIONS, 0, 145, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 2));
   SetMenuButton(true);
   
-  button = panel->AddButton(MNU_CREDITS, 0, 85, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 3));
+  button = panel->AddButton(MNU_CREDITS, 0, 115, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 3));
   SetMenuButton(true);
+
+  button = panel->AddButton(MNU_MAP_EDITOR, 18, 75, 220, 24, "MAP EDITOR");
+  SetMenuButton(true);
+  button->SetFontColor(0, 0, 0);
   
   button = panel->AddButton(MNU_QUIT, 0, 15, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 4));
   SetMenuButton(true);
@@ -4174,6 +4510,42 @@ void CreateMenuGUI()
     build_lbl->SetLineHeight(14.0f);
     build_lbl->SetAlpha(0.9f);
   }
+
+#if !HEADLESS
+  if (config.scr_height >= 600) y = GLfloat(config.scr_height / 2 - 160 - 50);
+  else y = GLfloat(config.scr_height / 2 - 160);
+
+  editor_menu = panel = gui->AddPanel(0, GLfloat(config.scr_width / 2 - 220), y, 440, 320);
+  SetMenuPanel();
+  panel->SetOnShow(EditorMenuOnShow);
+
+  panel->AddLabel(0, 20, 265, "Maps");
+  editor_map_list = list = panel->AddListBox(MNU_EDITOR_MAP_LIST, 20, 95, 200, 150);
+  list->SetFontColor(0, 0, 0);
+  list->SetOnChange(EditorMapListOnChange);
+
+  button = panel->AddButton(MNU_EDITOR_OPEN, 230, 268, 90, 22, "Open");
+  SetMenuButton(true);
+  button->SetFontColor(0, 0, 0);
+
+  panel->AddLabel(0, 20, 70, "New map id");
+  editor_new_name_edit = edit = panel->AddEditBox(0, 20, 48, 200, 18, MAP_MAX_NAME_LENGTH - 1);
+  edit->SetFontColor(0, 0, 0);
+
+  panel->AddLabel(0, 240, 70, "Size");
+  editor_size_combo = combo = panel->AddComboBox(0, 240, 48, 90, 18);
+  combo->SetItems("80\n128\n160");
+  combo->SetFontColor(0, 0, 0);
+  combo->SetPadding(3.0f);
+
+  button = panel->AddButton(MNU_EDITOR_NEW, 335, 48, 95, 22, "Create");
+  SetMenuButton(true);
+  button->SetFontColor(0, 0, 0);
+
+  button = panel->AddButton(MNU_EDITOR_BACK, 20, 15, 100, 22, "Back");
+  SetMenuButton(true);
+  button->SetFontColor(0, 0, 0);
+#endif
 
   // activate menu
   if (state == ST_PLAY_MENU) active_menu = play_menu;
@@ -4674,6 +5046,12 @@ void GLFWCALL KeyCallback(int key, int action)
     else GameOnKeyUp(key);
     break;
 
+#if !HEADLESS
+  case ST_EDITOR:
+    if (action == GLFW_PRESS) EditorOnKeyDown(key);
+    break;
+#endif
+
   case ST_QUIT:
   default:
     break;
@@ -4717,7 +5095,11 @@ void GLFWCALL MousePosCallback(int x, int y)
   int dx = x - mouse.rx;
   int dy = y - mouse.ry;
 
-  if (state == ST_GAME && map.mouse_moving)
+  if (map.mouse_moving && (state == ST_GAME
+#if !HEADLESS
+      || state == ST_EDITOR
+#endif
+      ))
   {
     map.Move(-dx * projection.game_h_coef, -dy * projection.game_v_coef);
   }
@@ -4732,7 +5114,11 @@ void GLFWCALL MousePosCallback(int x, int y)
     if (mouse.x >= config.scr_width) mouse.x = config.scr_width - 1;
     if (mouse.y >= config.scr_height) mouse.y = config.scr_height - 1;
 
-    if (state == ST_GAME && map.drag_moving) {
+    if (map.drag_moving && (state == ST_GAME
+#if !HEADLESS
+        || state == ST_EDITOR
+#endif
+        )) {
       map.Move((mouse.x - last_x) * projection.game_h_coef, (mouse.y - last_y) * projection.game_v_coef);
     }
   }
@@ -4759,6 +5145,12 @@ void GLFWCALL MouseWheelCallback(int pos)
   switch (state) {
   case ST_GAME:
     map.Zoom(pos - last_pos);
+    break;
+#if !HEADLESS
+  case ST_EDITOR:
+    map.Zoom(pos - last_pos);
+    break;
+#endif
 
   default: break;
   }
@@ -5083,6 +5475,1143 @@ error_with_own_state:
 
   return false;
 }
+
+
+#if !HEADLESS
+
+void EditorMenuOnShow(TGUI_BOX *)
+{
+  map_info_list.LoadMapList();
+  TMAP_BASIC_INFO_NODE *act;
+  string maps;
+
+  if (map_info_list.map_list) {
+    for (act = map_info_list.map_list; act != NULL; act = act->next)
+      maps += string(act->name) + "\n";
+    if (maps.size())
+      maps.erase(maps.end() - 1);
+  } else
+    maps = "No maps";
+
+  editor_map_list->SetItems(maps.c_str());
+  if (map_info_list.map_list && editor_map_list->GetItemsCount() > 0) {
+    char *first_line = editor_map_list->GetItem(0);
+    if (first_line)
+      editor_map_list->SetItem(first_line);
+  }
+  if (map_info_list.map_list)
+    EditorMapListOnChange(editor_map_list, 0);
+}
+
+
+void EditorMapListOnChange(TGUI_BOX *, int) {}
+
+
+void EditorFragListOnChange(TGUI_BOX *, int item_index)
+{
+  if (item_index >= 0)
+    editor_selected_fid = item_index;
+}
+
+void EditorFragButtonOnClick(TGUI_BOX *sender)
+{
+  intptr_t key = sender->GetKey();
+  if (key >= MNU_EDITOR_FRAG_BASE && key < MNU_EDITOR_OBJ_BASE) {
+    editor_selected_fid = (int)(key - MNU_EDITOR_FRAG_BASE);
+    editor_tool = ET_TERRAIN;
+  }
+}
+
+void EditorTerrainThumbOnDraw(TGUI_BOX *sender)
+{
+  int fid = (int)(sender->GetKey() - MNU_EDITOR_FRAG_BASE);
+  int sid = editor_paint_segment;
+  if (fid < 0 || sid < 0 || sid >= DAT_SEGMENTS_COUNT) return;
+  TGUI_TEXTURE *tex = scheme.terrf[sid][fid].GetFirstTexture();
+  if (!tex || !tex->gl_id) return;
+
+  GLfloat w = sender->GetWidth();
+  GLfloat h = sender->GetHeight();
+  float fvw = (float)tex->frame_width / tex->width;
+  float fvh = (float)tex->frame_height / tex->height;
+
+  glEnable(GL_TEXTURE_2D);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  glBindTexture(GL_TEXTURE_2D, tex->gl_id);
+  glBegin(GL_QUADS);
+    glTexCoord2f(0, 0);          glVertex2f(0, 0);
+    glTexCoord2f(fvw, 0);        glVertex2f(w, 0);
+    glTexCoord2f(fvw, fvh);      glVertex2f(w, h);
+    glTexCoord2f(0, fvh);        glVertex2f(0, h);
+  glEnd();
+}
+
+void EditorObjButtonOnClick(TGUI_BOX *sender)
+{
+  intptr_t key = sender->GetKey();
+  if (key >= MNU_EDITOR_OBJ_BASE && key < MNU_EDITOR_SOURCE_BASE) {
+    editor_selected_oid = (int)(key - MNU_EDITOR_OBJ_BASE);
+    editor_tool = ET_OBJECTS;
+  }
+}
+
+void EditorSourceButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_source_idx = (int)(sender->GetKey() - MNU_EDITOR_SOURCE_BASE);
+  editor_tool = ET_SOURCE;
+}
+
+void EditorSchemeUnitButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_scheme_uid = (int)(sender->GetKey() - MNU_EDITOR_SCHEME_UNIT_BASE);
+  editor_tool = ET_SCHEME_UNIT;
+}
+
+void EditorSchemeBldButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_scheme_bid = (int)(sender->GetKey() - MNU_EDITOR_SCHEME_BLD_BASE);
+  editor_tool = ET_SCHEME_BUILDING;
+}
+
+void EditorStartPosButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_start_point = (int)(sender->GetKey() - MNU_EDITOR_STARTPOS_BASE);
+  editor_tool = ET_START_POS;
+}
+
+void EditorPlayerSelectOnClick(TGUI_BOX *sender)
+{
+  editor_selected_pid = (int)(sender->GetKey() - MNU_EDITOR_PLAYER_SELECT_BASE);
+  editor_palette_level = EP_PLAYER_CATEGORY;
+  EditorRebuildPalette();
+}
+
+void EditorPlayerBldButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_player_bid = (int)(sender->GetKey() - MNU_EDITOR_PLAYER_BLD_BASE);
+  editor_tool = ET_PLAYER_BUILDING;
+}
+
+void EditorPlayerUnitButtonOnClick(TGUI_BOX *sender)
+{
+  editor_selected_player_uid = (int)(sender->GetKey() - MNU_EDITOR_PLAYER_UNIT_BASE);
+  editor_tool = ET_PLAYER_UNIT;
+}
+
+void EditorNavButtonOnClick(TGUI_BOX *sender)
+{
+  intptr_t key = sender->GetKey();
+  switch (key) {
+  case MNU_EDITOR_NAV_TERRAIN:
+    editor_palette_level = EP_TERRAIN_TYPES;
+    EditorRebuildPalette();
+    break;
+  case MNU_EDITOR_NAV_OBJECTS:
+    editor_palette_level = EP_OBJECTS;
+    EditorRebuildPalette();
+    break;
+  case MNU_EDITOR_NAV_PLAYER:
+    editor_palette_level = EP_PLAYER_LIST;
+    EditorRebuildPalette();
+    break;
+  case MNU_EDITOR_NAV_PLY_BLD:
+    editor_palette_level = EP_PLAYER_BUILDINGS;
+    EditorRebuildPalette();
+    break;
+  case MNU_EDITOR_NAV_PLY_UNI:
+    editor_palette_level = EP_PLAYER_UNITS;
+    EditorRebuildPalette();
+    break;
+  case MNU_EDITOR_NAV_BACK:
+    if (editor_palette_level == EP_TERRAIN_VARIANTS)
+      editor_palette_level = EP_TERRAIN_TYPES;
+    else if (editor_palette_level == EP_PLAYER_UNITS || editor_palette_level == EP_PLAYER_BUILDINGS)
+      editor_palette_level = EP_PLAYER_CATEGORY;
+    else if (editor_palette_level == EP_PLAYER_CATEGORY)
+      editor_palette_level = EP_PLAYER_LIST;
+    else if (editor_palette_level == EP_PLAYER_LIST)
+      editor_palette_level = EP_ROOT;
+    else
+      editor_palette_level = EP_ROOT;
+    EditorRebuildPalette();
+    break;
+  default:
+    if (key >= MNU_EDITOR_GROUP_BASE && key < MNU_EDITOR_GROUP_BASE + 100) {
+      editor_palette_group = (int)(key - MNU_EDITOR_GROUP_BASE);
+      editor_palette_level = EP_TERRAIN_VARIANTS;
+      EditorRebuildPalette();
+    }
+    break;
+  }
+}
+
+static std::string EditorExtractGroupPrefix(const char *name)
+{
+  if (!name || !*name) return "other";
+  std::string s(name);
+  if (s.size() > 3 && s.compare(0, 3, "ug_") == 0)
+    s = s.substr(3);
+  size_t pos = s.find('_');
+  if (pos != std::string::npos)
+    s = s.substr(0, pos);
+  return s;
+}
+
+void EditorBuildFragGroups(int sid)
+{
+  editor_frag_groups.clear();
+  int n = scheme.terrf_count[sid];
+  std::map<std::string, int> group_map;
+
+  for (int i = 0; i < n; i++) {
+    TTEX_GROUP *tg = scheme.terrf[sid][i].GetTexGroup();
+    std::string prefix = tg ? EditorExtractGroupPrefix(tg->name) : "other";
+    auto it = group_map.find(prefix);
+    if (it == group_map.end()) {
+      group_map[prefix] = (int)editor_frag_groups.size();
+      EditorFragGroup g;
+      g.name = prefix;
+      g.representative_fid = i;
+      g.frag_ids.push_back(i);
+      editor_frag_groups.push_back(g);
+    } else {
+      editor_frag_groups[it->second].frag_ids.push_back(i);
+    }
+  }
+}
+
+static void EditorGetThumbSize(TGUI_TEXTURE *tex, GLfloat *out_w, GLfloat *out_h)
+{
+  if (!tex || !out_w || !out_h) return;
+  int fw = tex->frame_width;
+  int fh = tex->frame_height;
+  const int max_w = 85;
+  float scale = 1.0f;
+  if (fw > max_w)
+    scale = (float)max_w / fw;
+  int tw = (int)(fw * scale);
+  int th = (int)(fh * scale);
+  if (tw < 20) tw = 20;
+  if (th < 14) th = 14;
+  *out_w = (GLfloat)tw;
+  *out_h = (GLfloat)th;
+}
+
+void EditorRebuildPalette(void)
+{
+  if (!editor_palette_sbox) return;
+  editor_palette_sbox->Clear();
+
+  if (editor_add_player_btn)
+    editor_add_player_btn->SetVisible(editor_palette_level == EP_PLAYER_LIST);
+
+  int sid = editor_paint_segment;
+  GLfloat scroll_h = editor_palette_sbox->GetHeight();
+  GLfloat cx, cy;
+  TGUI_BUTTON *button;
+
+  switch (editor_palette_level) {
+  case EP_ROOT: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Palette");
+    cy = scroll_h - 40;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_TERRAIN, 10, cy, 170, 28, "Terrain");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.55f, 0.7f, 0.45f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+
+    cy -= 36;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_OBJECTS, 10, cy, 170, 28, "Objects");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.55f, 0.55f, 0.75f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+
+    cy -= 36;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_PLAYER, 10, cy, 170, 28, "Player");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.65f, 0.5f, 0.55f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    break;
+  }
+  case EP_TERRAIN_TYPES: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Terrain types");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+
+    for (int gi = 0; gi < (int)editor_frag_groups.size(); gi++) {
+      EditorFragGroup &g = editor_frag_groups[gi];
+      TGUI_TEXTURE *tex = scheme.terrf[sid][g.representative_fid].GetFirstTexture();
+      if (tex) {
+        GLfloat ttw, tth;
+        EditorGetThumbSize(tex, &ttw, &tth);
+        cy -= tth + 4;
+        button = editor_palette_sbox->AddGroupButton(
+          MNU_EDITOR_GROUP_BASE + gi, 4, cy, tex, 10);
+        button->SetWidth(ttw);
+        button->SetHeight(tth);
+        button->SetOnMouseClick(EditorNavButtonOnClick);
+        char lbl[64];
+        snprintf(lbl, sizeof(lbl), "%s (%d)", g.name.c_str(), (int)g.frag_ids.size());
+        editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, lbl);
+      } else {
+        cy -= 24;
+        button = editor_palette_sbox->AddButton(
+          MNU_EDITOR_GROUP_BASE + gi, 4, cy, 170, 20, g.name.c_str());
+        button->SetFontColor(0, 0, 0);
+        button->SetOnMouseClick(EditorNavButtonOnClick);
+      }
+    }
+    break;
+  }
+  case EP_TERRAIN_VARIANTS: {
+    if (editor_palette_group < 0 || editor_palette_group >= (int)editor_frag_groups.size())
+      break;
+    EditorFragGroup &g = editor_frag_groups[editor_palette_group];
+    char title[64];
+    snprintf(title, sizeof(title), "Terrain: %s", g.name.c_str());
+    if (editor_palette_title)
+      editor_palette_title->SetCaption(title);
+
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+
+    TGUI_TEXTURE *tex0 = NULL;
+    if (!g.frag_ids.empty())
+      tex0 = scheme.terrf[sid][g.frag_ids[0]].GetFirstTexture();
+    GLfloat ttw0 = 44, tth0 = 28;
+    if (tex0)
+      EditorGetThumbSize(tex0, &ttw0, &tth0);
+    int cols = (ttw0 * 2 + 6 <= 180) ? 2 : 1;
+    cx = 2;
+    int col = 0;
+
+    for (int fi = 0; fi < (int)g.frag_ids.size(); fi++) {
+      int fid = g.frag_ids[fi];
+      TGUI_TEXTURE *tex = scheme.terrf[sid][fid].GetFirstTexture();
+      if (!tex) continue;
+
+      GLfloat ttw, tth;
+      EditorGetThumbSize(tex, &ttw, &tth);
+      cy -= tth + 2;
+      button = editor_palette_sbox->AddGroupButton(
+        MNU_EDITOR_FRAG_BASE + fid, cx, cy, ttw, tth, NULL, 1);
+      button->SetAlpha(0.0f);
+      button->SetOnDraw(EditorTerrainThumbOnDraw);
+      button->SetOnMouseClick(EditorFragButtonOnClick);
+
+      col++;
+      if (cols == 2 && col % 2 == 1) {
+        cy += tth + 2;
+        cx = ttw + 6;
+      } else {
+        cx = 2;
+      }
+    }
+    break;
+  }
+  case EP_OBJECTS: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Objects");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+
+    int obj_sid = sid;
+    if (scheme.terro_count[obj_sid] <= 0) {
+      obj_sid = -1;
+      for (int t = 0; t < DAT_SEGMENTS_COUNT; t++) {
+        if (scheme.terro_count[t] > 0) {
+          obj_sid = t;
+          break;
+        }
+      }
+      if (obj_sid < 0)
+        obj_sid = sid;
+    }
+    editor_object_segment = obj_sid;
+
+    int no = scheme.terro_count[obj_sid];
+    for (int oi = 0; oi < no; oi++) {
+      TSURFACE_ITEM *si = &scheme.terro[obj_sid][oi];
+      TGUI_TEXTURE *tex = scheme.tex_table.GetTexture(si->tg_stay_id, 0);
+      if (tex) {
+        GLfloat ttw, tth;
+        EditorGetThumbSize(tex, &ttw, &tth);
+        cy -= tth + 4;
+        button = editor_palette_sbox->AddGroupButton(
+          MNU_EDITOR_OBJ_BASE + oi, 4, cy, tex, 2);
+        button->SetWidth(ttw);
+        button->SetHeight(tth);
+        button->SetOnMouseClick(EditorObjButtonOnClick);
+        if (si->name)
+          editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, si->name);
+      } else {
+        cy -= 24;
+        button = editor_palette_sbox->AddButton(
+          MNU_EDITOR_OBJ_BASE + oi, 4, cy, 170, 20, si->name ? si->name : "???");
+        button->SetFontColor(0, 0, 0);
+        button->SetOnMouseClick(EditorObjButtonOnClick);
+      }
+    }
+
+    if (hyper_player && hyper_player->race) {
+      TRACE *hr = hyper_player->race;
+      cy -= 8;
+      editor_palette_sbox->AddLabel(0, 4, cy - 12, "--- Sources ---");
+      cy -= 20;
+      for (int si = 0; si < hr->sources_count; si++) {
+        TSOURCE_ITEM *src = hr->sources[si];
+        if (!src)
+          continue;
+        TGUI_TEXTURE *tex = hr->tex_table.GetTexture(src->tg_picture_id, 0);
+        if (tex) {
+          GLfloat ttw, tth;
+          EditorGetThumbSize(tex, &ttw, &tth);
+          cy -= tth + 4;
+          button = editor_palette_sbox->AddGroupButton(
+            MNU_EDITOR_SOURCE_BASE + si, 4, cy, tex, 2);
+          button->SetWidth(ttw);
+          button->SetHeight(tth);
+          button->SetOnMouseClick(EditorSourceButtonOnClick);
+          if (src->name)
+            editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, src->name);
+        } else {
+          cy -= 24;
+          button = editor_palette_sbox->AddButton(
+            MNU_EDITOR_SOURCE_BASE + si, 4, cy, 170, 20, src->name ? src->name : "src");
+          button->SetFontColor(0, 0, 0);
+          button->SetOnMouseClick(EditorSourceButtonOnClick);
+        }
+      }
+
+      editor_palette_sbox->AddLabel(0, 4, cy - 12, "--- Units ---");
+      cy -= 20;
+      for (int ui = 0; ui < hr->units_count; ui++) {
+        TFORCE_ITEM *fu = hr->units[ui];
+        if (!fu)
+          continue;
+        TGUI_TEXTURE *tex = hr->tex_table.GetTexture(fu->tg_picture_id, 0);
+        if (tex) {
+          GLfloat ttw, tth;
+          EditorGetThumbSize(tex, &ttw, &tth);
+          cy -= tth + 4;
+          button = editor_palette_sbox->AddGroupButton(
+            MNU_EDITOR_SCHEME_UNIT_BASE + ui, 4, cy, tex, 2);
+          button->SetWidth(ttw);
+          button->SetHeight(tth);
+          button->SetOnMouseClick(EditorSchemeUnitButtonOnClick);
+          if (fu->name)
+            editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, fu->name);
+        } else {
+          cy -= 24;
+          button = editor_palette_sbox->AddButton(
+            MNU_EDITOR_SCHEME_UNIT_BASE + ui, 4, cy, 170, 20, fu->name ? fu->name : "unit");
+          button->SetFontColor(0, 0, 0);
+          button->SetOnMouseClick(EditorSchemeUnitButtonOnClick);
+        }
+      }
+
+      editor_palette_sbox->AddLabel(0, 4, cy - 12, "--- Buildings ---");
+      cy -= 20;
+      for (int bi = 0; bi < hr->buildings_count; bi++) {
+        TBUILDING_ITEM *bld = hr->buildings[bi];
+        if (!bld)
+          continue;
+        TGUI_TEXTURE *tex = hr->tex_table.GetTexture(bld->tg_picture_id, 0);
+        if (tex) {
+          GLfloat ttw, tth;
+          EditorGetThumbSize(tex, &ttw, &tth);
+          cy -= tth + 4;
+          button = editor_palette_sbox->AddGroupButton(
+            MNU_EDITOR_SCHEME_BLD_BASE + bi, 4, cy, tex, 2);
+          button->SetWidth(ttw);
+          button->SetHeight(tth);
+          button->SetOnMouseClick(EditorSchemeBldButtonOnClick);
+          if (bld->name)
+            editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, bld->name);
+        } else {
+          cy -= 24;
+          button = editor_palette_sbox->AddButton(
+            MNU_EDITOR_SCHEME_BLD_BASE + bi, 4, cy, 170, 20, bld->name ? bld->name : "bld");
+          button->SetFontColor(0, 0, 0);
+          button->SetOnMouseClick(EditorSchemeBldButtonOnClick);
+        }
+      }
+    }
+
+    break;
+  }
+  case EP_PLAYER_LIST: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Player");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+    for (int pi = 1; pi < player_array.GetCount(); pi++) {
+      char plab[48];
+      snprintf(plab, sizeof(plab), "Player %d", pi);
+      cy -= 28;
+      button = editor_palette_sbox->AddButton(MNU_EDITOR_PLAYER_SELECT_BASE + pi, 4, cy, 170, 24, plab);
+      button->SetFontColor(0, 0, 0);
+      button->SetFaceColor(0.55f, 0.5f, 0.6f);
+      button->SetOnMouseClick(EditorPlayerSelectOnClick);
+    }
+    break;
+  }
+  case EP_PLAYER_CATEGORY: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Player tools");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 34;
+    char cap[64];
+    snprintf(cap, sizeof(cap), "P%d: pick category", editor_selected_pid);
+    editor_palette_sbox->AddLabel(0, 4, cy, cap);
+    cy -= 28;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_PLY_BLD, 4, cy, 170, 26, "Buildings");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.55f, 0.65f, 0.5f);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 32;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_PLY_UNI, 4, cy, 170, 26, "Units");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.55f, 0.55f, 0.65f);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    break;
+  }
+  case EP_PLAYER_BUILDINGS: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Player buildings");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+    if (editor_selected_pid >= 1 && editor_selected_pid < player_array.GetCount() &&
+        players[editor_selected_pid] && players[editor_selected_pid]->race) {
+      TRACE *pr = players[editor_selected_pid]->race;
+      for (int bi = 0; bi < pr->buildings_count; bi++) {
+        TBUILDING_ITEM *bld = pr->buildings[bi];
+        if (!bld)
+          continue;
+        TGUI_TEXTURE *tex = pr->tex_table.GetTexture(bld->tg_picture_id, 0);
+        if (tex) {
+          GLfloat ttw, tth;
+          EditorGetThumbSize(tex, &ttw, &tth);
+          cy -= tth + 4;
+          button = editor_palette_sbox->AddGroupButton(
+            MNU_EDITOR_PLAYER_BLD_BASE + bi, 4, cy, tex, 2);
+          button->SetWidth(ttw);
+          button->SetHeight(tth);
+          button->SetOnMouseClick(EditorPlayerBldButtonOnClick);
+          if (bld->name)
+            editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, bld->name);
+        } else {
+          cy -= 24;
+          button = editor_palette_sbox->AddButton(
+            MNU_EDITOR_PLAYER_BLD_BASE + bi, 4, cy, 170, 20, bld->name ? bld->name : "bld");
+          button->SetFontColor(0, 0, 0);
+          button->SetOnMouseClick(EditorPlayerBldButtonOnClick);
+        }
+      }
+    }
+    break;
+  }
+  case EP_PLAYER_UNITS: {
+    if (editor_palette_title)
+      editor_palette_title->SetCaption("Player units");
+    cy = scroll_h - 6;
+    button = editor_palette_sbox->AddButton(MNU_EDITOR_NAV_BACK, 4, cy - 22, 50, 20, "<< Back");
+    button->SetFontColor(0, 0, 0);
+    button->SetFaceColor(0.6f, 0.6f, 0.6f);
+    button->SetHoverColor(1, 1, 1);
+    button->SetOnMouseClick(EditorNavButtonOnClick);
+    cy -= 30;
+    if (editor_selected_pid >= 1 && editor_selected_pid < player_array.GetCount() &&
+        players[editor_selected_pid] && players[editor_selected_pid]->race) {
+      TRACE *pr = players[editor_selected_pid]->race;
+      for (int ui = 0; ui < pr->units_count; ui++) {
+        TFORCE_ITEM *fu = pr->units[ui];
+        if (!fu)
+          continue;
+        TGUI_TEXTURE *tex = pr->tex_table.GetTexture(fu->tg_picture_id, 0);
+        if (tex) {
+          GLfloat ttw, tth;
+          EditorGetThumbSize(tex, &ttw, &tth);
+          cy -= tth + 4;
+          button = editor_palette_sbox->AddGroupButton(
+            MNU_EDITOR_PLAYER_UNIT_BASE + ui, 4, cy, tex, 2);
+          button->SetWidth(ttw);
+          button->SetHeight(tth);
+          button->SetOnMouseClick(EditorPlayerUnitButtonOnClick);
+          if (fu->name)
+            editor_palette_sbox->AddLabel(0, ttw + 10, cy + 4, fu->name);
+        } else {
+          cy -= 24;
+          button = editor_palette_sbox->AddButton(
+            MNU_EDITOR_PLAYER_UNIT_BASE + ui, 4, cy, 170, 20, fu->name ? fu->name : "unit");
+          button->SetFontColor(0, 0, 0);
+          button->SetOnMouseClick(EditorPlayerUnitButtonOnClick);
+        }
+      }
+    }
+    break;
+  }
+  }
+}
+
+
+void EditorCaptureMapHead(const char *basename_no_ext)
+{
+  g_editor_saved_map_prologue.clear();
+  if (!basename_no_ext || !*basename_no_ext)
+    return;
+
+  char path[4096];
+  snprintf(path, sizeof(path), "%s%s%s", MAP_PATH, basename_no_ext, ".map");
+
+  FILE *f = fopen(path, "rb");
+  if (!f)
+    return;
+  if (fseek(f, 0, SEEK_END) != 0) {
+    fclose(f);
+    return;
+  }
+  long sz = ftell(f);
+  if (sz <= 0 || sz > 32 * 1024 * 1024) {
+    fclose(f);
+    return;
+  }
+  if (fseek(f, 0, SEEK_SET) != 0) {
+    fclose(f);
+    return;
+  }
+
+  string buf;
+  buf.resize((size_t)sz);
+  if (fread(&buf[0], 1, (size_t)sz, f) != (size_t)sz) {
+    fclose(f);
+    return;
+  }
+  fclose(f);
+
+  size_t pos_players = buf.find("<Players>");
+  size_t pos_seg = buf.find("<Segment 0>");
+  if (pos_players != string::npos)
+    g_editor_saved_map_prologue = buf.substr(0, pos_players);
+  else if (pos_seg != string::npos)
+    g_editor_saved_map_prologue = buf.substr(0, pos_seg);
+  else
+    g_editor_saved_map_prologue = buf;
+}
+
+
+bool EditorBootstrap(const char *basename_raw)
+{
+  string base = EditorMapBaseId(basename_raw);
+  if (base.empty())
+    return false;
+
+  if (!CreateGame())
+    return false;
+
+  player_array.Lock();
+  string mapfile = base + ".map";
+  if (!map_info_list.LoadMapInfo(false, mapfile.c_str())) {
+    player_array.Unlock();
+    action_force = true;
+    Disconnect();
+    return false;
+  }
+  player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
+  {
+    int max_p = map_info_list.map_ext_info.max_players;
+    TMAP_RAC_INFO_NODE *r = map_info_list.rac_list;
+    if (r) {
+      player_array.SetRaceIdName(1, r->id_name);
+      r = r->next;
+    } else {
+      player_array.SetRaceIdName(1, "human-red");
+    }
+    for (int i = 2; i <= max_p && r; i++, r = r->next) {
+      player_array.AddComputerPlayer();
+      if (host) host->AddEmptyAddress();
+      player_array.SetRaceIdName(i, r->id_name);
+    }
+  }
+  player_array.Unlock();
+
+  EditorCaptureMapHead(base.c_str());
+
+  delete_mutex = SDL_CreateMutex();
+  if (!delete_mutex) {
+    action_force = true;
+    Disconnect();
+    return false;
+  }
+
+  pool_path_info = NEW TPOOL<TPATH_INFO>(EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
+  pool_sel_node = NEW TPOOL<TSEL_NODE>(EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
+  pool_nearest_info = NEW TPOOL<TNEAREST_INFO>(EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
+  if (!pool_events)
+    pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, 2 * EV_MIN_POOL_ELEMENTS);
+
+  char map_name[MAP_MAX_NAME_LENGTH];
+  strncpy(map_name, base.c_str(), sizeof(map_name) - 1);
+  map_name[sizeof(map_name) - 1] = 0;
+
+  view_segment = DRW_ALL_SEGMENTS;
+
+  if (!map.LoadMap(map_name)) {
+    error = ERR_LOAD_MAP;
+    if (pool_events) {
+      delete pool_events;
+      pool_events = NULL;
+    }
+    if (pool_path_info) {
+      delete pool_path_info;
+      pool_path_info = NULL;
+    }
+    if (pool_nearest_info) {
+      delete pool_nearest_info;
+      pool_nearest_info = NULL;
+    }
+    if (pool_sel_node) {
+      delete pool_sel_node;
+      pool_sel_node = NULL;
+    }
+    if (delete_mutex) {
+      SDL_DestroyMutex(delete_mutex);
+      delete_mutex = NULL;
+    }
+    action_force = true;
+    Disconnect();
+    return false;
+  }
+
+  if (threadpool_astar == NULL)
+    threadpool_astar = threadpool_astar->CreateNewThreadPool(5, 50);
+  if (threadpool_nearest == NULL)
+    threadpool_nearest = threadpool_nearest->CreateNewThreadPool(3, 30);
+  if (!threadpool_astar || !threadpool_nearest) {
+    map.DeleteMap();
+    if (pool_events) {
+      delete pool_events;
+      pool_events = NULL;
+    }
+    if (pool_path_info) {
+      delete pool_path_info;
+      pool_path_info = NULL;
+    }
+    if (pool_nearest_info) {
+      delete pool_nearest_info;
+      pool_nearest_info = NULL;
+    }
+    if (pool_sel_node) {
+      delete pool_sel_node;
+      pool_sel_node = NULL;
+    }
+    if (delete_mutex) {
+      SDL_DestroyMutex(delete_mutex);
+      delete_mutex = NULL;
+    }
+    action_force = true;
+    Disconnect();
+    return false;
+  }
+
+  selection = NEW TSELECTION;
+  strcpy(myself->name, config.player_name);
+  map.CenterMapel(map.width / 2, map.height / 2);
+  map.start_time = 0;
+  map_info_list.ClearRacList();
+  started = false;
+  return true;
+}
+
+
+void EditorShutdown(void)
+{
+  in_editor_mode = false;
+  show_all = false;
+  StopGame();
+  action_force = true;
+  Disconnect();
+  editor_entry_basename.clear();
+  g_editor_saved_map_prologue.clear();
+  editor_frag_groups.clear();
+  editor_palette_sbox = NULL;
+  editor_right_panel = NULL;
+  editor_palette_title = NULL;
+  editor_add_player_btn = NULL;
+  editor_object_segment = 1;
+  editor_selected_pid = 1;
+  editor_selected_source_idx = -1;
+  editor_selected_scheme_uid = -1;
+  editor_selected_scheme_bid = -1;
+  editor_selected_player_bid = -1;
+  editor_selected_player_uid = -1;
+  editor_selected_start_point = -1;
+}
+
+
+void EditorOnMouseDown(TGUI_BOX *, GLfloat x, GLfloat, int button)
+{
+  if (x < GLfloat(config.scr_width - 200)) {
+    if (button == GLFW_MOUSE_BUTTON_RIGHT || button == GLFW_MOUSE_BUTTON_LEFT) {
+      if (map.IsInMap(mouse.map_pos.x, mouse.map_pos.y)) {
+        int mx = mouse.map_pos.x;
+        int my = mouse.map_pos.y;
+        if (editor_tool == ET_TERRAIN) {
+          int gx = (mx / 5) * 5;
+          int gy = (my / 5) * 5;
+          map.EditorReplaceFragmentAt(editor_paint_segment, gx, gy, editor_selected_fid);
+        } else if (editor_tool == ET_OBJECTS && editor_selected_oid >= 0) {
+          map.EditorPlaceObject(editor_object_segment, mx, my, editor_selected_oid);
+        } else if (editor_tool == ET_SOURCE && editor_selected_source_idx >= 0) {
+          map.EditorPlaceSource(editor_selected_source_idx, mx, my);
+        } else if (editor_tool == ET_SCHEME_BUILDING && editor_selected_scheme_bid >= 0) {
+          map.EditorPlaceSchemeBuilding(editor_selected_scheme_bid, mx, my);
+        } else if (editor_tool == ET_SCHEME_UNIT && editor_selected_scheme_uid >= 0) {
+          map.EditorPlaceSchemeUnit(editor_selected_scheme_uid, mx, my);
+        } else if (editor_tool == ET_PLAYER_BUILDING && editor_selected_player_bid >= 0) {
+          map.EditorPlacePlayerBuilding(editor_selected_pid, editor_selected_player_bid, mx, my);
+        } else if (editor_tool == ET_PLAYER_UNIT && editor_selected_player_uid >= 0) {
+          map.EditorPlacePlayerUnit(editor_selected_pid, editor_selected_player_uid, mx, my);
+        } else if (editor_tool == ET_START_POS && editor_selected_start_point >= 0) {
+          map.EditorSetStartPosition(editor_selected_start_point, mx, my);
+          editor_tool = ET_TERRAIN;
+          editor_palette_level = EP_ROOT;
+          EditorRebuildPalette();
+        } else if (editor_tool == ET_ERASE) {
+          map.EditorEraseAt(mx, my);
+        } else {
+          int sp = EditorFindNearestStartPoint(mx, my, 8);
+          if (sp >= 0) {
+            editor_selected_start_point = sp;
+            editor_tool = ET_START_POS;
+            if (editor_palette_title)
+              editor_palette_title->SetCaption("Move start pos");
+          }
+        }
+      }
+    } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+      if (!radar.GetMoving())
+        map.drag_moving = true;
+    }
+  }
+}
+
+
+void EditorOnMouseUp(TGUI_BOX *, GLfloat, GLfloat, int button)
+{
+  if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+    map.drag_moving = false;
+}
+
+
+void EditorOnKeyDown(int key)
+{
+  if (gui->KeyDown(key))
+    return;
+
+  if (key == 'd' || key == 'D') {
+    if (editor_tool == ET_ERASE) {
+      editor_tool = ET_TERRAIN;
+      editor_palette_level = EP_ROOT;
+      EditorRebuildPalette();
+    } else {
+      editor_tool = ET_ERASE;
+      if (editor_palette_title)
+        editor_palette_title->SetCaption("Erase (D)");
+    }
+    return;
+  }
+
+  if (key == GLFW_KEY_ESC) {
+    state = ST_MAIN_MENU;
+  }
+}
+
+
+bool EditorGetPlacementPreview(int *out_x, int *out_y, int *out_w, int *out_h)
+{
+  int mx = mouse.map_pos.x;
+  int my = mouse.map_pos.y;
+  if (!map.IsInMap(mx, my))
+    return false;
+
+  switch (editor_tool) {
+  case ET_TERRAIN:
+  case ET_ERASE:
+    *out_x = (mx / 5) * 5;
+    *out_y = (my / 5) * 5;
+    *out_w = 5;
+    *out_h = 5;
+    return true;
+
+  case ET_OBJECTS:
+    if (editor_selected_oid >= 0 &&
+        editor_selected_oid < scheme.terro_count[editor_object_segment]) {
+      TSURFACE_ITEM *si = &scheme.terro[editor_object_segment][editor_selected_oid];
+      *out_w = si->GetWidth();
+      *out_h = si->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_SOURCE:
+    if (editor_selected_source_idx >= 0 && hyper_player && hyper_player->race &&
+        editor_selected_source_idx < hyper_player->race->sources_count) {
+      TSOURCE_ITEM *si = hyper_player->race->sources[editor_selected_source_idx];
+      *out_w = si->GetWidth();
+      *out_h = si->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_SCHEME_BUILDING:
+    if (editor_selected_scheme_bid >= 0 && hyper_player && hyper_player->race &&
+        editor_selected_scheme_bid < hyper_player->race->buildings_count) {
+      TBUILDING_ITEM *bi = hyper_player->race->buildings[editor_selected_scheme_bid];
+      *out_w = bi->GetWidth();
+      *out_h = bi->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_SCHEME_UNIT:
+    if (editor_selected_scheme_uid >= 0 && hyper_player && hyper_player->race &&
+        editor_selected_scheme_uid < hyper_player->race->units_count) {
+      TFORCE_ITEM *fi = hyper_player->race->units[editor_selected_scheme_uid];
+      *out_w = fi->GetWidth();
+      *out_h = fi->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_PLAYER_BUILDING:
+    if (editor_selected_pid >= 1 && editor_selected_pid < player_array.GetCount() &&
+        players[editor_selected_pid] && players[editor_selected_pid]->race &&
+        editor_selected_player_bid >= 0 &&
+        editor_selected_player_bid < players[editor_selected_pid]->race->buildings_count) {
+      TBUILDING_ITEM *bi = players[editor_selected_pid]->race->buildings[editor_selected_player_bid];
+      *out_w = bi->GetWidth();
+      *out_h = bi->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_PLAYER_UNIT:
+    if (editor_selected_pid >= 1 && editor_selected_pid < player_array.GetCount() &&
+        players[editor_selected_pid] && players[editor_selected_pid]->race &&
+        editor_selected_player_uid >= 0 &&
+        editor_selected_player_uid < players[editor_selected_pid]->race->units_count) {
+      TFORCE_ITEM *fi = players[editor_selected_pid]->race->units[editor_selected_player_uid];
+      *out_w = fi->GetWidth();
+      *out_h = fi->GetHeight();
+      *out_x = mx;
+      *out_y = my;
+      return true;
+    }
+    return false;
+
+  case ET_START_POS:
+    *out_x = mx;
+    *out_y = my;
+    *out_w = 1;
+    *out_h = 1;
+    return true;
+  }
+
+  return false;
+}
+
+
+void CreateEditorGUI(void)
+{
+  TGUI_PANEL *panel;
+  TGUI_BUTTON *button;
+
+  gui->SetFont(font0);
+  gui->SetSize((GLfloat)config.scr_width, (GLfloat)config.scr_height);
+  gui->SetFontColor(1, 0.93f, 0.82f);
+  gui->SetOnMouseDown(EditorOnMouseDown);
+  gui->SetOnMouseUp(EditorOnMouseUp);
+  gui->GetDefTooltip()->SetColor(0, 0, 0);
+  gui->GetDefTooltip()->SetAlpha(TOOLTIP_ALPHA);
+
+  panel = gui->AddPanel(0, 0, 0, GLfloat(config.scr_width - 200), 20);
+  SetGamePanel(true);
+  panel->AddLabel(0, 10, 2, "Map editor: LMB/RMB paint/place, MMB drag, D erase, Esc exit");
+
+  editor_right_panel = panel = gui->AddPanel(0, GLfloat(config.scr_width - 200), 0,
+                                             200, GLfloat(config.scr_height),
+                                             gui_table.GetTexture(DAT_TGID_PANELS, 1));
+  panel->SetAlpha(GAME_PANEL_ALPHA);
+  panel->SetOnMouseUp(EditorOnMouseUp);
+
+  editor_palette_title = panel->AddLabel(0, 10, GLfloat(config.scr_height - 36), "Palette");
+
+  GLfloat scroll_top = GLfloat(config.scr_height - 56);
+  GLfloat scroll_h = scroll_top - 70;
+  editor_palette_sbox = panel->AddScrollBox(MNU_EDITOR_FRAG_LIST, 5, 70, 190, scroll_h);
+  editor_palette_sbox->SetFaceColor(0.15f, 0.15f, 0.15f);
+  editor_palette_sbox->SetAlpha(0.6f);
+
+  button = panel->AddButton(MNU_EDITOR_SAVE, 10, 45, 80, 22, "Save");
+  button->SetFontColor(0, 0, 0);
+  button->SetFaceColor(0.7f, 0.6f, 0.4f);
+  button->SetHoverColor(1, 0.93f, 0.82f);
+  button->SetOnMouseClick(MenuButtonOnClick);
+
+  button = panel->AddButton(MNU_EDITOR_EXIT, 100, 45, 80, 22, "Exit");
+  button->SetFontColor(0, 0, 0);
+  button->SetFaceColor(0.7f, 0.6f, 0.4f);
+  button->SetHoverColor(1, 0.93f, 0.82f);
+  button->SetOnMouseClick(MenuButtonOnClick);
+
+  editor_add_player_btn = panel->AddButton(MNU_EDITOR_ADD_PLAYER, 10, 22, 80, 20, "+Player");
+  editor_add_player_btn->SetFontColor(0, 0, 0);
+  editor_add_player_btn->SetFaceColor(0.5f, 0.7f, 0.5f);
+  editor_add_player_btn->SetHoverColor(0.7f, 1.0f, 0.7f);
+  editor_add_player_btn->SetOnMouseClick(MenuButtonOnClick);
+  editor_add_player_btn->SetVisible(false);
+
+  EditorBuildFragGroups(editor_paint_segment);
+  editor_palette_level = EP_ROOT;
+  editor_tool = ET_TERRAIN;
+  editor_selected_fid = 0;
+  editor_selected_oid = -1;
+  editor_selected_pid = 1;
+  editor_selected_source_idx = -1;
+  editor_selected_scheme_uid = -1;
+  editor_selected_scheme_bid = -1;
+  editor_selected_player_bid = -1;
+  editor_selected_player_uid = -1;
+  editor_selected_start_point = -1;
+  EditorRebuildPalette();
+
+  mouse.ResetCursor();
+  gui->MouseMove(GLfloat(mouse.x), GLfloat(mouse.y));
+}
+
+
+void Editor(void)
+{
+  TTIME clock;
+  int i;
+
+  in_editor_mode = true;
+  show_all = true;
+  gui->Reset();
+
+  if (!EditorBootstrap(editor_entry_basename.c_str())) {
+    in_editor_mode = false;
+    state = ST_MAIN_MENU;
+    CreateMenuGUI();
+    return;
+  }
+
+  CreateEditorGUI();
+
+#if SOUND
+  sounds_table.sounds[DAT_SID_MENU_MUSIC]->Stop();
+#endif
+
+  projection.SetProjection(PRO_GAME);
+  fps.Reset();
+  mouse.ResetCursor();
+  gui->MouseMove(GLfloat(mouse.x), GLfloat(mouse.y));
+
+  while (state == ST_EDITOR) {
+    clock.Update();
+
+    gui->Update(clock.GetShift());
+    fps.Update(clock.GetShift());
+    ost->Update(clock.GetActual());
+
+    mouse.Update(true, clock.GetShift());
+    selection->Update(clock.GetShift());
+    map.UpdateMoving(clock.GetShift());
+    projection.Update();
+    map.UpdateActiveArea();
+
+    int pl_count = player_array.GetCount();
+    for (i = 0; i < pl_count; i++) {
+      if (players[i]->active)
+        players[i]->UpdateGraphics(clock.GetShift());
+    }
+    map.UpdateGraphics(clock.GetShift());
+    scheme.UpdateGraphics(clock.GetShift());
+
+    DrawGame();
+
+    glfwSwapBuffers();
+    gui->PollEvents();
+
+    if (!glfwGetWindowParam(GLFW_OPENED))
+      state = ST_QUIT;
+
+    clock.SleepToGetExpectedFrameDuration(config.pr_expected_frame_duration);
+    glfwPollEvents();
+    gui->PollEvents();
+
+#if SOUND
+    FmodUpdate();
+#endif
+  }
+
+  if (state == ST_QUIT && connected)
+    Disconnect();
+
+  EditorShutdown();
+
+  ClearGuiVars();
+  gui->Reset();
+  panel_info.Clear();
+  CreateMenuGUI();
+}
+
+#endif /* !HEADLESS */
 
 
 void StopGame()

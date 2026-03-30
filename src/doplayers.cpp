@@ -1411,6 +1411,38 @@ void DeletePlayers()
 }
 
 
+#if !HEADLESS
+bool GrowPlayersRuntime(int old_count, int new_count)
+{
+  if (!players) return false;
+  if (new_count <= old_count) return true;
+  if (new_count > PL_MAX_PLAYERS) return false;
+
+  TPLAYER **new_arr = NEW TPLAYER*[new_count];
+  if (!new_arr) return false;
+
+  for (int i = 0; i < old_count; i++)
+    new_arr[i] = players[i];
+
+  for (int i = old_count; i < new_count; i++) {
+    new_arr[i] = NEW TPLAYER;
+    if (!new_arr[i]) {
+      for (int k = old_count; k < i; k++) delete new_arr[k];
+      delete[] new_arr;
+      return false;
+    }
+    new_arr[i]->SetPlayerID(i);
+    new_arr[i]->pathtools = NEW TA_STAR_ALG(i);
+    new_arr[i]->active = true;
+  }
+
+  delete[] players;
+  players = new_arr;
+  return true;
+}
+#endif
+
+
 //=========================================================================
 // END
 //=========================================================================

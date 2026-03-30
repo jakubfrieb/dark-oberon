@@ -360,6 +360,7 @@ public:
 
   void ChooseRandomStartPoints ();
   void SetStartPointsCount (int value);
+  int GetStartPointsCount () const { return start_points_count; }
   int GetStartPoint (int player_index);
   void SetStartPoint (int player_index, int value);
 
@@ -422,6 +423,9 @@ extern TPLAYER_ARRAY player_array;
 bool CreatePlayers();
 void DeleteUnits(TMAP_UNIT *units);
 void DeletePlayers();
+#if !HEADLESS
+bool GrowPlayersRuntime(int old_count, int new_count);
+#endif
 
 #endif  // __doplayers_h__
 

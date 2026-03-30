@@ -432,6 +432,20 @@ public:
   bool LoadMap(char *name);     //!< Load map from file
   void DeleteMap();             //!< Deletes map and depend structures.
 
+#if !HEADLESS
+  bool EditorReplaceFragmentAt(int sid, int mx, int my, int new_fid);
+  bool EditorPlaceObject(int sid, int mx, int my, int oid);
+  bool EditorPlaceSource(int source_idx, int mx, int my);
+  bool EditorPlaceSchemeBuilding(int bid, int mx, int my);
+  bool EditorPlaceSchemeUnit(int uid, int mx, int my);
+  bool EditorPlacePlayerBuilding(int pid, int bid, int mx, int my);
+  bool EditorPlacePlayerUnit(int pid, int uid, int mx, int my);
+  bool EditorSetStartPosition(int point_index, int mx, int my);
+  void EditorEraseAt(int mx, int my);
+  bool SaveMapToFile(const char *basename_no_ext);
+  static bool EditorWriteBlankPlasticMap(const char *basename_no_ext, int w, int h, const char *display_name);
+#endif
+
   /** @return The method returns pool with preallocated nodes for the aimers 
    *  lists.*/
   void* GetAimersPool() const
@@ -513,6 +527,12 @@ do { \
 TMAP_SURFACE **CreateMapSurface();
 void DeleteMapSurface(TMAP_SURFACE **surface);
 
+#if !HEADLESS
+int  EditorGetStartPointCount();
+int  EditorFindNearestStartPoint(int mx, int my, int threshold);
+void EditorSetStartPosition_Internal(int idx, int mx, int my);
+void EditorAddStartPoint(T_SIMPLE x, T_SIMPLE y);
+#endif
 
 #endif  // __domap_h__
 

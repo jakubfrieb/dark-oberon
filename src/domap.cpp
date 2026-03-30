@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <string>
 
@@ -44,6 +45,7 @@
 #include "doschemes.h"
 #include "dounits.h"
 #include "doengine.h"
+#include "dosimpletypes.h"
 
 using std::string;
 
@@ -53,6 +55,187 @@ using std::string;
 
 TMAP map;       //!< Game's map.
 TRADAR radar;   //!< Game's radar.
+
+#if !HEADLESS
+static T_SIMPLE s_editor_sp_x[PL_MAX_START_POINTS];
+static T_SIMPLE s_editor_sp_y[PL_MAX_START_POINTS];
+static int s_editor_sp_count = 0;
+
+int EditorGetStartPointCount() { return s_editor_sp_count; }
+
+int EditorFindNearestStartPoint(int mx, int my, int threshold) {
+  int best = -1;
+  int best_d2 = threshold * threshold;
+  for (int i = 0; i < s_editor_sp_count; i++) {
+    int dx = s_editor_sp_x[i] - mx;
+    int dy = s_editor_sp_y[i] - my;
+    int d2 = dx * dx + dy * dy;
+    if (d2 < best_d2) { best_d2 = d2; best = i; }
+  }
+  return best;
+}
+
+void EditorSetStartPosition_Internal(int idx, int mx, int my) {
+  if (idx >= 0 && idx < s_editor_sp_count && idx < PL_MAX_START_POINTS) {
+    s_editor_sp_x[idx] = (T_SIMPLE)mx;
+    s_editor_sp_y[idx] = (T_SIMPLE)my;
+  }
+}
+
+void EditorAddStartPoint(T_SIMPLE x, T_SIMPLE y) {
+  if (s_editor_sp_count >= PL_MAX_START_POINTS) return;
+  s_editor_sp_x[s_editor_sp_count] = x;
+  s_editor_sp_y[s_editor_sp_count] = y;
+  s_editor_sp_count++;
+  player_array.SetStartPointsCount(s_editor_sp_count);
+}
+
+static int EditorLifePercent(const TMAP_UNIT *u)
+{
+  const TMAP_ITEM *mi = static_cast<const TMAP_ITEM *>(u->GetPointerToItem());
+  float maxl = mi->GetMaxLife();
+  if (maxl <= 0.0f)
+    return 100;
+  int p = (int)((100.0f * u->GetLife() / maxl) + 0.5f);
+  if (p < 0) p = 0;
+  if (p > 100) p = 100;
+  return p;
+}
+
+static void WriteEditorPlayersSection(FILE *out)
+{
+  if (!hyper_player || !hyper_player->race)
+    return;
+
+  int npc = player_array.GetCount() - 1;
+  if (npc < 1)
+    npc = 1;
+
+  fprintf(out, "<Players>\n  max_count %d\n\n", npc);
+  fprintf(out, "  <Start Points>\n    count %d\n", s_editor_sp_count);
+  for (int i = 0; i < s_editor_sp_count; i++)
+    fprintf(out, "    start_point_%d %d %d\n", i, (int)s_editor_sp_x[i], (int)s_editor_sp_y[i]);
+  fprintf(out, "  </Start Points>\n\n  <Races>\n    count %d\n", npc);
+
+  for (int ri = 0; ri < npc; ri++) {
+    int pid = ri + 1;
+    if (!players[pid] || !players[pid]->race)
+      continue;
+    fprintf(out, "\n    <Race %d>\n      name \"%s\"\n", ri, players[pid]->race->id_name);
+    fprintf(out, "      <Sets>\n        count 1\n        <Set 0>\n");
+    fprintf(out, "          init_materials_amount");
+    int mc = scheme.materials_count;
+    for (int m = 0; m < mc; m++)
+      fprintf(out, " %d", (int)(players[pid]->GetStoredMaterial(m) + 0.5f));
+    fprintf(out, "\n");
+
+    int nu = 0;
+    TPLAYER_UNIT *u;
+    for (u = players[pid]->units; u; u = u->GetNext()) {
+      if (dynamic_cast<TFORCE_UNIT *>(u))
+        nu++;
+    }
+    fprintf(out, "          <Units>\n            count %d\n", nu);
+    int ui = 0;
+    for (u = players[pid]->units; u; u = u->GetNext()) {
+      TFORCE_UNIT *fu = dynamic_cast<TFORCE_UNIT *>(u);
+      if (!fu)
+        continue;
+      TMAP_ITEM *mi = static_cast<TMAP_ITEM *>(u->GetPointerToItem());
+      TPOSITION_3D p = fu->GetPosition();
+      int rx = (int)p.x - (int)players[pid]->initial_x;
+      int ry = (int)p.y - (int)players[pid]->initial_y;
+      fprintf(out, "            unit_%d \"%s\" %d %d %d %d %d\n", ui++,
+              mi->text_id ? mi->text_id : "?",
+              rx, ry, (int)p.segment, fu->GetMoveDirection(), EditorLifePercent(fu));
+    }
+    fprintf(out, "          </Units>\n");
+
+    int nb = 0;
+    for (u = players[pid]->units; u; u = u->GetNext()) {
+      if (dynamic_cast<TBUILDING_UNIT *>(u))
+        nb++;
+    }
+    fprintf(out, "          <Buildings>\n            count %d\n", nb);
+    int bi = 0;
+    for (u = players[pid]->units; u; u = u->GetNext()) {
+      TBUILDING_UNIT *bu = dynamic_cast<TBUILDING_UNIT *>(u);
+      if (!bu)
+        continue;
+      TMAP_ITEM *mi = static_cast<TMAP_ITEM *>(bu->GetPointerToItem());
+      TPOSITION_3D p = bu->GetPosition();
+      int rx = (int)p.x - (int)players[pid]->initial_x;
+      int ry = (int)p.y - (int)players[pid]->initial_y;
+      fprintf(out, "            building_%d \"%s\" %d %d %d\n", bi++,
+              mi->text_id ? mi->text_id : "?", rx, ry,
+              EditorLifePercent(bu));
+    }
+    fprintf(out, "          </Buildings>\n");
+    fprintf(out, "        </Set 0>\n      </Sets>\n    </Race %d>\n", ri);
+  }
+
+  fprintf(out, "\n    <SchemeRace>\n      name \"%s\"\n", hyper_player->race->id_name);
+
+  int ns = 0;
+  int m;
+  for (m = 0; m < SCH_MAX_MATERIALS_COUNT; m++) {
+    TLIST<TSOURCE_UNIT>::TNODE<TSOURCE_UNIT> *n;
+    for (n = hyper_player->sources[m].GetFirst(); n; n = n->GetNext())
+      ns++;
+  }
+  fprintf(out, "      <Sources>\n        count %d\n", ns);
+  int si = 0;
+  for (m = 0; m < SCH_MAX_MATERIALS_COUNT; m++) {
+    TLIST<TSOURCE_UNIT>::TNODE<TSOURCE_UNIT> *n;
+    for (n = hyper_player->sources[m].GetFirst(); n; n = n->GetNext()) {
+      TSOURCE_UNIT *su = n->GetPitem();
+      TSOURCE_ITEM *sit = static_cast<TSOURCE_ITEM *>(su->GetPointerToItem());
+      TPOSITION_3D p = su->GetPosition();
+      fprintf(out, "        source_%d \"%s\" %d %d %d %d\n", si++,
+              sit->text_id ? sit->text_id : "?",
+              (int)p.x, (int)p.y, EditorLifePercent(su), su->GetMaterialBalance());
+    }
+  }
+  fprintf(out, "      </Sources>\n");
+
+  TPLAYER_UNIT *hu;
+  int nhu = 0, nhb = 0;
+  for (hu = hyper_player->units; hu; hu = hu->GetNext()) {
+    if (dynamic_cast<TBUILDING_UNIT *>(hu))
+      nhb++;
+    else if (dynamic_cast<TFORCE_UNIT *>(hu))
+      nhu++;
+  }
+  fprintf(out, "      <Units>\n        count %d\n", nhu);
+  int sch_ui = 0;
+  for (hu = hyper_player->units; hu; hu = hu->GetNext()) {
+    TFORCE_UNIT *fu = dynamic_cast<TFORCE_UNIT *>(hu);
+    if (!fu)
+      continue;
+    TMAP_ITEM *mi = static_cast<TMAP_ITEM *>(hu->GetPointerToItem());
+    TPOSITION_3D p = fu->GetPosition();
+    fprintf(out, "        unit_%d \"%s\" %d %d %d %d %d\n", sch_ui++,
+            mi->text_id ? mi->text_id : "?",
+            (int)p.x, (int)p.y, (int)p.segment, fu->GetMoveDirection(), EditorLifePercent(fu));
+  }
+  fprintf(out, "      </Units>\n");
+
+  fprintf(out, "      <Buildings>\n        count %d\n", nhb);
+  int sch_bi = 0;
+  for (hu = hyper_player->units; hu; hu = hu->GetNext()) {
+    TBUILDING_UNIT *bu = dynamic_cast<TBUILDING_UNIT *>(hu);
+    if (!bu)
+      continue;
+    TMAP_ITEM *mi = static_cast<TMAP_ITEM *>(bu->GetPointerToItem());
+    TPOSITION_3D p = bu->GetPosition();
+    fprintf(out, "        building_%d \"%s\" %d %d %d\n", sch_bi++,
+            mi->text_id ? mi->text_id : "?",
+            (int)p.x, (int)p.y, EditorLifePercent(bu));
+  }
+  fprintf(out, "      </Buildings>\n");
+  fprintf(out, "    </SchemeRace>\n\n  </Races>\n\n</Players>\n\n");
+}
+#endif /* !HEADLESS */
 
 //=========================================================================
 // BasicTerr
@@ -1178,7 +1361,7 @@ void TWARFOG::Update(void)
   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, map.width + MAP_AREA_SIZE + 1, map.height + MAP_AREA_SIZE + 1, GL_RGBA, GL_UNSIGNED_BYTE, tex[view_segment]);
 
   // radar warfog texture
-  if (radar_panel->IsVisible()) {
+  if (radar_panel && radar_panel->IsVisible()) {
     glBindTexture(GL_TEXTURE_2D, radar_tex_id);
 
     if (view_segment == DRW_ALL_SEGMENTS)
@@ -1383,8 +1566,9 @@ void TMAP::UpdateGraphics(double time_shift)
     map.segment_units[i]->SortUnits();
   }
 
-  // update warfog
-  war_fog.Update();
+  // update warfog (editor has no radar_panel / no fog)
+  if (!in_editor_mode)
+    war_fog.Update();
 }
 
 
@@ -1819,6 +2003,507 @@ void TMAP::DeleteMap()
   DeleteRaces();
   scheme.Clear();
 }
+
+
+#if !HEADLESS
+
+static void EditorClearSurfaceRect(T_BYTE sid, int x, int y, int w, int h)
+{
+  TMAP_SEGMENT *seg = map.segments + sid;
+
+  for (int i = 0; i < w; i++)
+    for (int j = 0; j < h; j++) {
+      int tx = x + i, ty = y + j;
+      if (map.IsInMap(tx, ty))
+        seg->surface[tx][ty].t_id = MAP_EMPTY_SURFACE;
+    }
+}
+
+
+bool TMAP::EditorReplaceFragmentAt(int sid, int mx, int my, int new_fid)
+{
+  if (sid < 0 || sid >= DAT_SEGMENTS_COUNT)
+    return false;
+  if (new_fid < 0 || new_fid >= scheme.terrf_count[sid])
+    return false;
+
+  TTERRF_ITEM *np = scheme.terrf[sid] + new_fid;
+  TMAP_SEGMENT *seg = map.segments + sid;
+
+  int found = -1;
+  for (int i = 0; i < seg->terrf_count; i++) {
+    TTERR_FRAG *f = seg->terrf[i];
+    if (!f)
+      continue;
+    int fw = f->pitem->width, fh = f->pitem->height;
+    if (mx >= f->pos.x && mx < f->pos.x + fw && my >= f->pos.y && my < f->pos.y + fh) {
+      found = i;
+      break;
+    }
+  }
+  if (found < 0)
+    return false;
+
+  TTERR_FRAG *old = seg->terrf[found];
+  int ox = old->pos.x, oy = old->pos.y;
+  int ow = old->pitem->width, oh = old->pitem->height;
+
+  if (!map.IsInMap(ox + np->width - 1, oy + np->height - 1))
+    return false;
+
+  old->pitem->SetUsed(false);
+  delete old;
+
+  EditorClearSurfaceRect(sid, ox, oy, ow, oh);
+  seg->terrf[found] = NEW TTERR_FRAG(new_fid, ox, oy, sid);
+  return true;
+}
+
+
+bool TMAP::EditorPlaceObject(int sid, int mx, int my, int oid)
+{
+  if (sid < 0 || sid >= DAT_SEGMENTS_COUNT) return false;
+  if (oid < 0 || oid >= scheme.terro_count[sid]) return false;
+
+  TSURFACE_ITEM *item = &scheme.terro[sid][oid];
+  int w = item->GetWidth(), h = item->GetHeight();
+  if (!IsInMap(mx, my) || !IsInMap(mx + w - 1, my + h - 1))
+    return false;
+
+  TMAP_SEGMENT *seg = &segments[sid];
+  int old_count = seg->terro_count;
+  int new_count = old_count + 1;
+  TDRAW_UNIT **new_arr = NEW TDRAW_UNIT*[new_count];
+  if (!new_arr) return false;
+
+  for (int i = 0; i < old_count; i++)
+    new_arr[i] = seg->terro[i];
+
+  new_arr[old_count] = NEW TDRAW_UNIT(mx, my, sid, item, &scheme.tex_table, true);
+  if (!new_arr[old_count]) { delete[] new_arr; return false; }
+
+  new_arr[old_count]->AddToSegments();
+  new_arr[old_count]->SetVisible(true);
+  seg->UpdateTerrainId(mx, my, w, h, item->terrain_field);
+
+  delete[] seg->terro;
+  seg->terro = new_arr;
+  seg->terro_count = new_count;
+  return true;
+}
+
+
+void TMAP::EditorEraseAt(int mx, int my)
+{
+  for (int sid = 0; sid < DAT_SEGMENTS_COUNT; sid++) {
+    TMAP_SEGMENT *seg = &segments[sid];
+    if (!seg->surface) continue;
+
+    int w = width, h = height;
+    for (int dx = 0; dx < 5 && mx + dx < w; dx++) {
+      for (int dy = 0; dy < 5 && my + dy < h; dy++) {
+        int cx = mx + dx, cy = my + dy;
+        TMAP_UNIT *u = seg->surface[cx][cy].unit;
+        if (u) {
+          TPLAYER *owner = u->GetPlayer();
+          u->DeleteFromMap(true);
+          if (owner)
+            owner->DeleteUnit(u);
+          delete u;
+        }
+      }
+    }
+
+    for (int i = seg->terro_count - 1; i >= 0; i--) {
+      TDRAW_UNIT *obj = seg->terro[i];
+      if (!obj) continue;
+      TPOSITION_3D op = obj->GetPosition();
+      int ow = obj->GetUnitWidth(), oh = obj->GetUnitHeight();
+      bool overlaps = !(op.x + ow <= mx || op.x >= mx + 5 ||
+                        op.y + oh <= my || op.y >= my + 5);
+      if (!overlaps) continue;
+
+      obj->DeleteFromSegments();
+      for (int ix = 0; ix < ow && op.x + ix < w; ix++)
+        for (int iy = 0; iy < oh && op.y + iy < h; iy++)
+          seg->surface[op.x + ix][op.y + iy].t_id = MAP_EMPTY_SURFACE;
+
+      delete obj;
+
+      int nc = seg->terro_count - 1;
+      for (int k = i; k < nc; k++)
+        seg->terro[k] = seg->terro[k + 1];
+      seg->terro_count = nc;
+    }
+  }
+
+  int gx = (mx / 5) * 5;
+  int gy = (my / 5) * 5;
+  for (int sid = 0; sid < DAT_SEGMENTS_COUNT; sid++)
+    EditorReplaceFragmentAt(sid, gx, gy, 0);
+}
+
+
+bool TMAP::EditorPlaceSource(int source_idx, int mx, int my)
+{
+  if (!hyper_player || !hyper_player->race)
+    return false;
+  if (source_idx < 0 || source_idx >= hyper_player->race->sources_count)
+    return false;
+  TSOURCE_ITEM *pit = hyper_player->race->sources[source_idx];
+  if (!pit->IsPositionAvailable(mx, my))
+    return false;
+
+  TSOURCE_UNIT *unit = NEW TSOURCE_UNIT(0, source_idx, mx, my, pit, 0, true);
+  if (!unit)
+    return false;
+
+  unit->SetLife((100 * static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife()) / 100.0f);
+  bool ok = unit->SetMaterialBalance(pit->GetCapacity());
+  if (pit->IsHideable())
+    unit->AddToSegments();
+  else
+    ok = unit->AddToMap(true, false) && ok;
+
+  if (!ok) {
+    delete unit;
+    return false;
+  }
+  if (!in_editor_mode && !player_array.IsRemote(0)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_STAY, -1);
+    process_mutex->Unlock();
+  }
+  return true;
+}
+
+
+bool TMAP::EditorPlaceSchemeBuilding(int bid, int mx, int my)
+{
+  if (!hyper_player || !hyper_player->race)
+    return false;
+  if (bid < 0 || bid >= hyper_player->race->buildings_count)
+    return false;
+  TBUILDING_ITEM *bitem = hyper_player->race->buildings[bid];
+  if (!bitem->IsPositionAvailable(mx, my, false))
+    return false;
+
+  TBUILDING_UNIT *unit = NULL;
+  switch (bitem->GetItemType()) {
+  case IT_FACTORY:
+    unit = NEW TFACTORY_UNIT(0, mx, my, *(hyper_player->race->buildings + bid), 0, true);
+    break;
+  case IT_BUILDING:
+    unit = NEW TBUILDING_UNIT(0, mx, my, *(hyper_player->race->buildings + bid), 0, true);
+    break;
+  default:
+    return false;
+  }
+  if (!unit)
+    return false;
+  if (!unit->AddToMap(true, true)) {
+    delete unit;
+    return false;
+  }
+  if (!in_editor_mode &&
+      static_cast<TBUILDING_ITEM *>(unit->GetPointerToItem())->AllowAnyMaterial())
+    unit->AddToPlayerArray();
+  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
+  hyper_player->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
+                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
+  hyper_player->IncPlayerUnitsCount();
+  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
+  if (!in_editor_mode && !player_array.IsRemote(0)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_STAY, -1);
+    process_mutex->Unlock();
+  }
+  return true;
+}
+
+
+bool TMAP::EditorPlaceSchemeUnit(int uid, int mx, int my)
+{
+  if (!hyper_player || !hyper_player->race)
+    return false;
+  if (uid < 0 || uid >= hyper_player->race->units_count)
+    return false;
+  const int z = 1;
+  const int dir = 2;
+  if (!hyper_player->race->units[uid]->IsPositionAvailable(mx, my, z))
+    return false;
+
+  TFORCE_UNIT *unit = NULL;
+  switch (hyper_player->race->units[uid]->GetItemType()) {
+  case IT_FORCE:
+    unit = NEW TFORCE_UNIT(0, mx, my, z, dir, *(hyper_player->race->units + uid), 0, true);
+    break;
+  case IT_WORKER:
+    unit = NEW TWORKER_UNIT(0, mx, my, z, dir, *(hyper_player->race->units + uid), 0, true);
+    break;
+  default:
+    return false;
+  }
+  if (!unit || !unit->AddToMap(true, true)) {
+    if (unit)
+      delete unit;
+    return false;
+  }
+  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
+  hyper_player->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
+                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
+  hyper_player->IncPlayerUnitsCount();
+  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
+  if (!in_editor_mode && !player_array.IsRemote(0)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, unit->GetPosition().x,
+                    unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+    process_mutex->Unlock();
+  }
+  return true;
+}
+
+
+bool TMAP::EditorPlacePlayerBuilding(int pid, int bid, int mx, int my)
+{
+  if (pid < 1 || pid >= player_array.GetCount() || !players[pid] || !players[pid]->race)
+    return false;
+  if (bid < 0 || bid >= players[pid]->race->buildings_count)
+    return false;
+  TBUILDING_ITEM *bitem = players[pid]->race->buildings[bid];
+  if (!bitem->IsPositionAvailable(mx, my, false))
+    return false;
+
+  TBUILDING_UNIT *unit = NULL;
+  switch (bitem->GetItemType()) {
+  case IT_FACTORY:
+    unit = NEW TFACTORY_UNIT(pid, mx, my, *(players[pid]->race->buildings + bid), 0, true);
+    break;
+  case IT_BUILDING:
+    unit = NEW TBUILDING_UNIT(pid, mx, my, *(players[pid]->race->buildings + bid), 0, true);
+    break;
+  default:
+    return false;
+  }
+  if (!unit || !unit->AddToMap(true, true)) {
+    if (unit)
+      delete unit;
+    return false;
+  }
+  if (!in_editor_mode &&
+      static_cast<TBUILDING_ITEM *>(unit->GetPointerToItem())->AllowAnyMaterial())
+    unit->AddToPlayerArray();
+  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
+  players[pid]->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
+                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
+  players[pid]->IncPlayerUnitsCount();
+  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
+  if (!in_editor_mode && !player_array.IsRemote(pid)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_STAY, -1);
+    process_mutex->Unlock();
+  }
+  if (in_editor_mode && bitem->text_id && strcmp(bitem->text_id, "townhall") == 0) {
+    players[pid]->initial_x = (T_SIMPLE)mx;
+    players[pid]->initial_y = (T_SIMPLE)my;
+    int sp = player_array.GetStartPoint(pid);
+    if (sp >= 0 && sp < EditorGetStartPointCount())
+      EditorSetStartPosition_Internal(sp, mx, my);
+  }
+  return true;
+}
+
+
+bool TMAP::EditorPlacePlayerUnit(int pid, int uid, int mx, int my)
+{
+  if (pid < 1 || pid >= player_array.GetCount() || !players[pid] || !players[pid]->race)
+    return false;
+  if (uid < 0 || uid >= players[pid]->race->units_count)
+    return false;
+  const int z = 1;
+  const int dir = 2;
+  if (!players[pid]->race->units[uid]->IsPositionAvailable(mx, my, z))
+    return false;
+
+  TFORCE_UNIT *unit = NULL;
+  switch (players[pid]->race->units[uid]->GetItemType()) {
+  case IT_FORCE:
+    unit = NEW TFORCE_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
+    break;
+  case IT_WORKER:
+    unit = NEW TWORKER_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
+    break;
+  default:
+    return false;
+  }
+  if (!unit || !unit->AddToMap(true, true)) {
+    if (unit)
+      delete unit;
+    return false;
+  }
+  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
+  players[pid]->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
+                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
+  players[pid]->IncPlayerUnitsCount();
+  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
+  if (!in_editor_mode && !player_array.IsRemote(pid)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, unit->GetPosition().x,
+                    unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+    process_mutex->Unlock();
+  }
+  return true;
+}
+
+
+bool TMAP::EditorSetStartPosition(int point_index, int mx, int my)
+{
+  if (point_index < 0 || point_index >= s_editor_sp_count || point_index >= PL_MAX_START_POINTS)
+    return false;
+  if (!IsInMap(mx, my))
+    return false;
+  s_editor_sp_x[point_index] = (T_SIMPLE)mx;
+  s_editor_sp_y[point_index] = (T_SIMPLE)my;
+  for (int j = 1; j < player_array.GetCount(); j++) {
+    if (player_array.GetStartPoint(j) == point_index) {
+      players[j]->initial_x = (T_SIMPLE)mx;
+      players[j]->initial_y = (T_SIMPLE)my;
+    }
+  }
+  return true;
+}
+
+
+bool TMAP::EditorWriteBlankPlasticMap(const char *basename_no_ext, int w, int h, const char *display_name)
+{
+  if (!basename_no_ext || !*basename_no_ext || !display_name)
+    return false;
+  if (w < 20 || h < 20 || w > MAP_MAX_SIZE || h > MAP_MAX_SIZE || (w % 5) || (h % 5))
+    return false;
+
+  for (const char *p = basename_no_ext; *p; p++) {
+    unsigned char c = (unsigned char)*p;
+    if (!isalnum(c) && *p != '_' && *p != '-')
+      return false;
+  }
+
+  TFILE_NAME mapname;
+  sprintf(mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
+
+  FILE *f = fopen(mapname, "w");
+  if (!f)
+    return false;
+
+  int nx = w / 5, ny = h / 5;
+  int nfrag = nx * ny;
+  int x1 = w - 10, y1 = h - 10;
+
+  fprintf(f, "# Map editor — blank plastic stub\n\n");
+  fprintf(f, "name \"%s\"\n", display_name);
+  fprintf(f, "author \"MapEditor\"\n");
+  fprintf(f, "width %d\nheight %d\nscheme \"plastic\"\n\n", w, h);
+  fprintf(f, "<Players>\n  max_count 2\n\n  <Start Points>\n    count 2\n");
+  fprintf(f, "    start_point_0 5 5\n");
+  fprintf(f, "    start_point_1 %d %d\n", x1, y1);
+  fprintf(f, "  </Start Points>\n\n  <Races>\n    count 2\n\n");
+  fprintf(f, "    <Race 0>\n      name \"human-red\"\n      <Sets>\n        count 1\n        <Set 0>\n");
+  fprintf(f, "          init_materials_amount 1500 1000 1000\n");
+  fprintf(f, "          <Units>\n            count 0\n          </Units>\n");
+  fprintf(f, "          <Buildings>\n            count 0\n          </Buildings>\n");
+  fprintf(f, "        </Set 0>\n      </Sets>\n    </Race 0>\n\n");
+  fprintf(f, "    <Race 1>\n      name \"human-yellow\"\n      <Sets>\n        count 1\n        <Set 0>\n");
+  fprintf(f, "          init_materials_amount 1500 1000 1000\n");
+  fprintf(f, "          <Units>\n            count 0\n          </Units>\n");
+  fprintf(f, "          <Buildings>\n            count 0\n          </Buildings>\n");
+  fprintf(f, "        </Set 0>\n      </Sets>\n    </Race 1>\n\n");
+  fprintf(f, "    <SchemeRace>\n      name \"plastic\"\n");
+  fprintf(f, "      <Units>\n        count 0\n      </Units>\n");
+  fprintf(f, "      <Sources>\n        count 0\n      </Sources>\n");
+  fprintf(f, "      <Buildings>\n        count 0\n      </Buildings>\n");
+  fprintf(f, "    </SchemeRace>\n\n  </Races>\n\n</Players>\n\n");
+
+  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
+    fprintf(f, "<Segment %d>\n  <Fragments>\n    count %d\n", seg, nfrag);
+    int idx = 0;
+    for (int yy = 0; yy < ny; yy++)
+      for (int xx = 0; xx < nx; xx++)
+        fprintf(f, "    fragment_%d 0 %d %d\n", idx++, xx * 5, yy * 5);
+    fprintf(f, "  </Fragments>\n  <Layers>\n    count 0\n  </Layers>\n");
+    fprintf(f, "  <Objects>\n    count 0\n  </Objects>\n</Segment %d>\n\n", seg);
+  }
+
+  fclose(f);
+  return true;
+}
+
+
+bool TMAP::SaveMapToFile(const char *basename_no_ext)
+{
+  if (!basename_no_ext || !*basename_no_ext)
+    return false;
+
+  if (g_editor_saved_map_prologue.empty())
+    return false;
+
+  TFILE_NAME mapname;
+  sprintf(mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
+
+  FILE *out = fopen(mapname, "w");
+  if (!out)
+    return false;
+
+  fputs(g_editor_saved_map_prologue.c_str(), out);
+  WriteEditorPlayersSection(out);
+
+  typedef TLIST<TTERR_LAYER>::TNODE<TTERR_LAYER> TLAYER_NODE;
+
+  for (int sid = 0; sid < DAT_SEGMENTS_COUNT; sid++) {
+    TMAP_SEGMENT *seg = map.segments + sid;
+    fprintf(out, "<Segment %d>\n  <Fragments>\n    count %d\n", sid, seg->terrf_count);
+
+    for (int i = 0; i < seg->terrf_count; i++) {
+      int fid = 0, x = 0, y = 0;
+      TTERR_FRAG *fr = seg->terrf[i];
+      if (fr) {
+        fid = (int)(static_cast<TTERRF_ITEM *>(fr->pitem) - scheme.terrf[sid]);
+        x = fr->pos.x;
+        y = fr->pos.y;
+      }
+      fprintf(out, "    fragment_%d %d %d %d\n", i, fid, x, y);
+    }
+
+    fprintf(out, "  </Fragments>\n  <Layers>\n    count %u\n", seg->terrl.GetLength());
+    unsigned li = 0;
+    for (TLAYER_NODE *node = seg->terrl.GetFirst(); node; node = node->GetNext(), li++) {
+      TTERR_LAYER *L = node->GetPitem();
+      int lid = (int)(static_cast<TTERRL_ITEM *>(L->pitem) - scheme.terrl[sid]);
+      fprintf(out, "    layer_%u %d %d %d\n", li, lid, L->pos.x, L->pos.y);
+    }
+    fprintf(out, "  </Layers>\n");
+
+    int obj_n = 0;
+    for (int i = 0; i < seg->terro_count; i++)
+      if (seg->terro[i])
+        obj_n++;
+    fprintf(out, "  <Objects>\n    count %d\n", obj_n);
+    int w = 0;
+    for (int i = 0; i < seg->terro_count; i++) {
+      TDRAW_UNIT *u = seg->terro[i];
+      if (!u)
+        continue;
+      int oid = (int)(static_cast<TSURFACE_ITEM *>(u->GetPointerToItem()) - scheme.terro[sid]);
+      TPOSITION_3D p = u->GetPosition();
+      fprintf(out, "    object_%d %d %d %d\n", w++, oid, (int)p.x, (int)p.y);
+    }
+    fprintf(out, "  </Objects>\n</Segment %d>\n", sid);
+  }
+
+  fclose(out);
+  Info(LogMsg("Saved map '%s'", mapname));
+  return true;
+}
+
+#endif /* !HEADLESS */
 
 
 /**
@@ -2279,9 +2964,14 @@ bool TMAP::LoadMapPlayers()
 #endif
 
   ok = map.file->SelectSection("Players", true);
-  
+
+  int map_max_count = 1;
+  if (ok)
+    map.file->ReadIntGE(&map_max_count, "max_count", 1, 1);
+  (void)map_max_count;
+
   // reading start points
-  
+
   if (ok) ok = map.file->SelectSection("Start Points", true);
 
   if (ok) ok = map.file->ReadIntGE(&start_points_count, "count", 1, 1);
@@ -2299,6 +2989,14 @@ bool TMAP::LoadMapPlayers()
       if (ok) ok = map.file->ReadSimpleRange(&start_points[i].x, item, 0, map.width, 0);
       if (ok) ok = map.file->ReadSimpleRange(&start_points[i].y, item, 0, map.height, 0);
     }
+
+#if !HEADLESS
+    s_editor_sp_count = start_points_count;
+    for (i = 0; i < start_points_count; i++) {
+      s_editor_sp_x[i] = start_points[i].x;
+      s_editor_sp_y[i] = start_points[i].y;
+    }
+#endif
 
     map.file->UnselectSection();
   }

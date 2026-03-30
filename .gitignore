@@ -10,3 +10,4 @@ src/doxygen.conf
 src/doxygen.log
 src/*.o
 
+.cursor/

@@ -304,6 +304,9 @@ int main(int argc, char *argv[])
     case ST_VIDEO_MENU:      
     case ST_PLAY_MENU:  Menu(); break;
     case ST_GAME:       Game(); break;
+#if !HEADLESS
+    case ST_EDITOR:     Editor(); break;
+#endif
 
     default: break;
     }

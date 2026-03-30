@@ -1,7 +1,9 @@
 SOUND ?= 0
+# Graphical client must stay HEADLESS=0 so Editor() and menu code stay in doengine.o.
+HEADLESS ?= 0
 
 build:
-	cd src && make SOUND=$(SOUND)
+	cd src && make SOUND=$(SOUND) HEADLESS=$(HEADLESS)
 
 clean:
 	cd src && make clean

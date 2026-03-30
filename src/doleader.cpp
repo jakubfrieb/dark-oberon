@@ -37,6 +37,7 @@
 
 #include "doleader.h"
 #include "dohost.h"
+#include "doengine.h"
 #include "doplayers.h"
 
 using std::string;
@@ -99,6 +100,9 @@ void TLEADER::SendPlayerArray (string map_name, bool start_game) {
   m->Pack (&time, sizeof time);
 
   m->PackString (map_name);
+
+  uint32_t mh = map_info_list.map_ext_info.file_hash;
+  m->Pack (&mh, sizeof mh);
 
   /* Count of players. */
   m->PackByte (static_cast<T_BYTE>(player_array.GetCount ()));

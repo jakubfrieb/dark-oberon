@@ -2,21 +2,16 @@
 
 Při pádu GUI klienta — spusť z **kořene repa** (kde leží `./dark-oberon` po `make` ve `src/`).
 
-## Pust → (batch: až do SIGSEGV, pak stack všech vláken)
+## Batch (run → crash → backtrace → log)
 
 ```bash
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && \
 gdb -q --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' -ex quit \
-  --args ./dark-oberon
+  --args ./dark-oberon 2>&1 | tee gdb-client-crash.log
 ```
 
-Volitelně uložit výstup: přidej na konec `2>&1 | tee gdb-client-crash.log`.
+Output goes to both console and `gdb-client-crash.log`.
 
-## Pust → (interaktivní gdb — ruční `run` / `bt`)
+## Agent: how to invoke
 
-```bash
-cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && \
-gdb -q -ex 'set pagination off' --args ./dark-oberon
-```
-
-V sandboxu Cursor často neběží GUI — použij lokální terminál.
+Run the command above directly — do NOT pipe through `tail` or other filters, so output streams in real-time. Use `block_until_ms: 0` to background it immediately, then read the terminal file or `gdb-client-crash.log` for results after the user closes the game / it crashes.
