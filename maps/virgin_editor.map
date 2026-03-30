@@ -26,89 +26,89 @@ scheme "plastic"
           init_materials_amount 1500 1000 1000
           <Units>
             count 14
-            unit_0 "footman" 69 93 1 2 100
-            unit_1 "footman" 65 105 1 2 100
-            unit_2 "footman" 55 104 1 2 100
-            unit_3 "footman" 58 104 1 2 100
-            unit_4 "footman" 60 88 1 2 100
-            unit_5 "footman" 62 93 1 2 100
-            unit_6 "footman" 59 95 1 2 100
-            unit_7 "footman" 56 94 1 2 100
-            unit_8 "footman" 54 92 1 2 100
-            unit_9 "catapult" 58 83 1 2 100
-            unit_10 "catapult" 67 83 1 2 100
-            unit_11 "peasant" 65 95 1 2 100
-            unit_12 "peasant" 62 104 1 2 100
-            unit_13 "peasant" 55 96 1 2 100
+            unit_0 "peasant" 55 96 1 2 100
+            unit_1 "peasant" 62 104 1 2 100
+            unit_2 "peasant" 65 95 1 2 100
+            unit_3 "catapult" 67 83 1 2 100
+            unit_4 "catapult" 58 83 1 2 100
+            unit_5 "footman" 54 92 1 2 100
+            unit_6 "footman" 56 94 1 2 100
+            unit_7 "footman" 59 95 1 2 100
+            unit_8 "footman" 62 93 1 2 100
+            unit_9 "footman" 60 88 1 2 100
+            unit_10 "footman" 58 104 1 2 100
+            unit_11 "footman" 55 104 1 2 100
+            unit_12 "footman" 65 105 1 2 100
+            unit_13 "footman" 69 93 1 2 100
           </Units>
           <Buildings>
             count 66
-            building_0 "shed" 53 83 100
-            building_1 "castle" 62 86 100
-            building_2 "barracks" 56 89 100
-            building_3 "wall" 70 92 100
-            building_4 "wall" 70 91 100
-            building_5 "wall" 70 90 100
-            building_6 "wall" 70 89 100
-            building_7 "wall" 70 88 100
-            building_8 "wall" 70 87 100
-            building_9 "wall" 70 86 100
-            building_10 "wall" 70 84 100
-            building_11 "wall" 70 85 100
-            building_12 "wall" 70 83 100
-            building_13 "wall" 70 81 100
-            building_14 "wall" 70 80 100
-            building_15 "wall" 70 82 100
-            building_16 "wall" 69 80 100
-            building_17 "wall" 68 80 100
-            building_18 "wall" 66 80 100
-            building_19 "wall" 67 80 100
-            building_20 "wall" 65 80 100
-            building_21 "wall" 63 80 100
-            building_22 "wall" 64 80 100
-            building_23 "wall" 62 80 100
-            building_24 "wall" 58 80 100
-            building_25 "wall" 59 80 100
-            building_26 "wall" 57 80 100
-            building_27 "wall" 53 80 100
-            building_28 "wall" 54 80 100
-            building_29 "wall" 52 80 100
-            building_30 "wall" 51 80 100
-            building_31 "wall" 50 80 100
-            building_32 "wall" 50 91 100
-            building_33 "wall" 50 90 100
-            building_34 "wall" 50 92 100
-            building_35 "wall" 50 93 100
-            building_36 "wall" 50 94 100
-            building_37 "wall" 50 95 100
-            building_38 "wall" 50 96 100
-            building_39 "wall" 50 97 100
-            building_40 "wall" 50 98 100
-            building_41 "wall" 50 99 100
-            building_42 "wall" 50 100 100
-            building_43 "wall" 50 101 100
-            building_44 "wall" 50 102 100
-            building_45 "wall" 50 103 100
-            building_46 "wall" 50 104 100
-            building_47 "wall" 50 89 100
-            building_48 "wall" 50 88 100
-            building_49 "wall" 50 86 100
-            building_50 "wall" 50 87 100
-            building_51 "wall" 50 85 100
-            building_52 "wall" 50 84 100
-            building_53 "wall" 50 83 100
-            building_54 "farm" 62 96 100
-            building_55 "farm" 68 95 100
-            building_56 "farm" 68 99 100
-            building_57 "farm" 65 97 100
-            building_58 "farm" 65 101 100
-            building_59 "farm" 62 100 100
-            building_60 "cannontower" 69 103 100
-            building_61 "cannontower" 51 104 100
-            building_62 "cannontower" 50 81 100
-            building_63 "cannontower" 55 80 100
-            building_64 "cannontower" 67 81 100
-            building_65 "townhall" 53 97 100
+            building_0 "townhall" 53 97 100
+            building_1 "cannontower" 67 81 100
+            building_2 "cannontower" 55 80 100
+            building_3 "cannontower" 50 81 100
+            building_4 "cannontower" 51 104 100
+            building_5 "cannontower" 69 103 100
+            building_6 "farm" 62 100 100
+            building_7 "farm" 65 101 100
+            building_8 "farm" 65 97 100
+            building_9 "farm" 68 99 100
+            building_10 "farm" 68 95 100
+            building_11 "farm" 62 96 100
+            building_12 "wall" 50 83 100
+            building_13 "wall" 50 84 100
+            building_14 "wall" 50 85 100
+            building_15 "wall" 50 87 100
+            building_16 "wall" 50 86 100
+            building_17 "wall" 50 88 100
+            building_18 "wall" 50 89 100
+            building_19 "wall" 50 104 100
+            building_20 "wall" 50 103 100
+            building_21 "wall" 50 102 100
+            building_22 "wall" 50 101 100
+            building_23 "wall" 50 100 100
+            building_24 "wall" 50 99 100
+            building_25 "wall" 50 98 100
+            building_26 "wall" 50 97 100
+            building_27 "wall" 50 96 100
+            building_28 "wall" 50 95 100
+            building_29 "wall" 50 94 100
+            building_30 "wall" 50 93 100
+            building_31 "wall" 50 92 100
+            building_32 "wall" 50 90 100
+            building_33 "wall" 50 91 100
+            building_34 "wall" 50 80 100
+            building_35 "wall" 51 80 100
+            building_36 "wall" 52 80 100
+            building_37 "wall" 54 80 100
+            building_38 "wall" 53 80 100
+            building_39 "wall" 57 80 100
+            building_40 "wall" 59 80 100
+            building_41 "wall" 58 80 100
+            building_42 "wall" 62 80 100
+            building_43 "wall" 64 80 100
+            building_44 "wall" 63 80 100
+            building_45 "wall" 65 80 100
+            building_46 "wall" 67 80 100
+            building_47 "wall" 66 80 100
+            building_48 "wall" 68 80 100
+            building_49 "wall" 69 80 100
+            building_50 "wall" 70 82 100
+            building_51 "wall" 70 80 100
+            building_52 "wall" 70 81 100
+            building_53 "wall" 70 83 100
+            building_54 "wall" 70 85 100
+            building_55 "wall" 70 84 100
+            building_56 "wall" 70 86 100
+            building_57 "wall" 70 87 100
+            building_58 "wall" 70 88 100
+            building_59 "wall" 70 89 100
+            building_60 "wall" 70 90 100
+            building_61 "wall" 70 91 100
+            building_62 "wall" 70 92 100
+            building_63 "barracks" 56 89 100
+            building_64 "castle" 62 86 100
+            building_65 "shed" 53 83 100
           </Buildings>
         </Set 0>
       </Sets>
@@ -122,15 +122,15 @@ scheme "plastic"
           init_materials_amount 1500 1000 1000
           <Units>
             count 4
-            unit_0 "footman" -9 -119 1 2 100
-            unit_1 "footman" -4 -117 1 2 100
-            unit_2 "peasant" -10 -124 1 2 100
-            unit_3 "peasant" -3 -122 1 2 100
+            unit_0 "peasant" -3 -122 1 2 100
+            unit_1 "peasant" -10 -124 1 2 100
+            unit_2 "footman" -4 -117 1 2 100
+            unit_3 "footman" -9 -119 1 2 100
           </Units>
           <Buildings>
             count 2
-            building_0 "farm" -2 -130 100
-            building_1 "townhall" -13 -133 100
+            building_0 "townhall" -13 -133 100
+            building_1 "farm" -2 -130 100
           </Buildings>
         </Set 0>
       </Sets>
@@ -140,47 +140,47 @@ scheme "plastic"
       name "plastic"
       <Sources>
         count 41
-        source_0 "goldmine" 68 87 100 60000
-        source_1 "goldmine" 149 38 100 60000
-        source_2 "forest" 157 51 100 500
-        source_3 "forest" 149 43 100 500
-        source_4 "forest" 149 46 100 500
-        source_5 "forest" 155 44 100 500
-        source_6 "forest" 156 39 100 500
-        source_7 "forest" 155 36 100 500
-        source_8 "forest" 153 22 100 500
-        source_9 "forest" 154 9 100 500
-        source_10 "forest" 155 12 100 500
-        source_11 "forest" 143 9 100 500
-        source_12 "forest" 147 14 100 500
-        source_13 "forest" 154 17 100 500
-        source_14 "forest" 149 9 100 500
-        source_15 "forest" 146 8 100 500
-        source_16 "forest" 140 4 100 500
-        source_17 "forest" 157 8 100 500
-        source_18 "forest" 139 1 100 500
-        source_19 "forest" 143 2 100 500
-        source_20 "forest" 147 3 100 500
+        source_0 "goldmine" 149 38 100 60000
+        source_1 "goldmine" 68 87 100 60000
+        source_2 "forest" 43 97 100 500
+        source_3 "forest" 44 94 100 500
+        source_4 "forest" 40 93 100 500
+        source_5 "forest" 40 97 100 500
+        source_6 "forest" 37 94 100 500
+        source_7 "forest" 34 91 100 500
+        source_8 "forest" 33 94 100 500
+        source_9 "forest" 36 97 100 500
+        source_10 "forest" 38 103 100 500
+        source_11 "forest" 33 98 100 500
+        source_12 "forest" 30 89 100 500
+        source_13 "forest" 38 100 100 500
+        source_14 "forest" 43 104 100 500
+        source_15 "forest" 44 101 100 500
+        source_16 "forest" 37 91 100 500
+        source_17 "forest" 155 30 100 500
+        source_18 "forest" 157 24 100 500
+        source_19 "forest" 157 21 100 500
+        source_20 "forest" 157 3 100 500
         source_21 "forest" 151 1 100 500
-        source_22 "forest" 157 3 100 500
-        source_23 "forest" 157 21 100 500
-        source_24 "forest" 157 24 100 500
-        source_25 "forest" 155 30 100 500
-        source_26 "forest" 37 91 100 500
-        source_27 "forest" 44 101 100 500
-        source_28 "forest" 43 104 100 500
-        source_29 "forest" 38 100 100 500
-        source_30 "forest" 30 89 100 500
-        source_31 "forest" 33 98 100 500
-        source_32 "forest" 38 103 100 500
-        source_33 "forest" 36 97 100 500
-        source_34 "forest" 33 94 100 500
-        source_35 "forest" 34 91 100 500
-        source_36 "forest" 37 94 100 500
-        source_37 "forest" 40 97 100 500
-        source_38 "forest" 40 93 100 500
-        source_39 "forest" 44 94 100 500
-        source_40 "forest" 43 97 100 500
+        source_22 "forest" 147 3 100 500
+        source_23 "forest" 143 2 100 500
+        source_24 "forest" 139 1 100 500
+        source_25 "forest" 157 8 100 500
+        source_26 "forest" 140 4 100 500
+        source_27 "forest" 146 8 100 500
+        source_28 "forest" 149 9 100 500
+        source_29 "forest" 154 17 100 500
+        source_30 "forest" 147 14 100 500
+        source_31 "forest" 143 9 100 500
+        source_32 "forest" 155 12 100 500
+        source_33 "forest" 154 9 100 500
+        source_34 "forest" 153 22 100 500
+        source_35 "forest" 155 36 100 500
+        source_36 "forest" 156 39 100 500
+        source_37 "forest" 155 44 100 500
+        source_38 "forest" 149 46 100 500
+        source_39 "forest" 149 43 100 500
+        source_40 "forest" 157 51 100 500
       </Sources>
       <Units>
         count 0
@@ -2053,17 +2053,17 @@ scheme "plastic"
     fragment_818 0 90 125
     fragment_819 0 95 125
     fragment_820 0 100 125
-    fragment_821 0 105 125
-    fragment_822 0 110 125
-    fragment_823 0 115 125
-    fragment_824 0 120 125
-    fragment_825 0 125 125
-    fragment_826 0 130 125
-    fragment_827 0 135 125
-    fragment_828 0 140 125
-    fragment_829 0 145 125
-    fragment_830 0 150 125
-    fragment_831 0 155 125
+    fragment_821 2 105 125
+    fragment_822 1 110 125
+    fragment_823 1 115 125
+    fragment_824 1 120 125
+    fragment_825 1 125 125
+    fragment_826 1 130 125
+    fragment_827 24 135 125
+    fragment_828 23 140 125
+    fragment_829 1 145 125
+    fragment_830 1 150 125
+    fragment_831 1 155 125
     fragment_832 9 0 130
     fragment_833 0 5 130
     fragment_834 0 10 130
@@ -2085,7 +2085,7 @@ scheme "plastic"
     fragment_850 0 90 130
     fragment_851 0 95 130
     fragment_852 0 100 130
-    fragment_853 0 105 130
+    fragment_853 3 105 130
     fragment_854 0 110 130
     fragment_855 0 115 130
     fragment_856 0 120 130
@@ -2117,7 +2117,7 @@ scheme "plastic"
     fragment_882 0 90 135
     fragment_883 0 95 135
     fragment_884 0 100 135
-    fragment_885 0 105 135
+    fragment_885 3 105 135
     fragment_886 0 110 135
     fragment_887 0 115 135
     fragment_888 0 120 135
@@ -2149,7 +2149,7 @@ scheme "plastic"
     fragment_914 0 90 140
     fragment_915 0 95 140
     fragment_916 0 100 140
-    fragment_917 0 105 140
+    fragment_917 25 105 140
     fragment_918 0 110 140
     fragment_919 0 115 140
     fragment_920 0 120 140
@@ -2181,7 +2181,7 @@ scheme "plastic"
     fragment_946 0 90 145
     fragment_947 0 95 145
     fragment_948 0 100 145
-    fragment_949 0 105 145
+    fragment_949 26 105 145
     fragment_950 0 110 145
     fragment_951 0 115 145
     fragment_952 0 120 145
@@ -2213,7 +2213,7 @@ scheme "plastic"
     fragment_978 0 90 150
     fragment_979 0 95 150
     fragment_980 0 100 150
-    fragment_981 0 105 150
+    fragment_981 3 105 150
     fragment_982 0 110 150
     fragment_983 0 115 150
     fragment_984 0 120 150
@@ -2245,7 +2245,7 @@ scheme "plastic"
     fragment_1010 0 90 155
     fragment_1011 0 95 155
     fragment_1012 0 100 155
-    fragment_1013 0 105 155
+    fragment_1013 3 105 155
     fragment_1014 0 110 155
     fragment_1015 0 115 155
     fragment_1016 0 120 155

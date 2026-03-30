@@ -58,6 +58,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 #include "dosdl.h"
 #include "dotime.h"
@@ -5522,6 +5523,19 @@ void EditorFragButtonOnClick(TGUI_BOX *sender)
   }
 }
 
+static void EditorSeparatorOnDraw(TGUI_BOX *sender)
+{
+  GLfloat w = sender->GetWidth();
+  GLfloat h = sender->GetHeight();
+  glDisable(GL_TEXTURE_2D);
+  glColor4f(0.5f, 0.5f, 0.5f, 0.8f);
+  glBegin(GL_LINES);
+    glVertex2f(0, h * 0.5f);
+    glVertex2f(w, h * 0.5f);
+  glEnd();
+  glEnable(GL_TEXTURE_2D);
+}
+
 void EditorTerrainThumbOnDraw(TGUI_BOX *sender)
 {
   int fid = (int)(sender->GetKey() - MNU_EDITOR_FRAG_BASE);
@@ -5544,6 +5558,18 @@ void EditorTerrainThumbOnDraw(TGUI_BOX *sender)
     glTexCoord2f(fvw, fvh);      glVertex2f(w, h);
     glTexCoord2f(0, fvh);        glVertex2f(0, h);
   glEnd();
+
+  GLFfont *fnt = TGUI::self->GetFont();
+  if (fnt) {
+    char idtxt[16];
+    snprintf(idtxt, sizeof(idtxt), "%d", fid);
+    glColor3f(0.0f, 0.0f, 0.0f);
+    glfDisable(GLF_RESET_PROJECTION);
+    glfPrint(fnt, 3, h - fnt->fHeight - 1, idtxt, false);
+    glColor3f(1.0f, 1.0f, 0.0f);
+    glfPrint(fnt, 2, h - fnt->fHeight, idtxt, false);
+    glfEnable(GLF_RESET_PROJECTION);
+  }
 }
 
 void EditorObjButtonOnClick(TGUI_BOX *sender)
@@ -5657,6 +5683,24 @@ static std::string EditorExtractGroupPrefix(const char *name)
   return s;
 }
 
+static void EditorReorderGroup(EditorFragGroup &g, const int *order, int order_len)
+{
+  std::set<int> id_set(g.frag_ids.begin(), g.frag_ids.end());
+  std::vector<int> reordered;
+  for (int i = 0; i < order_len; i++) {
+    int fid = order[i];
+    if (fid == -1) { reordered.push_back(-1); continue; }
+    if (id_set.count(fid)) {
+      reordered.push_back(fid);
+      id_set.erase(fid);
+    }
+  }
+  for (int fid : g.frag_ids)
+    if (id_set.count(fid))
+      reordered.push_back(fid);
+  g.frag_ids = reordered;
+}
+
 void EditorBuildFragGroups(int sid)
 {
   editor_frag_groups.clear();
@@ -5676,6 +5720,16 @@ void EditorBuildFragGroups(int sid)
       editor_frag_groups.push_back(g);
     } else {
       editor_frag_groups[it->second].frag_ids.push_back(i);
+    }
+  }
+
+  for (auto &g : editor_frag_groups) {
+    if (g.name == "rocks") {
+      static const int order[] = {
+        1, 4, 5, 8, 7, 6, 3, 2, -1,
+        24, 23, 78, 79, 26, 25, 77, 76, -1
+      };
+      EditorReorderGroup(g, order, (int)(sizeof(order) / sizeof(order[0])));
     }
   }
 }
@@ -5801,6 +5855,16 @@ void EditorRebuildPalette(void)
 
     for (int fi = 0; fi < (int)g.frag_ids.size(); fi++) {
       int fid = g.frag_ids[fi];
+      if (fid == -1) {
+        if (col % 2 == 1) { cx = 2; col++; }
+        cy -= 4;
+        TGUI_BUTTON *sep = editor_palette_sbox->AddButton(0, cx, cy, 170, 4, "");
+        sep->SetAlpha(0.0f);
+        sep->SetOnDraw(EditorSeparatorOnDraw);
+        cy -= 4;
+        continue;
+      }
+      if (fid < 0 || fid >= scheme.terrf_count[sid]) continue;
       TGUI_TEXTURE *tex = scheme.terrf[sid][fid].GetFirstTexture();
       if (!tex) continue;
 
@@ -6167,6 +6231,8 @@ bool EditorBootstrap(const char *basename_raw)
       player_array.SetRaceIdName(i, r->id_name);
     }
   }
+  for (int i = 1; i < player_array.GetCount(); i++)
+    player_array.SetStartPoint(i, i - 1);
   player_array.Unlock();
 
   EditorCaptureMapHead(base.c_str());
