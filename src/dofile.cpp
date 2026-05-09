@@ -372,7 +372,7 @@ void TFE_ITEM::AddValue(char *value)
 
   if (values) {
     // copy all old values and new value to newval
-    sprintf(newval, "%s %s", values, value);
+    snprintf(newval, FILE_MAX_LINE_LENGTH, "%s %s", values, value);
     dv = act_value - values;
 
     // delete old values
@@ -946,12 +946,25 @@ int TCONF_FILE::Reload(void)
       else {                                          // item with parameters
         if (*values && values[strlen(values)-1] == '_'){
           values[strlen(values)-1] = ' ';
-          buff = strcat(buff, values);
-          long_line = true;
+          // Bound the long-line accumulator: 'buffer' is sized 10 * FILE_MAX_LINE_LENGTH,
+          // so abort the continuation if appending 'values' would overflow.
+          if (strlen(buff) + strlen(values) >= sizeof(buffer)) {
+            Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name, lines_count));
+            long_line = false;
+            buff[0] = '\0';
+          } else {
+            buff = strcat(buff, values);
+            long_line = true;
+          }
         }
         else{
           if (long_line){
-            buff = strcat(buff, values);
+            if (strlen(buff) + strlen(values) >= sizeof(buffer)) {
+              Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name, lines_count));
+              buff[0] = '\0';
+            } else {
+              buff = strcat(buff, values);
+            }
             GetWord(item, &buff);
             act_section->AddLoadedValue(item, buff);
           
@@ -1081,7 +1094,7 @@ void TCONF_FILE::WriteStr(char *item, char *value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "\"%s\"", value);      // string will be written in double quotes ("...")
+  snprintf(str, FILE_MAX_LINE_LENGTH, "\"%s\"", value);      // string will be written in double quotes ("...")
   act_section->WriteValue(item, str);
 
   modified = true;
@@ -1100,7 +1113,7 @@ void TCONF_FILE::WriteInt(char *item, int value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "%d", value);
+  snprintf(str, FILE_MAX_LINE_LENGTH, "%d", value);
 
   act_section->WriteValue(item, str);
 
@@ -1120,7 +1133,7 @@ void TCONF_FILE::WriteFloat(char *item, float value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "%f", value);
+  snprintf(str, FILE_MAX_LINE_LENGTH, "%f", value);
 
   act_section->WriteValue(item, str);
 
@@ -1140,7 +1153,7 @@ void TCONF_FILE::WriteDouble(char *item, double value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "%f", value);
+  snprintf(str, FILE_MAX_LINE_LENGTH, "%f", value);
 
   act_section->WriteValue(item, str);
 
@@ -1160,7 +1173,7 @@ void TCONF_FILE::WriteSimple(char *item, T_SIMPLE value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "%d", value);
+  snprintf(str, FILE_MAX_LINE_LENGTH, "%d", value);
 
   act_section->WriteValue(item, str);
 
@@ -1180,7 +1193,7 @@ void TCONF_FILE::WriteByte(char *item, T_BYTE value)
 {
   TFILE_LINE str;
 
-  sprintf(str, "%d", value);
+  snprintf(str, FILE_MAX_LINE_LENGTH, "%d", value);
 
   act_section->WriteValue(item, str);
 
