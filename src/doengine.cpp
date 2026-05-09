@@ -1541,9 +1541,11 @@ bool Disconnect() {
 
 bool CreateGame()
 {
-  /*
-   * @@FIXME@@
-   */
+  // Tear down any prior session before starting a new game. Disconnect()
+  // returns false on a real network teardown error; "no session active"
+  // is treated as success internally so the early-out below is safe to
+  // reach from a fresh start. If you change Disconnect() semantics, audit
+  // every CreateGame() caller.
   if (!Disconnect())
     return false;
 
@@ -3640,8 +3642,13 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
       msg->Extract (&addr, sizeof (in_addr));
       msg->Extract (&port, sizeof (in_port_t));
 
-      /* Check, if the actual player is a local or a remote player. */
-      if (TNET_RESOLVER::NetworkToAscii (addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
+      /* Check, if the actual player is a local or a remote player.
+       * Without HasMyAddress() we'd compare against an uninitialised 0.0.0.0:0
+       * and accidentally classify the first player as remote on race conditions
+       * where the leader's player_array message arrives before our address echo.
+       */
+      if (follower->HasMyAddress () &&
+          TNET_RESOLVER::NetworkToAscii (addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
           port == follower->GetMyPort ())
       {
         player_array.AddLocalPlayer (name, race, computer);

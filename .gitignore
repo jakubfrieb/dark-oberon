@@ -14,3 +14,6 @@ logs/*
 ai-working
 # unpacked .dat working copies
 races/*/*.dat-unpacked/
+graphify-out/
+
+.env

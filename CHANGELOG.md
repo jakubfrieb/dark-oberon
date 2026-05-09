@@ -11,6 +11,21 @@ is the historical baseline and not tracked here.
 
 ### Added
 - Cursor skill `versioning-changelog` defining SemVer policy and changelog workflow.
+- `TFOLLOWER::HasMyAddress()` predicate so callers can tell whether the leader has echoed the follower's externally-visible address yet.
+- `obvious_bugs.md` triage report.
+
+### Changed
+- `InitMemorySestem` renamed to `InitMemorySystem` across `doalloc.{h,cpp}` and `doberon.cpp` (typo fix on a public API).
+- `TMAP_SURFACE` activity array now sized via `PL_MAX_PLAYERS` instead of a hardcoded `8`.
+- `CreateGame()` `@@FIXME@@` replaced with an actual contract comment about `Disconnect()` semantics.
+
+### Fixed
+- `TNET_MESSAGE::Init_receive` no longer copies a fixed 255 bytes; it now reads only the actual message size and rejects out-of-range sizes (was a stack over-read into the message buffer).
+- `TFOLLOWER` initialises `my_address` / `my_port` to a deterministic `0.0.0.0:0` instead of leaving them uninitialised; the single caller in `doengine.cpp` now gates on `HasMyAddress()` before classifying a player as local vs remote.
+- Four bare `new` sites (`dobuildings.cpp`, `dosources.cpp`, `donet.cpp`, `glfont.cpp`) switched to the `NEW` macro so allocations are visible to the memory tracker.
+
+### Security
+- Closed the `Init_receive` stack over-read described above (low exploitability today, but an attack surface for any future caller passing a smaller buffer).
 
 ## [0.1.0] - 2026-05-09
 

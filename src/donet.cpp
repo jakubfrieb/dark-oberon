@@ -209,8 +209,15 @@ void TNET_MESSAGE::Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest)
  *  @param data    Data of the message including the header.
  */
 void TNET_MESSAGE::Init_receive (in_addr address, in_port_t port, int fd, T_BYTE *data) {
-  /*** FIXME: tu kopirovat iba velkost spravy ***/
-  memcpy (&this->size, data, max_net_message_size);
+  // The first byte is the message size header (see TNET_LISTENER::listener_accept).
+  // Copy only the bytes that are actually present, not the full max_net_message_size.
+  T_BYTE msg_size = data[0];
+  if (msg_size < GetHeaderSize () || msg_size > max_net_message_size) {
+    Critical (LogMsg ("Init_receive: invalid message size %d", msg_size));
+    throw 0;
+  }
+  memcpy (&this->size, data, msg_size);
+
   this->address = address;
   this->port = port;
   this->fd = fd;
@@ -859,7 +866,7 @@ void TNET_MESSAGE_HANDLER::RegisterExtendedFunction (T_BYTE type,
 //=========================================================================
 
 TNET_RESOLVER::TNET_RESOLVER () {
-  mutex = new TLOCK ();
+  mutex = NEW TLOCK ();
 }
 
 /**

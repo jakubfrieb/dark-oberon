@@ -380,14 +380,15 @@ void TMAP_POOLED_LIST::AttackEnemy(TMAP_UNIT *enemy, bool watchers_list)
 
 TMAP_SURFACE::TMAP_SURFACE()        //!< Basic constructor.
 {
-  //TODO
-  int i = 8,j=0;
-
   t_id = 0;
   unit = ghost = NULL;
-  activity = NEW TNEURON_VALUE[8];       //<! Every player have his own activity. There should be player_array.GetCount()
-  for (j=0;j<i;j++)
-    activity[j]=0;
+
+  // One activity slot per possible player. Sized to PL_MAX_PLAYERS so the
+  // array is safe against any in-game add/remove (the editor can mutate
+  // player_array.GetCount() after surfaces are constructed).
+  activity = NEW TNEURON_VALUE[PL_MAX_PLAYERS];
+  for (int j = 0; j < PL_MAX_PLAYERS; ++j)
+    activity[j] = 0;
 
   aimers = NEW TMAP_POOLED_LIST(reinterpret_cast<TPOOL<TPOOLED_LIST::TNODE>*>(map.GetAimersPool()));
   watchers = NEW TMAP_POOLED_LIST(reinterpret_cast<TPOOL<TPOOLED_LIST::TNODE>*>(map.GetWatchersPool()));

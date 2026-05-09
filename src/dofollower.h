@@ -75,8 +75,12 @@ public:
 
   void SetMyAddress (in_addr address, in_port_t port);
 
-  in_addr GetMyAddress () { /* XXX: have_my_address */ return my_address; }
-  in_port_t GetMyPort () { /* XXX: have_my_address */ return my_port; }
+  /** True once the leader has told us our externally-visible address/port. */
+  bool HasMyAddress () const { return have_my_address; }
+
+  /** Caller MUST check HasMyAddress() first; otherwise returns 0.0.0.0:0. */
+  in_addr GetMyAddress () { return my_address; }
+  in_port_t GetMyPort () { return my_port; }
 
   double GetPingRequestTime () { return ping_request_time; }
   double GetMinimalTimeshift () { return minimal_timeshift; }

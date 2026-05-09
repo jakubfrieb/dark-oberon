@@ -138,7 +138,7 @@ bool InitAll(void)
   // initialize memory checking system
   // must be called after initializing log files and SDL/video
 #if DEBUG_MEMORY
-  InitMemorySestem();
+  InitMemorySystem();
 #endif
 
 #if SOUND

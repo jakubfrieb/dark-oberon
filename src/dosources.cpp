@@ -316,7 +316,7 @@ void TSOURCE_UNIT::CreateGhost()
 {
   if (TestState(US_DELETE)) return;
 
-  TSOURCE_UNIT *b = new TSOURCE_UNIT(this, 0, false);
+  TSOURCE_UNIT *b = NEW TSOURCE_UNIT(this, 0, false);
   b->AddToMap(true, false);
 }
 

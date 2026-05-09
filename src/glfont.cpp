@@ -28,6 +28,7 @@
 #include <stdlib.h>
 
 #include "cfg.h"
+#include "doalloc.h"
 #include "glfont.h"
 
 #if !HEADLESS
@@ -90,7 +91,7 @@ GLFfont *glfNewFont(GLuint Tex,
 {
   GLFfont *font;
 
-  if (!(font = new GLFfont)) return NULL;
+  if (!(font = NEW GLFfont)) return NULL;
 
   font->fTexture[0] = Tex;
 

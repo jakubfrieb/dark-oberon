@@ -117,7 +117,7 @@ void CheckMemory(void)
 /**
  *  Initialize memory system.
  */
-void InitMemorySestem(void)
+void InitMemorySystem(void)
 {
   mutex = SDL_CreateMutex();
 

@@ -54,7 +54,7 @@ void operator delete[](void* p, const char* /*file*/, int /*line*/);
 // Methods
 //========================================================================
 
-void InitMemorySestem(void);
+void InitMemorySystem(void);
 void DoneMemorySystem(void);
 void SetAllocLogging(bool log);
 

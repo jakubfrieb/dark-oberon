@@ -566,7 +566,7 @@ void TBUILDING_UNIT::CreateGhost()
 {
   if (TestState(US_DELETE)) return;
 
-  TBUILDING_UNIT *b = new TBUILDING_UNIT(this, 0, false);
+  TBUILDING_UNIT *b = NEW TBUILDING_UNIT(this, 0, false);
   b->AddToMap(true, false);
 }
 

@@ -34,6 +34,7 @@
 #include "dotime.h"
 
 #include <string>
+#include <string.h>
 
 #include "dofollower.h"
 #include "donet.h"
@@ -63,6 +64,10 @@ TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
 {
   type = ht_follower;
   have_my_address = false;
+  // Initialise to a well-known sentinel so that callers who forget to check
+  // HasMyAddress() at least see a deterministic 0.0.0.0:0 instead of garbage.
+  memset (&my_address, 0, sizeof my_address);
+  my_port = 0;
 }
 
 /**
