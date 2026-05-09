@@ -13,6 +13,8 @@ is the historical baseline and not tracked here.
 - Cursor skill `versioning-changelog` defining SemVer policy and changelog workflow.
 - `TFOLLOWER::HasMyAddress()` predicate so callers can tell whether the leader has echoed the follower's externally-visible address yet.
 - `obvious_bugs.md` triage report.
+- `ARCHITECTURE_REFACTOR_PLAN.md` tracking multi-week architecture work (sim/renderer split, `dofile.cpp` rewrite, deterministic-lockstep network model).
+- `RENDER_OBJECTS` variable in `src/Makefile` documenting the 6 pure-rendering objects that should eventually leave the dedicated-server build.
 
 ### Changed
 - `InitMemorySestem` renamed to `InitMemorySystem` across `doalloc.{h,cpp}` and `doberon.cpp` (typo fix on a public API).
