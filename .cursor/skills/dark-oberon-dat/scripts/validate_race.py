@@ -25,6 +25,15 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 
 
+def tga_trailing_bytes(raw: bytes) -> int:
+    """Bytes after the pixel data of an uncompressed TGA (engine needs 0)."""
+    if raw[2] not in (1, 2, 3):
+        return 0
+    cmapbytes = (raw[5] | (raw[6] << 8)) * ((raw[7] + 7) // 8) if raw[1] == 1 else 0
+    w, h, bpp = raw[12] | (raw[13] << 8), raw[14] | (raw[15] << 8), (raw[16] + 7) // 8
+    return max(0, len(raw) - (18 + raw[0] + cmapbytes + w * h * bpp))
+
+
 def _unpack(dat: Path, out: Path) -> dict:
     subprocess.run([sys.executable, str(HERE / "do_dat_tool.py"), "unpack", str(dat), "-o", str(out)],
                    check=True, stdout=subprocess.DEVNULL)
@@ -34,6 +43,12 @@ def _unpack(dat: Path, out: Path) -> dict:
 def _groups(manifest: dict, root: Path) -> dict[str, list[tuple[str, tuple[int, int]]]]:
     return {g["name"]: [(t["id"], Image.open(root / t["file"]).size) for t in g["textures"]]
             for g in manifest["texture_groups"]}
+
+
+def _trailing(manifest: dict, root: Path) -> list[str]:
+    return [f"texture {g['name']}/{t['id']}: {n} bytes after pixel data (engine misreads .dat)"
+            for g in manifest["texture_groups"] for t in g["textures"]
+            if (n := tga_trailing_bytes((root / t["file"]).read_bytes()))]
 
 
 def validate_race(race_dir: Path, reference_dir: Path) -> list[str]:
@@ -50,7 +65,9 @@ def validate_race(race_dir: Path, reference_dir: Path) -> list[str]:
 
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)
-        groups = _groups(_unpack(race_dir / f"{rid}.dat", t / "a"), t / "a")
+        manifest = _unpack(race_dir / f"{rid}.dat", t / "a")
+        groups = _groups(manifest, t / "a")
+        errors += _trailing(manifest, t / "a")
         ref_groups = _groups(_unpack(reference_dir / f"{ref_id}.dat", t / "b"), t / "b")
 
     for line in rac:

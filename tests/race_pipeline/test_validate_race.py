@@ -36,3 +36,12 @@ def test_texture_size_change_is_reported(tmp_path):
     subprocess.run(["python3", str(SCRIPTS / "do_dat_tool.py"), "pack", str(u),
                     "-o", str(d / "orc-red.dat")], check=True, capture_output=True)
     assert any("size" in e and "footman_stay" in e for e in validate_race(d, REPO / "races/human-red"))
+
+
+def test_tga_trailing_bytes_detects_pil_footer(tmp_path):
+    from validate_race import tga_trailing_bytes
+    import numpy as np
+    Image.fromarray(np.zeros((2, 3, 4), np.uint8), "RGBA").save(tmp_path / "a.tga", "TGA")
+    raw = (tmp_path / "a.tga").read_bytes()
+    assert tga_trailing_bytes(raw) == 26
+    assert tga_trailing_bytes(raw[:-26]) == 0
