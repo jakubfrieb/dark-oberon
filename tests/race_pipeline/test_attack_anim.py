@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -102,3 +103,24 @@ def test_patch_group_updates_manifest_and_texture(tmp_path):
     assert img.size == (256, 64)
     r, g, b, a = img.getpixel((10, 10))
     assert b > r                                                  # recoloured to blue team colour
+
+
+def test_generate_passes_absolute_image_paths(tmp_path, monkeypatch):
+    import argparse, os
+    import attack_anim
+    import run_codex_board_batch
+    work = tmp_path / "w"; (work / "in").mkdir(parents=True)
+    Image.new("RGB", (8, 8)).save(work / "in" / "dir1.png")
+    ref = tmp_path / "ref.png"; Image.new("RGB", (8, 8)).save(ref)
+    seen = []
+
+    def fake_run(prompt, images, expect, cwd, **kw):
+        seen.append((images, expect, cwd))
+        return True
+    monkeypatch.setattr(run_codex_board_batch, "run_codex", fake_run)
+    monkeypatch.chdir(tmp_path)
+    a = argparse.Namespace(work=Path("w"), reference=Path("ref.png"), subject="x", parallel=1, only=None, force=False)
+    assert attack_anim.cmd_generate(a) == 0
+    images, expect, cwd = seen[0]
+    assert all(Path(p).is_absolute() and Path(p).exists() for p in images)
+    assert Path(expect).is_absolute() and Path(cwd).is_absolute()

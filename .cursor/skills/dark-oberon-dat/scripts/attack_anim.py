@@ -193,7 +193,10 @@ def cmd_prepare(a) -> int:
 
 
 def cmd_generate(a) -> int:
-    from run_codex_board_batch import run_codex
+    import run_codex_board_batch
+    # codex runs with cwd=work: every path handed to it must be absolute
+    a.work = Path(a.work).resolve()
+    reference = Path(a.reference).resolve()
     (a.work / "raw").mkdir(parents=True, exist_ok=True)
     dirs = sorted(int(p.stem[3:]) for p in (a.work / "in").glob("dir*.png"))
     if a.only:
@@ -204,7 +207,7 @@ def cmd_generate(a) -> int:
         if out.exists() and not a.force:
             return d, True
         prompt = PROMPT.format(subject=a.subject, direction=d)
-        return d, run_codex(prompt, [a.work / "in" / f"dir{d}.png", a.reference.resolve()], out, a.work.resolve())
+        return d, run_codex_board_batch.run_codex(prompt, [a.work / "in" / f"dir{d}.png", reference], out, a.work)
 
     with ThreadPoolExecutor(max_workers=max(1, a.parallel)) as ex:
         res = dict(ex.map(one, dirs))
