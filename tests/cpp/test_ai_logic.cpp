@@ -197,6 +197,39 @@ TEST(test_can_afford_repair) {
   CHECK(TAI_CanAffordRepair(no_gold, free_pt, 3, 20.f));
 }
 
+TEST(test_pick_target_prefers_near_and_keeps_current) {
+  TAI_UNIT_SAMPLE e[3] = {S(100, 5, 10, 10), S(100, 5, 12, 10), S(100, 5, 60, 60)};
+  // army at (10,10): nearest soldier wins, far one ignored while something is in radius
+  CHECK(TAI_PickTarget(e, 3, 10, 10, 20, -1, 25.f) == 0);
+  // current target 1 is alive in radius and not beaten by 25 points -> keep it (hysteresis)
+  CHECK(TAI_PickTarget(e, 3, 10, 10, 20, 1, 25.f) == 1);
+  // a unit attacking us beats the current target by > 25 -> switch
+  e[0].attacking_us = true;
+  CHECK(TAI_PickTarget(e, 3, 10, 10, 20, 1, 25.f) == 0);
+}
+
+TEST(test_pick_target_falls_back_to_anywhere) {
+  TAI_UNIT_SAMPLE e[2] = {S(100, 0, 70, 70, true, false), S(100, 5, 50, 50)};
+  // nothing within 20 of (10,10) -> best scored enemy anywhere instead of idling at an empty base
+  CHECK(TAI_PickTarget(e, 2, 10, 10, 20, -1, 25.f) == 1);
+  CHECK(TAI_PickTarget(e, 0, 10, 10, 20, -1, 25.f) == -1);
+  // current index out of range is ignored
+  CHECK(TAI_PickTarget(e, 2, 10, 10, 20, 7, 25.f) == 1);
+}
+
+TEST(test_sent_set_orders_each_unit_once_per_destination) {
+  TAI_SENT_SET s;
+  s.Reset(5, 5);
+  CHECK(!s.Sent(11));
+  s.Add(11);
+  CHECK(s.Sent(11) && !s.Sent(12));
+  CHECK(!s.SameDestination(6, 5) && s.SameDestination(5, 5));
+  s.Reset(6, 5);
+  CHECK(!s.Sent(11));
+  for (int i = 0; i < 200; i++) s.Add(1000 + i);   // capacity is bounded, no overflow
+  CHECK(s.Sent(1000));
+}
+
 int main() {
   for (int i = 0; i < g_nt; i++) {
     int before = g_fail;

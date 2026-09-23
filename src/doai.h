@@ -211,6 +211,10 @@ private:
   double mil_state_since;
   TAI_RETALIATION retaliation;
   TAI_ORDER_MEMO army_order;
+  //! Units already sent to the current rally point (unreachable rally must not re-order every tick).
+  TAI_SENT_SET rally_sent;
+  //! Current attack target (hysteresis in TAI_PickTarget), -1 = none.
+  int attack_target_id;
   //! Units sent to defend this tick (excluded from the field army).
   int defender_ids[TAI_GAME_STATE::kMaxIdleForces];
   int n_defenders;

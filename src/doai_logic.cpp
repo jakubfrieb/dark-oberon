@@ -226,6 +226,52 @@ void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map
   *oy = y;
 }
 
+static int cheb(int ax, int ay, int bx, int by)
+{
+  const int dx = std::abs(ax - bx), dy = std::abs(ay - by);
+  return dx > dy ? dx : dy;
+}
+
+int TAI_PickTarget(const TAI_UNIT_SAMPLE *e, int n, int cx, int cy, int radius, int current, float margin)
+{
+  int best_in = -1, best_any = -1;
+  float s_in = -1e30f, s_any = -1e30f;
+  for (int i = 0; i < n; i++) {
+    const int d = cheb(e[i].x, e[i].y, cx, cy);
+    const float s = TAI_TargetScore(e[i], (float)d);
+    if (s > s_any) {
+      s_any = s;
+      best_any = i;
+    }
+    if (d <= radius && s > s_in) {
+      s_in = s;
+      best_in = i;
+    }
+  }
+  if (best_in < 0)
+    return best_any;
+  if (current >= 0 && current < n) {
+    const int dc = cheb(e[current].x, e[current].y, cx, cy);
+    if (dc <= radius && TAI_TargetScore(e[current], (float)dc) + margin >= s_in)
+      return current;
+  }
+  return best_in;
+}
+
+bool TAI_SENT_SET::Sent(int id) const
+{
+  for (int i = 0; i < n; i++)
+    if (ids[i] == id)
+      return true;
+  return false;
+}
+
+void TAI_SENT_SET::Add(int id)
+{
+  if (n < kCap && !Sent(id))
+    ids[n++] = id;
+}
+
 bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points)
 {
   for (int i = 0; i < n_materials; i++)

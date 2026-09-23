@@ -90,6 +90,23 @@ float TAI_EnemyPowerEstimate(float visible, float remembered, float seconds_sinc
 //! Point @p dist tiles from base toward the enemy base, clamped to the map; base when enemy is unknown (<0).
 void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map_h, int *ox, int *oy);
 
+//! Index of the attack target: best score (TAI_TargetScore, Chebyshev distance to the army) within
+//! @p radius; the @p current target is kept while it is in radius and not beaten by @p margin (no
+//! re-targeting every tick). Nothing in radius -> best enemy anywhere; none -> -1.
+int TAI_PickTarget(const TAI_UNIT_SAMPLE *e, int n, int cx, int cy, int radius, int current, float margin);
+
+//! Units already ordered to one destination (each unit is sent once, even if it stops short of it).
+struct TAI_SENT_SET {
+  static const int kCap = 128;
+  int x, y;
+  int ids[kCap];
+  int n;
+  void Reset(int px, int py) { x = px; y = py; n = 0; }
+  bool SameDestination(int px, int py) const { return px == x && py == y; }
+  bool Sent(int id) const;
+  void Add(int id);
+};
+
 //! Stock covers @p points of repair (engine stops a repairing worker when any material < mat_per_pt).
 bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points);
 

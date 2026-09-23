@@ -1058,9 +1058,10 @@ TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *str
     think_accumulator(0), mining_rr(0),
     current_phase(0), enemy_contacted(false), target_escalation(0), game_time(0.0), n_enemies(0),
     visible_enemy_power(0.f), remembered_enemy_power(0.f), enemy_seen_at(-1e9), mil_state(MIL_GATHER),
-    mil_state_since(0.0), n_defenders(0), n_scouts(0), factory_military_rr(0)
+    mil_state_since(0.0), attack_target_id(-1), n_defenders(0), n_scouts(0), factory_military_rr(0)
 {
   army_order.Reset();
+  rally_sent.Reset(-1, -1);
 }
 
 TAI_CONTROLLER::~TAI_CONTROLLER() = default;
@@ -1738,6 +1739,8 @@ static const int kTaiRallyRadius = 4;
 static const int kTaiLocalRadius = 10;
 //! Attack targets are picked near the army (else march to the enemy base).
 static const int kTaiTargetRadius = 20;
+//! A new attack target must score this much more than the current one (no re-targeting every tick).
+static const float kTaiRetargetMargin = 25.f;
 //! Retreat lasts at most this long before gathering again.
 static const double kTaiRetreatSeconds = 20.0;
 
@@ -1968,12 +1971,22 @@ void TAI_CONTROLLER::OrderGroup(TFORCE_UNIT **forces, int n, int x, int y, TMAP_
 {
   if (n <= 0 || !map.IsInMap(x, y))
     return;
-  /* One group path for the whole army; individual StartMoving would override it (review #9). */
-  const bool grouped = n >= 2 && tai_request_group_move_forces(player, forces, n, x, y);
-  for (int i = 0; i < n; i++) {
+  /* Units close to the target attack it directly; only the others share one group path (individual
+   * StartMoving would override it, and re-pathing units already in combat interrupts them). */
+  TFORCE_UNIT *movers[TAI_GAME_STATE::kMaxIdleForces];
+  bool close_flags[TAI_GAME_STATE::kMaxIdleForces];
+  int nm = 0;
+  for (int i = 0; i < n && i < TAI_GAME_STATE::kMaxIdleForces; i++) {
+    close_flags[i] = attack_target
+                     && tai_cheb_dist(forces[i]->GetPosition(), attack_target->GetPosition())
+                            <= kTaiAssaultReleaseAttackDist;
+    if (!close_flags[i])
+      movers[nm++] = forces[i];
+  }
+  const bool grouped = nm >= 2 && tai_request_group_move_forces(player, movers, nm, x, y);
+  for (int i = 0; i < n && i < TAI_GAME_STATE::kMaxIdleForces; i++) {
     TFORCE_UNIT *fu = forces[i];
-    const bool close = attack_target
-                       && tai_cheb_dist(fu->GetPosition(), attack_target->GetPosition()) <= kTaiAssaultReleaseAttackDist;
+    const bool close = close_flags[i];
     if (close) {
       if (fu->GetTarget() != attack_target)
         fu->StartAttacking(attack_target, true);
@@ -2000,6 +2013,8 @@ void TAI_CONTROLLER::SetMilState(TAI_MIL_STATE s, float my_power, float enemy_po
   mil_state = s;
   mil_state_since = game_time;
   army_order.Reset();
+  rally_sent.Reset(-1, -1);
+  attack_target_id = -1;
 }
 
 void TAI_CONTROLLER::ManageArmy()
@@ -2037,11 +2052,16 @@ void TAI_CONTROLLER::ManageArmy()
 
   switch (mil_state) {
   case MIL_GATHER: {
+    if (!rally_sent.SameDestination(rx, ry))
+      rally_sent.Reset(rx, ry);
     TFORCE_UNIT *far[TAI_GAME_STATE::kMaxIdleForces];
     int nf = 0;
     for (int i = 0; i < n; i++)
-      if (army[i]->GetAction() == UA_STAY && tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) > kTaiRallyRadius)
+      if (army[i]->GetAction() == UA_STAY && !rally_sent.Sent(army[i]->GetUnitID())
+          && tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) > kTaiRallyRadius) {
         far[nf++] = army[i];
+        rally_sent.Add(army[i]->GetUnitID());
+      }
     OrderGroup(far, nf, rx, ry, NULL);
 
     const TAI_PHASE &ph = strategy->GetPhase(current_phase);
@@ -2052,22 +2072,14 @@ void TAI_CONTROLLER::ManageArmy()
   }
 
   case MIL_ATTACK: {
-    int best = -1;
-    float best_score = -1e30f;
     TAI_UNIT_SAMPLE local[kMaxEnemies];
-    int nl = 0;
+    int nl = 0, current = -1;
     for (int i = 0; i < n_enemies; i++) {
       const TAI_UNIT_SAMPLE &s = enemy_samples[i];
-      const int d = tai_cheb_xy(s.x, s.y, (int)cx, (int)cy);
-      if (d <= kTaiLocalRadius && s.dps > 0.f)
+      if (tai_cheb_xy(s.x, s.y, (int)cx, (int)cy) <= kTaiLocalRadius && s.dps > 0.f)
         local[nl++] = s;
-      if (d > kTaiTargetRadius)
-        continue;
-      const float sc = TAI_TargetScore(s, (float)d);
-      if (sc > best_score) {
-        best_score = sc;
-        best = i;
-      }
+      if ((int)enemy_units[i]->GetUnitID() == attack_target_id)
+        current = i;
     }
     const float local_power = TAI_ArmyPower(local, nl);
     if (TAI_ShouldRetreat(my_power, local_power, personality)) {
@@ -2078,15 +2090,20 @@ void TAI_CONTROLLER::ManageArmy()
       SetMilState(MIL_GATHER, my_power, local_power, n);
       break;
     }
+    /* Near target with hysteresis; otherwise any visible enemy on the map (never idle at an empty base). */
+    const int best = TAI_PickTarget(enemy_samples, n_enemies, (int)cx, (int)cy, kTaiTargetRadius, current,
+                                    kTaiRetargetMargin);
     if (best >= 0) {
       TMAP_UNIT *target = enemy_units[best];
-      if (army_order.Changed(MIL_ATTACK, target->GetUnitID(), 0, 0))
+      attack_target_id = (int)target->GetUnitID();
+      if (army_order.Changed(MIL_ATTACK, attack_target_id, 0, 0))
         OrderGroup(army, n, enemy_samples[best].x, enemy_samples[best].y, target);
       else /* reinforcements and units that arrived: engage when close */
         for (int i = 0; i < n; i++)
           if (!tai_skip_assault_attack_for_approach(army[i], target) && army[i]->GetTarget() != target)
             army[i]->StartAttacking(target, true);
     } else if (ex >= 0 && ey >= 0) {
+      attack_target_id = -1;
       if (army_order.Changed(MIL_ATTACK, -1, ex, ey))
         OrderGroup(army, n, ex, ey, NULL);
       else {
