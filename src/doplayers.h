@@ -347,6 +347,9 @@ public:
 
   bool IsRemote (int player_index);
   bool IsComputer (int player_index);
+  //! Difficulty override of a CPU slot (TAI_LEVEL_ID), -1 = use config.ai_level. Leader-local, not synced.
+  void SetAiLevel (int player_index, int level);
+  int GetAiLevel (int player_index);
 
   void SetRaceIdName (int player_index, std::string race_id_name);
   bool EveryPlayerHasDifferentRace ();
@@ -382,12 +385,13 @@ private:
   /** Array which holds information about players. */
   struct TPLAYER {
     /** Constructor. */
-    TPLAYER () { computer = false; }
+    TPLAYER () { computer = false; ai_level = -1; }
 
     std::string player_name;    //!< Player name.
     std::string race_id_name;   //!< Player id_name of selected race.
 
     bool computer;    //!< Specifies whether the player is a computer player.
+    int ai_level;     //!< CPU difficulty override (TAI_LEVEL_ID) or -1 for config default.
     bool remote;      //!< Specifies whether the player is a network player.
     in_addr addr;     //!< Address of a remote player.
     in_port_t port;   //!< Port of a remote player.

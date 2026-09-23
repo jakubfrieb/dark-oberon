@@ -6936,7 +6936,7 @@ void RunDedicatedServer(const char *map_basename, int port)
 
   fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
   fprintf(stderr, "Clients connect to this host:%d — then type: start\n", port);
-  fprintf(stderr, "Commands: status | players | addcpu | start | quit | logs ...\n");
+  fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ...\n");
 
   bool running = true;
   while (running) {
@@ -7017,9 +7017,31 @@ void RunDedicatedServer(const char *map_basename, int port)
           }
           if (!chosen.empty())
             player_array.SetRaceIdName(idx, chosen);
+
+          const char *arg = buf + 6;
+          while (*arg == ' ' || *arg == '\t')
+            arg++;
+          char lvname[16];
+          int ln = 0;
+          while (arg[ln] && arg[ln] != '\n' && arg[ln] != '\r' && arg[ln] != ' ' && ln < 15) {
+            lvname[ln] = arg[ln];
+            ln++;
+          }
+          lvname[ln] = 0;
+          if (ln > 0) {
+            bool ok = true;
+            TAI_LEVEL_ID lv = TAI_LevelFromName(lvname, &ok);
+            if (!ok)
+              Warning(LogMsg("addcpu: unknown level '%s', using medium", lvname));
+            player_array.SetAiLevel(idx, lv);
+          }
         }
         player_array.Unlock();
-        fprintf(stderr, "addcpu: players=%d\n", player_array.GetCount());
+        {
+          const int lv = player_array.GetAiLevel(player_array.GetCount() - 1);
+          fprintf(stderr, "addcpu: players=%d level=%s\n", player_array.GetCount(),
+                  lv < 0 ? "default" : TAI_LevelName((TAI_LEVEL_ID)lv));
+        }
       }
       else if (strncmp(buf, "logs", 4) == 0) {
         const char *p = buf + 4;

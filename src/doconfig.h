@@ -132,6 +132,10 @@ struct TCONFIG;
  *  @sa TCONFIG::net_server_port */
 #define CFG_DEF_NET_SERVER_PORT  17000
 
+/** Default difficulty of computer players ("easy", "medium", "hard").
+ *  @sa TCONFIG::ai_level */
+#define CFG_DEF_AI_LEVEL  "medium"
+
 
 //========================================================================
 // Included files
@@ -205,6 +209,9 @@ struct TCONFIG {
 
   // Network
   int net_server_port;          //!< Server port.
+
+  // Computer players
+  int ai_level;                 //!< Default CPU difficulty (TAI_LEVEL_ID).
 
   // Precomputed values
   int pr_wnd_mode;                    //!< Precomputed window mode. [GLFW_WINDOW, GLFW_FULLSCREEN]

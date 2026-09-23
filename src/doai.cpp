@@ -21,6 +21,10 @@
 #include "dowalk.h"
 #include "doevents.h"
 #include "dofight.h"
+#include "doconfig.h"
+#include "dologs.h"
+
+#include <ctime>
 
 extern TMAP map;
 extern TPLAYER **players;
@@ -443,9 +447,6 @@ void TAI_LogDumpPlayerAI(int player_slot, FILE *out)
   TAI_EmitPlayerAIDumpLines(player_slot, tai_file_line_sink, out);
 }
 
-const TAI_FLAVOR_PARAMS FLAVOR_AGGRESSIVE = { 0.9f, 0.2f, 0.3f };
-const TAI_FLAVOR_PARAMS FLAVOR_COMMERCIAL = { 0.2f, 0.6f, 0.9f };
-const TAI_FLAVOR_PARAMS FLAVOR_CALM = { 0.5f, 0.5f, 0.5f };
 
 static bool BuildingItemIsDefense(TBUILDING_ITEM *bi)
 {
@@ -1021,8 +1022,8 @@ bool TAI_CONTROLLER::FindBuildPosition(TBUILDING_ITEM *item, TPOSITION &out_pos)
   return false;
 }
 
-TAI_STRATEGY::TAI_STRATEGY(const TAI_FLAVOR_PARAMS &p)
-  : params(p), phase_count(0), loop_phase(0), combat_phase(0)
+TAI_STRATEGY::TAI_STRATEGY(const TAI_FLAVOR_PARAMS &p, bool rush_)
+  : params(p), rush(rush_), phase_count(0), loop_phase(0), combat_phase(0)
 {
   GeneratePhases();
 }
@@ -1039,7 +1040,7 @@ void TAI_STRATEGY::GeneratePhases()
   const int f_mil = 2 + (int)(params.aggressivity * 6.f);
   const int d_mil = (int)(params.defense_priority * 2.f);
   const int d_ass = (int)(params.defense_priority * 3.f);
-  /* Aggressive armies need food upkeep; econ_focus alone left FLAVOR_AGGRESSIVE without farms. */
+  /* Aggressive armies need food upkeep; econ_focus alone left the aggressive preset without farms. */
   const bool farms = params.econ_focus > 0.5f || params.aggressivity > 0.75f;
   const int w_battle = std::min(28, w_expand + 3 + (int)(params.aggressivity * 6.f));
 
@@ -1091,6 +1092,12 @@ void TAI_STRATEGY::GeneratePhases()
   phases[3].targets.scout_ratio = 0.3f + params.aggressivity * 0.2f;
   phases[3].targets.attack_when_ready = (params.aggressivity > 0.3f);
   phases[3].targets.build_farms = farms;
+
+  if (rush) {
+    /* Rusher: fight as soon as the first army is up, do not wait for the assault phase. */
+    combat_phase = 2;
+    phases[2].targets.attack_when_ready = true;
+  }
 }
 
 const TAI_PHASE &TAI_STRATEGY::GetPhase(int idx) const
@@ -1163,8 +1170,10 @@ TAI_BUILD_GOAL TAI_CONTROLLER::ComputeHighestDeficit(const TAI_GAME_STATE &s, co
   return BG_NONE;
 }
 
-TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *strat)
-  : player(owner), level(lvl), strategy(strat), think_accumulator(0), mining_rr(0), scout_phase(0),
+TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *strat,
+                               const TAI_PERSONALITY &pers, TAI_LEVEL_ID lv_id, uint64_t rng_seed)
+  : player(owner), level(lvl), strategy(strat), personality(pers), level_id(lv_id), rng(rng_seed),
+    think_accumulator(0), mining_rr(0), scout_phase(0),
     current_phase(0), enemy_contacted(false), assault_group_path_target_id(-1), target_escalation(0),
     retaliate_enemy_pid(-1), retaliate_last_path_x(-99999), retaliate_last_path_y(-99999),
     factory_military_rr(0)
@@ -1862,6 +1871,10 @@ void TAI_CONTROLLER::EmitDiagnosticLines(TAI_LineSink sink, void *user)
           strategy->GetPhaseCount() - 1, ph.name ? ph.name : "?",
           ph.IsSatisfied(state) ? "yes" : "no", enemy_contacted ? "yes" : "no");
   sink(user, buf);
+  snprintf(buf, sizeof(buf), "AI: level=%s personality=%s attack_ratio=%.2f retreat_ratio=%.2f rally=%d "
+          "defense_commit=%.2f scouts=%.1f", TAI_LevelName(level_id), personality.name, personality.attack_ratio,
+          personality.retreat_ratio, personality.rally_size, personality.defense_commit, personality.scout_count);
+  sink(user, buf);
   snprintf(buf, sizeof(buf), "Strategy loop_phase=%d combat_phase=%d  flavor(agg=%.2f def=%.2f eco=%.2f)",
           strategy->GetLoopPhase(), strategy->GetCombatPhase(), fp.aggressivity, fp.defense_priority,
           fp.econ_focus);
@@ -2170,13 +2183,45 @@ void TAI_CONTROLLER::TraceFactoryProductionNeeds()
   }
 }
 
+TAI_LEVEL *TAI_CreateLevel(TAI_LEVEL_ID lv)
+{
+  switch (lv) {
+  case TAI_LV_EASY:
+    return NEW TAI_LEVEL_EASY();
+  case TAI_LV_HARD:
+    return NEW TAI_LEVEL_HARD();
+  case TAI_LV_MEDIUM:
+  default:
+    return NEW TAI_LEVEL_MEDIUM();
+  }
+}
+
 TAI_PLAYER::TAI_PLAYER()
   : controller(NULL), owned_level(NULL), owned_strategy(NULL)
 {
   SetPlayerType(PT_COMPUTER);
-  owned_level = NEW TAI_LEVEL_EASY();
-  owned_strategy = NEW TAI_STRATEGY(FLAVOR_AGGRESSIVE);
-  controller = NEW TAI_CONTROLLER(this, owned_level, owned_strategy);
+}
+
+void TAI_PLAYER::EnsureController()
+{
+  if (controller)
+    return;
+  const int slot = (int)GetPlayerID();
+  int lv = player_array.GetAiLevel(slot);
+  if (lv < 0)
+    lv = config.ai_level;
+  const TAI_LEVEL_ID level_id = (TAI_LEVEL_ID)lv;
+
+  /* Leader-only randomness (AI runs only where the slot is local); never touches rand(). */
+  const uint64_t seed = (uint64_t)time(NULL) ^ ((uint64_t)(slot + 1) * 0x9E3779B97F4A7C15ULL)
+                        ^ (uint64_t)(uintptr_t)this;
+  TAI_RNG rng(seed);
+  const TAI_PERSONALITY pers = TAI_RollPersonality(rng);
+
+  owned_level = TAI_CreateLevel(level_id);
+  owned_strategy = NEW TAI_STRATEGY(pers.flavor, std::strcmp(pers.name, "rusher") == 0);
+  controller = NEW TAI_CONTROLLER(this, owned_level, owned_strategy, pers, level_id, rng.NextU32());
+  Info(LogMsg("CPU player %d: level=%s personality=%s", slot, TAI_LevelName(level_id), pers.name));
 }
 
 TAI_PLAYER::~TAI_PLAYER()
@@ -2197,18 +2242,21 @@ TAI_PLAYER::~TAI_PLAYER()
 
 void TAI_PLAYER::UpdateAI(double time_shift)
 {
+  EnsureController();
   if (controller)
     controller->Think(time_shift);
 }
 
 void TAI_PLAYER::DumpAIDiagnostics(FILE *f)
 {
+  EnsureController();
   if (controller)
     controller->DumpDiagnostics(f);
 }
 
 void TAI_PLAYER::EmitAIDiagnosticLines(TAI_LineSink sink, void *user)
 {
+  EnsureController();
   if (controller)
     controller->EmitDiagnosticLines(sink, user);
 }

@@ -1105,6 +1105,7 @@ void TPLAYER_ARRAY::AddPlayer (string player_name, string race_id_name,
   player[count].player_name = player_name;
   player[count].race_id_name = race_id_name;
   player[count].computer = computer;
+  player[count].ai_level = -1;
   player[count].ready_to_start_game = false;
 
   // remote player
@@ -1204,6 +1205,17 @@ bool TPLAYER_ARRAY::IsRemote (int player_index) {
  */
 bool TPLAYER_ARRAY::IsComputer (int player_index) {
   return player[player_index].computer;
+}
+
+void TPLAYER_ARRAY::SetAiLevel (int player_index, int level) {
+  if (player_index >= 0 && player_index < PL_MAX_PLAYERS)
+    player[player_index].ai_level = level;
+}
+
+int TPLAYER_ARRAY::GetAiLevel (int player_index) {
+  if (player_index < 0 || player_index >= PL_MAX_PLAYERS)
+    return -1;
+  return player[player_index].ai_level;
 }
 
 bool TPLAYER_ARRAY::EveryPlayerHasDifferentRace () {

@@ -31,6 +31,7 @@
 #include "dofile.h"
 #include "doconfig.h"
 #include "doengine.h"
+#include "doai_logic.h"
 
 
 //========================================================================
@@ -100,6 +101,7 @@ TCONFIG::TCONFIG()
   snd_game_music = CFG_DEF_SND_GAME_MUSIC;
 
   net_server_port = CFG_DEF_NET_SERVER_PORT;
+  ai_level = TAI_LV_MEDIUM;
 
   ComputePrecompiled();
 }
@@ -282,6 +284,11 @@ void WriteDefConfig(void)
   // Networking options.
   config.file->WriteLine("# *** Networking options ***");
   config.file->WriteInt("net_server_port", CFG_DEF_NET_SERVER_PORT);
+  config.file->WriteLine("");
+
+  // Computer players.
+  config.file->WriteLine("# *** Computer players (easy | medium | hard) ***");
+  config.file->WriteStr("ai_level", CFG_DEF_AI_LEVEL);
 }
 
 
@@ -346,6 +353,16 @@ bool LoadConfig(void)
 
   // Networking options.
   config.file->ReadIntRange(&config.net_server_port, "net_server_port", 1024, 65535, CFG_DEF_NET_SERVER_PORT);
+
+  // Computer players.
+  {
+    TFILE_LINE value;
+    bool ok = true;
+    config.file->ReadStr(value, "ai_level", CFG_DEF_AI_LEVEL, true);
+    config.ai_level = TAI_LevelFromName(value, &ok);
+    if (!ok)
+      Warning(LogMsg("Unknown ai_level '%s' in configuration, using 'medium'", value));
+  }
   
   ComputePrecompiled();
 

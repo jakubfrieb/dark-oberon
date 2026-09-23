@@ -115,9 +115,6 @@ public:
   int GetMaxConstructionHelpers() const override { return 4; }
 };
 
-extern const TAI_FLAVOR_PARAMS FLAVOR_AGGRESSIVE;
-extern const TAI_FLAVOR_PARAMS FLAVOR_COMMERCIAL;
-extern const TAI_FLAVOR_PARAMS FLAVOR_CALM;
 
 struct TAI_PHASE_TARGETS {
   int min_workers;
@@ -144,7 +141,8 @@ class TAI_STRATEGY {
 public:
   static const int kMaxPhases = 6;
 
-  explicit TAI_STRATEGY(const TAI_FLAVOR_PARAMS &p);
+  //! @p rush: attack already in the militarize phase (rusher personality).
+  explicit TAI_STRATEGY(const TAI_FLAVOR_PARAMS &p, bool rush = false);
 
   int GetPhaseCount() const { return phase_count; }
   const TAI_PHASE &GetPhase(int idx) const;
@@ -154,6 +152,7 @@ public:
 
 private:
   TAI_FLAVOR_PARAMS params;
+  bool rush;
   TAI_PHASE phases[kMaxPhases];
   int phase_count;
   int loop_phase;
@@ -163,7 +162,9 @@ private:
 
 class TAI_CONTROLLER {
 public:
-  TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *level, TAI_STRATEGY *strategy);
+  TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *level, TAI_STRATEGY *strategy,
+                 const TAI_PERSONALITY &personality, TAI_LEVEL_ID level_id, uint64_t rng_seed);
+  const TAI_PERSONALITY &GetPersonality() const { return personality; }
   ~TAI_CONTROLLER();
 
   void Think(double dt);
@@ -179,6 +180,9 @@ private:
   TPLAYER *player;
   TAI_LEVEL *level;
   TAI_STRATEGY *strategy;
+  TAI_PERSONALITY personality;
+  TAI_LEVEL_ID level_id;
+  TAI_RNG rng;
   TAI_GAME_STATE state;
   double think_accumulator;
   unsigned mining_rr;
@@ -227,12 +231,18 @@ public:
   void EmitAIDiagnosticLines(TAI_LineSink sink, void *user);
 
 private:
+  //! Creates level/personality/controller on first use: the slot id is set after construction.
+  void EnsureController();
+
   TAI_CONTROLLER *controller;
   TAI_LEVEL *owned_level;
   TAI_STRATEGY *owned_strategy;
 };
 
 //! stderr: phase changes as "Player … reached new phase …" when enabled.
+//! New level object for @p lv (caller owns it).
+TAI_LEVEL *TAI_CreateLevel(TAI_LEVEL_ID lv);
+
 void TAI_SetPhaseTransitionLogging(bool enable);
 bool TAI_GetPhaseTransitionLogging(void);
 
