@@ -59,4 +59,57 @@ extern const TAI_PERSONALITY TAI_PERSONALITY_PRESETS[5];
 //! Random preset with +-10 % noise on its parameters.
 TAI_PERSONALITY TAI_RollPersonality(TAI_RNG &rng);
 
+//=========================================================================
+// Military decisions
+//=========================================================================
+
+//! What the AI knows about one unit (own or visible enemy).
+struct TAI_UNIT_SAMPLE {
+  float life, max_life;
+  float dps;              //!< average gun power (0 = unarmed)
+  int x, y;
+  bool structure;         //!< building or factory
+  bool military;          //!< combat unit (not worker, not structure)
+  bool attacking_us;      //!< its current target belongs to the AI player
+};
+
+//! Lanchester-style strength: (sum of dps) x (sum of life).
+float TAI_ArmyPower(const TAI_UNIT_SAMPLE *u, int n);
+//! mine / theirs; theirs <= 0 -> huge (if mine > 0) or 0 (if mine <= 0).
+float TAI_PowerRatio(float mine, float theirs);
+//! Enough units and (known enemy: ratio >= attack_ratio; unknown: 1.5 x rally_size units).
+bool TAI_ShouldAttack(float my_power, float enemy_est, int my_count, const TAI_PERSONALITY &p, bool enemy_known);
+//! Local enemy present and ratio < retreat_ratio.
+bool TAI_ShouldRetreat(float my_power, float enemy_local, const TAI_PERSONALITY &p);
+//! How many of the nearest units (powers sorted by distance) to send so their power >= factor x threat.
+int TAI_DefenseCommitCount(float threat_power, const float *unit_power_by_distance, int n, float commit_factor);
+//! Higher = better target: attackers, soldiers, armed structures, other structures; near and wounded.
+float TAI_TargetScore(const TAI_UNIT_SAMPLE &t, float dist);
+//! max(visible, remembered halved every 60 s).
+float TAI_EnemyPowerEstimate(float visible, float remembered, float seconds_since_seen);
+//! Point @p dist tiles from base toward the enemy base, clamped to the map; base when enemy is unknown (<0).
+void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map_h, int *ox, int *oy);
+
+//! Revenge target that expires when nobody hits us for kExpire seconds.
+class TAI_RETALIATION {
+public:
+  static const double kExpire;
+  TAI_RETALIATION() { Clear(); }
+  void Hit(int pid, double now) { target = pid; last_hit = now; }
+  bool Active(double now) const { return target >= 0 && now - last_hit <= kExpire; }
+  int Target() const { return target; }
+  void Clear() { target = -1; last_hit = -1e9; }
+
+private:
+  int target;
+  double last_hit;
+};
+
+//! Remembers the last army order so the same order is not re-sent every think tick.
+struct TAI_ORDER_MEMO {
+  int kind, target, x, y;
+  void Reset() { kind = -1; target = -1; x = y = -1; }
+  bool Changed(int k, int t, int px, int py);
+};
+
 #endif

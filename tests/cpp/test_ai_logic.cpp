@@ -79,6 +79,112 @@ TEST(test_rolled_personality_within_bounds_and_varied) {
   for (int i = 0; i < 5; i++) CHECK(seen[i] > 10);
 }
 
+static TAI_UNIT_SAMPLE S(float life, float dps, int x = 0, int y = 0, bool st = false, bool mil = true,
+                         bool atk = false) {
+  TAI_UNIT_SAMPLE s;
+  s.life = life; s.max_life = life; s.dps = dps; s.x = x; s.y = y;
+  s.structure = st; s.military = mil; s.attacking_us = atk;
+  return s;
+}
+
+TEST(test_army_power_lanchester) {
+  TAI_UNIT_SAMPLE a[2] = {S(100, 10), S(100, 10)};
+  CHECK(std::fabs(TAI_ArmyPower(a, 2) - 20.f * 200.f) < 1e-3f);
+  CHECK(TAI_ArmyPower(a, 0) == 0.f);
+  TAI_UNIT_SAMPLE w[1] = {S(50, 0)};
+  CHECK(TAI_ArmyPower(w, 1) == 0.f);
+}
+
+TEST(test_ratio_zero_cases) {
+  CHECK(TAI_PowerRatio(10.f, 0.f) > 1e8f);
+  CHECK(TAI_PowerRatio(0.f, 0.f) == 0.f);
+  CHECK(TAI_PowerRatio(0.f, 5.f) == 0.f);
+  CHECK(std::fabs(TAI_PowerRatio(6.f, 3.f) - 2.f) < 1e-6f);
+}
+
+TEST(test_should_attack_thresholds) {
+  TAI_PERSONALITY p = TAI_PERSONALITY_PRESETS[2];  // calm: ratio 1.4, rally 8
+  CHECK(!TAI_ShouldAttack(1000.f, 100.f, 7, p, true));
+  CHECK(TAI_ShouldAttack(141.f, 100.f, 8, p, true));
+  CHECK(!TAI_ShouldAttack(139.f, 100.f, 8, p, true));
+}
+
+TEST(test_should_attack_unknown_enemy_needs_more_units) {
+  TAI_PERSONALITY p = TAI_PERSONALITY_PRESETS[2];  // rally 8 -> needs 12
+  CHECK(!TAI_ShouldAttack(1.f, 0.f, 11, p, false));
+  CHECK(TAI_ShouldAttack(1.f, 0.f, 12, p, false));
+}
+
+TEST(test_should_retreat) {
+  TAI_PERSONALITY p = TAI_PERSONALITY_PRESETS[2];  // retreat 0.75
+  CHECK(TAI_ShouldRetreat(70.f, 100.f, p));
+  CHECK(!TAI_ShouldRetreat(80.f, 100.f, p));
+  CHECK(!TAI_ShouldRetreat(10.f, 0.f, p));
+}
+
+TEST(test_defense_commit_count) {
+  float pw[4] = {50.f, 50.f, 50.f, 50.f};
+  CHECK(TAI_DefenseCommitCount(60.f, pw, 4, 1.5f) == 2);
+  CHECK(TAI_DefenseCommitCount(1000.f, pw, 4, 1.5f) == 4);
+  CHECK(TAI_DefenseCommitCount(0.f, pw, 4, 1.5f) == 1);
+  CHECK(TAI_DefenseCommitCount(60.f, pw, 0, 1.5f) == 0);
+}
+
+TEST(test_target_score_order) {
+  float attacker = TAI_TargetScore(S(100, 5, 0, 0, false, true, true), 10.f);
+  float soldier = TAI_TargetScore(S(100, 5), 10.f);
+  float tower = TAI_TargetScore(S(100, 5, 0, 0, true, false), 10.f);
+  float farm = TAI_TargetScore(S(100, 0, 0, 0, true, false), 10.f);
+  CHECK(attacker > soldier && soldier > tower && tower > farm);
+  CHECK(TAI_TargetScore(S(100, 5), 2.f) > TAI_TargetScore(S(100, 5), 20.f));
+  TAI_UNIT_SAMPLE hurt = S(100, 5);
+  hurt.life = 20.f;
+  CHECK(TAI_TargetScore(hurt, 10.f) > soldier);
+}
+
+TEST(test_enemy_power_estimate_decay) {
+  CHECK(TAI_EnemyPowerEstimate(50.f, 100.f, 0.f) == 100.f);
+  CHECK(std::fabs(TAI_EnemyPowerEstimate(0.f, 100.f, 60.f) - 50.f) < 1e-3f);
+  CHECK(TAI_EnemyPowerEstimate(80.f, 100.f, 120.f) == 80.f);
+}
+
+TEST(test_rally_point_clamped) {
+  int x, y;
+  TAI_RallyPoint(10, 10, 50, 10, 8, 80, 80, &x, &y);
+  CHECK(x == 18 && y == 10);
+  TAI_RallyPoint(2, 2, -40, -40, 8, 80, 80, &x, &y);   // negative = unknown -> base
+  CHECK(x == 2 && y == 2);
+  TAI_RallyPoint(2, 2, 0, 0, 8, 80, 80, &x, &y);       // toward the corner, clamped
+  CHECK(x >= 1 && y >= 1);
+}
+
+TEST(test_rally_point_without_enemy_base) {
+  int x, y;
+  TAI_RallyPoint(10, 10, -1, -1, 8, 80, 80, &x, &y);
+  CHECK(x == 10 && y == 10);
+}
+
+TEST(test_retaliation_expires) {
+  TAI_RETALIATION r;
+  CHECK(!r.Active(0.0));
+  r.Hit(3, 10.0);
+  CHECK(r.Active(50.0) && r.Target() == 3);
+  CHECK(!r.Active(10.0 + TAI_RETALIATION::kExpire + 0.1));
+  r.Hit(2, 200.0);
+  CHECK(r.Target() == 2);
+  r.Clear();
+  CHECK(!r.Active(200.0));
+}
+
+TEST(test_military_order_dedup) {
+  TAI_ORDER_MEMO m;
+  m.Reset();
+  CHECK(m.Changed(1, 5, 10, 10));
+  CHECK(!m.Changed(1, 5, 10, 10));
+  CHECK(m.Changed(1, 6, 10, 10));
+  CHECK(m.Changed(2, 6, 10, 10));
+}
+
 int main() {
   for (int i = 0; i < g_nt; i++) {
     int before = g_fail;

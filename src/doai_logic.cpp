@@ -130,3 +130,111 @@ TAI_PERSONALITY TAI_RollPersonality(TAI_RNG &rng)
   p.defense_commit *= rng.Uniform(0.9f, 1.1f);
   return p;
 }
+
+//=========================================================================
+// Military decisions
+//=========================================================================
+
+float TAI_ArmyPower(const TAI_UNIT_SAMPLE *u, int n)
+{
+  float dps = 0.f, life = 0.f;
+  for (int i = 0; i < n; i++) {
+    dps += std::max(0.f, u[i].dps);
+    life += std::max(0.f, u[i].life);
+  }
+  return dps * life;
+}
+
+float TAI_PowerRatio(float mine, float theirs)
+{
+  if (mine <= 0.f)
+    return 0.f;
+  if (theirs <= 0.f)
+    return 1e9f;
+  return mine / theirs;
+}
+
+bool TAI_ShouldAttack(float my_power, float enemy_est, int my_count, const TAI_PERSONALITY &p, bool enemy_known)
+{
+  if (my_count < p.rally_size)
+    return false;
+  if (!enemy_known)
+    return my_count >= (p.rally_size * 3 + 1) / 2;
+  return TAI_PowerRatio(my_power, enemy_est) >= p.attack_ratio;
+}
+
+bool TAI_ShouldRetreat(float my_power, float enemy_local, const TAI_PERSONALITY &p)
+{
+  return enemy_local > 0.f && TAI_PowerRatio(my_power, enemy_local) < p.retreat_ratio;
+}
+
+int TAI_DefenseCommitCount(float threat_power, const float *unit_power_by_distance, int n, float commit_factor)
+{
+  if (n <= 0)
+    return 0;
+  if (threat_power <= 0.f)
+    return 1;
+  const float need = commit_factor * threat_power;
+  float sum = 0.f;
+  for (int i = 0; i < n; i++) {
+    sum += unit_power_by_distance[i];
+    if (sum >= need)
+      return i + 1;
+  }
+  return n;
+}
+
+float TAI_TargetScore(const TAI_UNIT_SAMPLE &t, float dist)
+{
+  float s = 0.f;
+  if (t.attacking_us)
+    s += 100.f;
+  if (t.military)
+    s += 40.f;
+  else if (t.structure && t.dps > 0.f)
+    s += 30.f;
+  else if (t.structure)
+    s += 10.f;
+  s -= 2.f * dist;
+  if (t.max_life > 0.f)
+    s += (1.f - t.life / t.max_life) * 20.f;
+  return s;
+}
+
+float TAI_EnemyPowerEstimate(float visible, float remembered, float seconds_since_seen)
+{
+  const float decayed = remembered * std::pow(0.5f, std::max(0.f, seconds_since_seen) / 60.f);
+  return std::max(visible, decayed);
+}
+
+void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map_h, int *ox, int *oy)
+{
+  int x = bx, y = by;
+  if (ex >= 0 && ey >= 0) {
+    const float dx = (float)(ex - bx), dy = (float)(ey - by);
+    const float len = std::sqrt(dx * dx + dy * dy);
+    if (len >= 1.f) {
+      x = bx + (int)std::lround(dx / len * (float)dist);
+      y = by + (int)std::lround(dy / len * (float)dist);
+    }
+  }
+  if (map_w > 2)
+    x = std::min(std::max(x, 1), map_w - 2);
+  if (map_h > 2)
+    y = std::min(std::max(y, 1), map_h - 2);
+  *ox = x;
+  *oy = y;
+}
+
+const double TAI_RETALIATION::kExpire = 90.0;
+
+bool TAI_ORDER_MEMO::Changed(int k, int t, int px, int py)
+{
+  if (k == kind && t == target && px == x && py == y)
+    return false;
+  kind = k;
+  target = t;
+  x = px;
+  y = py;
+  return true;
+}
