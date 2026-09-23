@@ -47,6 +47,19 @@ back-right view, and a close-up of the parts painted in the team colour
 Save to: ./{out_rel}  (1024x1024 PNG)"""
 
 
+ANIMATION_HINTS = {
+    "picture": "This is the in-game portrait icon: a close-up view cropped by the image "
+               "borders. Keep the same framing and zoom - the subject fills the image "
+               "edge to edge, no white background, do not shrink it into a small object.",
+    "build": "These are construction stages of the building (foundation site, "
+             "half-built, almost done). Keep each sprite exactly as unfinished as in "
+             "image 1 - same scaffolding, bare ground and missing parts, only in orc "
+             "materials. Never draw a finished building where image 1 is unfinished.",
+    "zombie": "These are the dead/ruined remains. Keep them broken and collapsed "
+              "exactly like image 1, only in orc materials.",
+}
+
+
 def _crop_size(board: dict) -> str:
     rects = [s["dst"] for s in board["slots"] if "dst" in s]
     if not rects:
@@ -81,6 +94,8 @@ construction) - keep those differences.
 - keep the image exactly {size} with the same {cols} columns x {rows} rows layout;
 - do not add, remove, merge or move sprites; nothing outside the sprites;
 - the orc must be identical across all sprites (same colours and gear as image 2).
+
+{ANIMATION_HINTS.get(board["animation"], "")}
 
 {STYLE_RULES}
 

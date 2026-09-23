@@ -45,3 +45,18 @@ def test_restyle_prompt_uses_crop_size():
     b = dict(BOARD, grid=[1, 1], slots=[{"idx": 0, "dst": [4, 4, 400, 320]}])
     p = restyle_prompt(b, ENT, "raw/x.png")
     assert "400x320" in p and "1024x1024" not in p
+
+
+def test_picture_prompt_is_edge_to_edge_closeup():
+    p = restyle_prompt(dict(BOARD, animation="picture"), ENT, "raw/x.png").lower()
+    assert "edge to edge" in p and "close-up" in p
+
+
+def test_build_prompt_keeps_construction_stages():
+    p = restyle_prompt(dict(BOARD, animation="build"), ENT, "raw/x.png").lower()
+    assert "construction stage" in p and "unfinished" in p
+
+
+def test_zombie_prompt_keeps_ruins():
+    p = restyle_prompt(dict(BOARD, animation="zombie"), ENT, "raw/x.png").lower()
+    assert "ruin" in p or "dead" in p
