@@ -124,3 +124,28 @@ def test_restore_alpha_keeps_white_detail_enclosed_in_figure():
     gen[20:25, 25:30] = 255          # light courtyard / white detail fully inside the figure
     out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
     assert out.getpixel((27, 22)) == (255, 255, 255, 255)
+
+
+def test_process_all_accepts_listed_board_despite_issues(tmp_path):
+    w = tmp_path
+    (w / "boards").mkdir(); (w / "raw").mkdir()
+    (w / "boards" / "_boards_manifest.json").write_text(json.dumps({"boards": [BOARD]}))
+    human_board().save(w / "boards" / BOARD["board_file"])
+    orc_generated(shift=15).save(w / "raw" / BOARD["board_file"])
+    report = process_all(w, accept={"x__stay__b0"})
+    assert report["x__stay__b0"]["ok"] is True
+    assert report["x__stay__b0"]["accepted"] is True
+    assert report["x__stay__b0"]["issues"]            # issues are still recorded
+    assert (w / "boards/edited/x__stay__b0.png").exists()
+
+
+def test_accept_is_remembered_between_runs(tmp_path):
+    w = tmp_path
+    (w / "boards").mkdir(); (w / "raw").mkdir()
+    (w / "boards" / "_boards_manifest.json").write_text(json.dumps({"boards": [BOARD]}))
+    human_board().save(w / "boards" / BOARD["board_file"])
+    orc_generated(shift=15).save(w / "raw" / BOARD["board_file"])
+    process_all(w, accept={"x__stay__b0"})
+    report = process_all(w)
+    assert report["x__stay__b0"]["accepted"] is True
+    assert (w / "boards/edited/x__stay__b0.png").exists()

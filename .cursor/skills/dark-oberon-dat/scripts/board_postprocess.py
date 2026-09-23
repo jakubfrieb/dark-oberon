@@ -142,7 +142,14 @@ def make_review(original: Image.Image, processed: Image.Image) -> Image.Image:
     return out
 
 
-def process_all(work: Path, only: set[str] | None = None) -> dict:
+def process_all(work: Path, only: set[str] | None = None,
+                accept: set[str] | None = None) -> dict:
+    """``accept``: board ids the user accepted despite validation issues."""
+    accepted_path = work / "_accepted.json"
+    remembered = set(json.loads(accepted_path.read_text("utf-8"))) if accepted_path.exists() else set()
+    accept = remembered | set(accept or ())
+    if accept != remembered:
+        accepted_path.write_text(json.dumps(sorted(accept), indent=2), "utf-8")
     boards_dir = work / "boards"
     manifest = json.loads((boards_dir / "_boards_manifest.json").read_text("utf-8"))
     edited = boards_dir / "edited"
@@ -164,12 +171,15 @@ def process_all(work: Path, only: set[str] | None = None) -> dict:
         processed = restore_alpha(generated, original)
         make_review(original, processed).save(review / board["board_file"])
         out = edited / board["board_file"]
-        if issues:
-            out.unlink(missing_ok=True)
-        else:
+        accepted = bool(issues) and board["board_id"] in accept
+        ok = not issues or accepted
+        if ok:
             processed.save(out)
-        report[board["board_id"]] = {"ok": not issues, "issues": issues}
-        print(f"  {'OK  ' if not issues else 'FAIL'} {board['board_id']} {' '.join(issues)}")
+        else:
+            out.unlink(missing_ok=True)
+        report[board["board_id"]] = {"ok": ok, "issues": issues, "accepted": accepted}
+        tag = "OK  " if not issues else ("ACPT" if accepted else "FAIL")
+        print(f"  {tag} {board['board_id']} {' '.join(issues)}")
 
     report_path.write_text(json.dumps(report, indent=2), "utf-8")
     return report
@@ -179,9 +189,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Post-process codex boards")
     ap.add_argument("work_dir", type=Path)
     ap.add_argument("--only", default=None, help="comma-separated entity ids")
+    ap.add_argument("--accept", default=None,
+                    help="comma-separated board ids to keep despite validation issues")
     args = ap.parse_args()
     only = set(args.only.split(",")) if args.only else None
-    report = process_all(args.work_dir.resolve(), only)
+    accept = set(args.accept.split(",")) if args.accept else None
+    report = process_all(args.work_dir.resolve(), only, accept)
     failed = [k for k, v in report.items() if not v["ok"]]
     print(f"\n{len(report) - len(failed)} ok, {len(failed)} failed")
     return 1 if failed else 0
