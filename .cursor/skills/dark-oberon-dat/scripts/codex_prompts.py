@@ -55,6 +55,10 @@ ANIMATION_HINTS = {
              "half-built, almost done). Keep each sprite exactly as unfinished as in "
              "image 1 - same scaffolding, bare ground and missing parts, only in orc "
              "materials. Never draw a finished building where image 1 is unfinished.",
+    "projectile": "This is the flying projectile (missile), not the unit itself. "
+                  "Repaint it as one simple round clay rock (grey/brown, a few bone "
+                  "shards stuck in it), the same size and position as in image 1. "
+                  "Draw nothing else.",
     "zombie": "These are the dead/ruined remains. Keep them broken and collapsed "
               "exactly like image 1, only in orc materials.",
 }

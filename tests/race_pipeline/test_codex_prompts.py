@@ -60,3 +60,8 @@ def test_build_prompt_keeps_construction_stages():
 def test_zombie_prompt_keeps_ruins():
     p = restyle_prompt(dict(BOARD, animation="zombie"), ENT, "raw/x.png").lower()
     assert "ruin" in p or "dead" in p
+
+
+def test_projectile_prompt_is_simple_missile():
+    p = restyle_prompt(dict(BOARD, animation="projectile"), ENT, "raw/x.png").lower()
+    assert "projectile" in p and "rock" in p and "same size" in p
