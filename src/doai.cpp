@@ -495,70 +495,6 @@ static bool NeedsIdleWorkerReserveForBuilding(const TAI_GAME_STATE &s)
   return s.has_unfinished_construction && s.idle_workers_len >= 2;
 }
 
-static TMAP_UNIT *FindVisibleEnemyForPlayer(TPLAYER *p)
-{
-  if (!p || !p->GetLocalMap())
-    return NULL;
-
-  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
-    for (T_SIMPLE x = 0; x < map.width; x++) {
-      for (T_SIMPLE y = 0; y < map.height; y++) {
-        TMAP_UNIT *u = map.segments[seg].surface[x][y].unit;
-        if (!u)
-          continue;
-        T_BYTE pid = u->GetPlayerID();
-        if (pid == 0 || pid == p->GetPlayerID())
-          continue;
-        if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-          continue;
-
-        if (!p->GetLocalMap()->GetAreaVisibility(u->GetPosition(), u->GetUnitWidth(), u->GetUnitHeight()))
-          continue;
-
-        return u;
-      }
-    }
-  }
-  return NULL;
-}
-
-//! Visible enemy that is currently attacking this player's unit or building (GetTarget() is ours).
-static TMAP_UNIT *FindThreateningVisibleEnemyForPlayer(TPLAYER *p)
-{
-  if (!p || !p->GetLocalMap())
-    return NULL;
-
-  const T_BYTE my_id = p->GetPlayerID();
-
-  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
-    for (T_SIMPLE x = 0; x < map.width; x++) {
-      for (T_SIMPLE y = 0; y < map.height; y++) {
-        TMAP_UNIT *u = map.segments[seg].surface[x][y].unit;
-        if (!u)
-          continue;
-        T_BYTE pid = u->GetPlayerID();
-        if (pid == 0 || pid == my_id)
-          continue;
-        if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-          continue;
-
-        if (!p->GetLocalMap()->GetAreaVisibility(u->GetPosition(), u->GetUnitWidth(), u->GetUnitHeight()))
-          continue;
-
-        TMAP_UNIT *victim = u->GetTarget();
-        if (!victim || victim->TestState(US_DYING) || victim->TestState(US_ZOMBIE)
-            || victim->TestState(US_DELETE))
-          continue;
-        if (victim->GetPlayerID() != my_id)
-          continue;
-
-        return u;
-      }
-    }
-  }
-  return NULL;
-}
-
 //! Higher score = heavier / costlier military unit (prefer for training when affordable).
 static float TaiMilitaryUnitTrainingScore(TFORCE_ITEM *p)
 {
@@ -664,100 +600,6 @@ static bool TaiStructureNeedsRepair(TMAP_UNIT *u)
   if (mx <= 0)
     return false;
   return bu->GetLife() < (float)mx * 0.93f;
-}
-
-static TMAP_UNIT *FindVisibleEnemyStructureNearestTheirStart(TPLAYER *p, T_BYTE foe_id)
-{
-  if (!p || !p->GetLocalMap() || !players || foe_id == 0 || foe_id >= PL_MAX_PLAYERS || !players[foe_id])
-    return NULL;
-  TPLAYER *foe = players[foe_id];
-  if (!foe->active)
-    return NULL;
-  const int ax = foe->initial_x;
-  const int ay = foe->initial_y;
-  if (ax < 0 || ay < 0)
-    return NULL;
-
-  TMAP_UNIT *best = NULL;
-  int best_d2 = 0x7fffffff;
-
-  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
-    for (T_SIMPLE x = 0; x < map.width; x++) {
-      for (T_SIMPLE y = 0; y < map.height; y++) {
-        TMAP_UNIT *u = map.segments[seg].surface[x][y].unit;
-        if (!u || u->GetPlayerID() != foe_id)
-          continue;
-        if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-          continue;
-        if (!u->TestItemType(IT_BUILDING) && !u->TestItemType(IT_FACTORY))
-          continue;
-        if (!p->GetLocalMap()->GetAreaVisibility(u->GetPosition(), u->GetUnitWidth(), u->GetUnitHeight()))
-          continue;
-        const int dx = (int)u->GetPosition().x - ax;
-        const int dy = (int)u->GetPosition().y - ay;
-        const int d2 = dx * dx + dy * dy;
-        if (d2 < best_d2) {
-          best_d2 = d2;
-          best = u;
-        }
-      }
-    }
-  }
-  return best;
-}
-
-//! Any visible enemy combat unit of @a foe_id (fallback when their base is still fogged).
-static TMAP_UNIT *FindVisibleEnemyCombatUnitOfPlayer(TPLAYER *p, T_BYTE foe_id)
-{
-  if (!p || !p->GetLocalMap() || foe_id == 0 || foe_id == p->GetPlayerID())
-    return NULL;
-  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
-    for (T_SIMPLE x = 0; x < map.width; x++) {
-      for (T_SIMPLE y = 0; y < map.height; y++) {
-        TMAP_UNIT *u = map.segments[seg].surface[x][y].unit;
-        if (!u || u->GetPlayerID() != foe_id)
-          continue;
-        if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-          continue;
-        if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
-          continue;
-        if (!p->GetLocalMap()->GetAreaVisibility(u->GetPosition(), u->GetUnitWidth(), u->GetUnitHeight()))
-          continue;
-        return u;
-      }
-    }
-  }
-  return NULL;
-}
-
-static void TaiSendArmyTowardPosition(TPLAYER *pl, int goal_x, int goal_y, int *last_px, int *last_py)
-{
-  if (!pl || !map.IsInMap(goal_x, goal_y))
-    return;
-  if (last_px && last_py && *last_px == goal_x && *last_py == goal_y)
-    return;
-  if (last_px)
-    *last_px = goal_x;
-  if (last_py)
-    *last_py = goal_y;
-
-  TFORCE_UNIT *batch[TAI_GAME_STATE::kMaxIdleForces];
-  int nbatch = 0;
-  for (TPLAYER_UNIT *u = pl->units; u; u = u->GetNext()) {
-    if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-      continue;
-    if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
-      continue;
-    if (nbatch < TAI_GAME_STATE::kMaxIdleForces)
-      batch[nbatch++] = static_cast<TFORCE_UNIT *>(u);
-  }
-  if (nbatch >= 2)
-    tai_request_group_move_forces(pl, batch, nbatch, goal_x, goal_y);
-  for (int i = 0; i < nbatch; i++) {
-    TPOSITION_3D goal;
-    goal.SetPosition(goal_x, goal_y, batch[i]->GetPosition().segment);
-    batch[i]->StartMoving(goal, true);
-  }
 }
 
 void TAI_GAME_STATE::Clear()
@@ -1174,10 +1016,11 @@ TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *str
                                const TAI_PERSONALITY &pers, TAI_LEVEL_ID lv_id, uint64_t rng_seed)
   : player(owner), level(lvl), strategy(strat), personality(pers), level_id(lv_id), rng(rng_seed),
     think_accumulator(0), mining_rr(0), scout_phase(0),
-    current_phase(0), enemy_contacted(false), assault_group_path_target_id(-1), target_escalation(0),
-    retaliate_enemy_pid(-1), retaliate_last_path_x(-99999), retaliate_last_path_y(-99999),
-    factory_military_rr(0)
+    current_phase(0), enemy_contacted(false), target_escalation(0), game_time(0.0), n_enemies(0),
+    visible_enemy_power(0.f), remembered_enemy_power(0.f), enemy_seen_at(-1e9), mil_state(MIL_GATHER),
+    mil_state_since(0.0), n_defenders(0), n_scouts(0), factory_military_rr(0)
 {
+  army_order.Reset();
 }
 
 TAI_CONTROLLER::~TAI_CONTROLLER() = default;
@@ -1762,42 +1605,6 @@ int TAI_CONTROLLER::AssistDamagedFriendlyStructures(int max_assign)
   return done;
 }
 
-void TAI_CONTROLLER::ManageMilitary(TMAP_UNIT *attack_target, bool assault_mode)
-{
-  if (!attack_target || !player)
-    return;
-
-  if (!assault_mode)
-    assault_group_path_target_id = -1;
-
-  TFORCE_UNIT *batch[TAI_GAME_STATE::kMaxIdleForces];
-  int nbatch = 0;
-
-  for (TPLAYER_UNIT *u = player->units; u; u = u->GetNext()) {
-    if (u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
-      continue;
-    if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
-      continue;
-    if (nbatch < TAI_GAME_STATE::kMaxIdleForces)
-      batch[nbatch++] = static_cast<TFORCE_UNIT *>(u);
-  }
-
-  /* Assault: one think tick submits one group-path job for the whole army (like multi-select move).
-     Military is not limited by GetMaxActionsPerTick() — that budget applies only to build/mine/factory. */
-  if (assault_mode && nbatch >= 2 && attack_target->GetUnitID() != assault_group_path_target_id) {
-    TPOSITION_3D ep = attack_target->GetPosition();
-    if (tai_request_group_move_forces(player, batch, nbatch, ep.x, ep.y))
-      assault_group_path_target_id = attack_target->GetUnitID();
-  }
-
-  for (int i = 0; i < nbatch; i++) {
-    TFORCE_UNIT *fu = batch[i];
-    if (assault_mode && tai_skip_assault_attack_for_approach(fu, attack_target))
-      continue;
-    fu->StartAttacking(attack_target, true);
-  }
-}
-
 void TAI_CONTROLLER::ManageScouting()
 {
   if (!player || !player->GetLocalMap())
@@ -1838,6 +1645,424 @@ void TAI_CONTROLLER::ManageScouting()
   TPOSITION_3D goal;
   goal.SetPosition(tx, ty, fu->GetPosition().segment);
   fu->StartMoving(goal, true);
+}
+
+static const char *MilStateName(TAI_MIL_STATE s)
+{
+  switch (s) {
+  case MIL_GATHER:
+    return "GATHER";
+  case MIL_ATTACK:
+    return "ATTACK";
+  case MIL_RETREAT:
+    return "RETREAT";
+  default:
+    return "?";
+  }
+}
+
+//! Radius (Chebyshev tiles) around own structures where enemies count as a threat to the base.
+static const int kTaiBaseThreatRadius = 12;
+//! Rally point distance from base toward the enemy.
+static const int kTaiRallyDist = 8;
+//! Army considered "at the rally point" within this radius.
+static const int kTaiRallyRadius = 4;
+//! Local enemy power for retreat decisions is measured around the army centroid.
+static const int kTaiLocalRadius = 10;
+//! Attack targets are picked near the army (else march to the enemy base).
+static const int kTaiTargetRadius = 20;
+//! Retreat lasts at most this long before gathering again.
+static const double kTaiRetreatSeconds = 20.0;
+
+static bool tai_unit_alive(TMAP_UNIT *u)
+{
+  return u && !u->TestState(US_DYING) && !u->TestState(US_ZOMBIE) && !u->TestState(US_DELETE);
+}
+
+static int tai_cheb_xy(int ax, int ay, int bx, int by)
+{
+  const int dx = std::abs(ax - bx), dy = std::abs(ay - by);
+  return dx > dy ? dx : dy;
+}
+
+TAI_UNIT_SAMPLE TAI_CONTROLLER::SampleUnit(TMAP_UNIT *u) const
+{
+  TAI_UNIT_SAMPLE s;
+  std::memset(&s, 0, sizeof(s));
+  if (!u)
+    return s;
+  TMAP_ITEM *it = static_cast<TMAP_ITEM *>(u->GetPointerToItem());
+  s.life = u->GetLife();
+  s.max_life = it ? (float)it->GetMaxLife() : s.life;
+  if (it && it->GetArmament() && it->GetArmament()->GetOffensive()) {
+    const TGUN_POWER pw = it->GetArmament()->GetOffensive()->GetPower();
+    s.dps = 0.5f * (float)(pw.min + pw.max);
+  }
+  s.x = u->GetPosition().x;
+  s.y = u->GetPosition().y;
+  s.structure = u->TestItemType(IT_BUILDING) || u->TestItemType(IT_FACTORY);
+  s.military = u->TestItemType(IT_FORCE) && !u->TestItemType(IT_WORKER);
+  TMAP_UNIT *tg = u->GetTarget();
+  s.attacking_us = player && tai_unit_alive(tg) && tg->GetPlayerID() == player->GetPlayerID();
+  return s;
+}
+
+void TAI_CONTROLLER::GetBase(int *x, int *y) const
+{
+  *x = player->initial_x;
+  *y = player->initial_y;
+  if (*x >= 0 && *y >= 0)
+    return;
+  for (TPLAYER_UNIT *u = player->units; u; u = u->GetNext()) {
+    TMAP_UNIT *mu = static_cast<TMAP_UNIT *>(u);
+    if (!tai_unit_alive(mu))
+      continue;
+    if (!u->TestItemType(IT_BUILDING) && !u->TestItemType(IT_FACTORY) && *x >= 0)
+      continue;
+    *x = mu->GetPosition().x;
+    *y = mu->GetPosition().y;
+    if (u->TestItemType(IT_BUILDING) || u->TestItemType(IT_FACTORY))
+      return;
+  }
+  if (*x < 0)
+    *x = map.width / 2;
+  if (*y < 0)
+    *y = map.height / 2;
+}
+
+int TAI_CONTROLLER::ChooseEnemyPlayer() const
+{
+  if (!players)
+    return -1;
+  int bx, by;
+  GetBase(&bx, &by);
+  const int me = (int)player->GetPlayerID();
+  int best = -1, best_d = 0x7fffffff;
+  const int count = player_array.GetCount();
+  for (int i = 1; i < count && i < PL_MAX_PLAYERS; i++) {
+    if (i == me || !players[i] || !players[i]->active)
+      continue;
+    int d = 0x7fffff;
+    if (players[i]->initial_x >= 0 && players[i]->initial_y >= 0)
+      d = tai_cheb_xy(bx, by, players[i]->initial_x, players[i]->initial_y);
+    if (d < best_d) {
+      best_d = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+bool TAI_CONTROLLER::IsScout(int unit_id) const
+{
+  for (int i = 0; i < n_scouts; i++)
+    if (scout_ids[i] == unit_id)
+      return true;
+  return false;
+}
+
+bool TAI_CONTROLLER::IsDefender(int unit_id) const
+{
+  for (int i = 0; i < n_defenders; i++)
+    if (defender_ids[i] == unit_id)
+      return true;
+  return false;
+}
+
+int TAI_CONTROLLER::CollectArmy(TFORCE_UNIT **out, int max_out) const
+{
+  int n = 0;
+  for (TPLAYER_UNIT *u = player->units; u && n < max_out; u = u->GetNext()) {
+    if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
+      continue;
+    TFORCE_UNIT *fu = static_cast<TFORCE_UNIT *>(u);
+    if (!tai_unit_alive(fu))
+      continue;
+    const int id = fu->GetUnitID();
+    if (IsScout(id) || IsDefender(id))
+      continue;
+    out[n++] = fu;
+  }
+  return n;
+}
+
+void TAI_CONTROLLER::ScanEnemies()
+{
+  n_enemies = 0;
+  visible_enemy_power = 0.f;
+  if (!player || !player->GetLocalMap())
+    return;
+
+  /* Own structures: threat radius is measured from them. */
+  int sx[64], sy[64], ns = 0;
+  for (TPLAYER_UNIT *u = player->units; u && ns < 64; u = u->GetNext()) {
+    if (!u->TestItemType(IT_BUILDING) && !u->TestItemType(IT_FACTORY))
+      continue;
+    TMAP_UNIT *mu = static_cast<TMAP_UNIT *>(u);
+    if (!tai_unit_alive(mu))
+      continue;
+    sx[ns] = mu->GetPosition().x;
+    sy[ns] = mu->GetPosition().y;
+    ns++;
+  }
+
+  const T_BYTE me = player->GetPlayerID();
+  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
+    for (T_SIMPLE x = 0; x < map.width; x++) {
+      for (T_SIMPLE y = 0; y < map.height; y++) {
+        TMAP_UNIT *u = map.segments[seg].surface[x][y].unit;
+        if (!u || n_enemies >= kMaxEnemies)
+          continue;
+        const T_BYTE pid = u->GetPlayerID();
+        if (pid == 0 || pid == me || !tai_unit_alive(u))
+          continue;
+        if (!player->GetLocalMap()->GetAreaVisibility(u->GetPosition(), u->GetUnitWidth(), u->GetUnitHeight()))
+          continue;
+        bool dup = false; /* multi-tile units appear on several fields */
+        for (int k = n_enemies - 1; k >= 0 && !dup; k--)
+          dup = (enemy_units[k] == u);
+        if (dup)
+          continue;
+
+        TAI_UNIT_SAMPLE s = SampleUnit(u);
+        bool near = false;
+        for (int k = 0; k < ns && !near; k++)
+          near = tai_cheb_xy(s.x, s.y, sx[k], sy[k]) <= kTaiBaseThreatRadius;
+        enemy_units[n_enemies] = u;
+        enemy_samples[n_enemies] = s;
+        enemy_near_base[n_enemies] = near;
+        n_enemies++;
+        if (s.attacking_us)
+          retaliation.Hit((int)pid, game_time);
+      }
+    }
+  }
+
+  TAI_UNIT_SAMPLE armed[kMaxEnemies];
+  int na = 0;
+  for (int i = 0; i < n_enemies; i++)
+    if (enemy_samples[i].dps > 0.f)
+      armed[na++] = enemy_samples[i];
+  visible_enemy_power = TAI_ArmyPower(armed, na);
+  if (visible_enemy_power > 0.f) {
+    remembered_enemy_power = std::max(remembered_enemy_power * 0.9f, visible_enemy_power);
+    enemy_seen_at = game_time;
+  }
+}
+
+void TAI_CONTROLLER::ManageDefense()
+{
+  n_defenders = 0;
+  if (!player)
+    return;
+
+  TAI_UNIT_SAMPLE threats[kMaxEnemies];
+  int nt = 0, best = -1;
+  float best_score = -1e30f;
+  int bx, by;
+  GetBase(&bx, &by);
+  for (int i = 0; i < n_enemies; i++) {
+    const TAI_UNIT_SAMPLE &s = enemy_samples[i];
+    if (!enemy_near_base[i] || (!s.military && !s.attacking_us))
+      continue;
+    threats[nt++] = s;
+    const float sc = TAI_TargetScore(s, (float)tai_cheb_xy(s.x, s.y, bx, by));
+    if (sc > best_score) {
+      best_score = sc;
+      best = i;
+    }
+  }
+  if (nt == 0 || best < 0)
+    return;
+
+  TMAP_UNIT *target = enemy_units[best];
+  const int tx = enemy_samples[best].x, ty = enemy_samples[best].y;
+
+  TFORCE_UNIT *cand[TAI_GAME_STATE::kMaxIdleForces];
+  int nc = 0;
+  for (TPLAYER_UNIT *u = player->units; u && nc < TAI_GAME_STATE::kMaxIdleForces; u = u->GetNext()) {
+    if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
+      continue;
+    TFORCE_UNIT *fu = static_cast<TFORCE_UNIT *>(u);
+    if (tai_unit_alive(fu) && !IsScout(fu->GetUnitID()))
+      cand[nc++] = fu;
+  }
+  std::sort(cand, cand + nc, [&](TFORCE_UNIT *a, TFORCE_UNIT *b) {
+    return tai_cheb_xy(a->GetPosition().x, a->GetPosition().y, tx, ty)
+           < tai_cheb_xy(b->GetPosition().x, b->GetPosition().y, tx, ty);
+  });
+  float powers[TAI_GAME_STATE::kMaxIdleForces];
+  for (int i = 0; i < nc; i++) {
+    TAI_UNIT_SAMPLE s = SampleUnit(cand[i]);
+    powers[i] = TAI_ArmyPower(&s, 1);
+  }
+  const float threat_power = TAI_ArmyPower(threats, nt);
+  const int k = TAI_DefenseCommitCount(threat_power, powers, nc, personality.defense_commit);
+  for (int i = 0; i < k; i++) {
+    defender_ids[n_defenders++] = cand[i]->GetUnitID();
+    if (cand[i]->GetTarget() != target)
+      cand[i]->StartAttacking(target, true);
+  }
+  if (g_tai_think_trace_log)
+    tai_ai_trace((int)player->GetPlayerID(), "defense: threats=%d power=%.0f -> %d of %d defenders", nt,
+                 threat_power, k, nc);
+}
+
+void TAI_CONTROLLER::OrderGroup(TFORCE_UNIT **forces, int n, int x, int y, TMAP_UNIT *attack_target)
+{
+  if (n <= 0 || !map.IsInMap(x, y))
+    return;
+  /* One group path for the whole army; individual StartMoving would override it (review #9). */
+  const bool grouped = n >= 2 && tai_request_group_move_forces(player, forces, n, x, y);
+  for (int i = 0; i < n; i++) {
+    TFORCE_UNIT *fu = forces[i];
+    const bool close = attack_target
+                       && tai_cheb_dist(fu->GetPosition(), attack_target->GetPosition()) <= kTaiAssaultReleaseAttackDist;
+    if (close) {
+      if (fu->GetTarget() != attack_target)
+        fu->StartAttacking(attack_target, true);
+    } else if (!grouped) {
+      if (attack_target)
+        fu->StartAttacking(attack_target, true);
+      else {
+        TPOSITION_3D goal;
+        goal.SetPosition(x, y, fu->GetPosition().segment);
+        fu->StartMoving(goal, true);
+      }
+    }
+  }
+}
+
+void TAI_CONTROLLER::SetMilState(TAI_MIL_STATE s, float my_power, float enemy_power, int n)
+{
+  if (s == mil_state)
+    return;
+  if (g_tai_phase_transition_log)
+    fprintf(stderr, "Player %d (%s) military %s -> %s (my=%.0f enemy=%.0f n=%d t=%.0fs)\n",
+            (int)player->GetPlayerID(), player->name, MilStateName(mil_state), MilStateName(s), my_power,
+            enemy_power, n, game_time);
+  mil_state = s;
+  mil_state_since = game_time;
+  army_order.Reset();
+}
+
+void TAI_CONTROLLER::ManageArmy()
+{
+  TFORCE_UNIT *army[TAI_GAME_STATE::kMaxIdleForces];
+  const int n = CollectArmy(army, TAI_GAME_STATE::kMaxIdleForces);
+  if (n == 0) {
+    SetMilState(MIL_GATHER, 0.f, visible_enemy_power, 0);
+    return;
+  }
+
+  const int enemy_pid = retaliation.Active(game_time) ? retaliation.Target() : ChooseEnemyPlayer();
+  if (enemy_pid < 0 || !players[enemy_pid] || !players[enemy_pid]->active) {
+    retaliation.Clear();
+    SetMilState(MIL_GATHER, 0.f, 0.f, n);
+    return;
+  }
+  const int ex = players[enemy_pid]->initial_x, ey = players[enemy_pid]->initial_y;
+  int bx, by, rx, ry;
+  GetBase(&bx, &by);
+  TAI_RallyPoint(bx, by, ex, ey, kTaiRallyDist, map.width, map.height, &rx, &ry);
+
+  TAI_UNIT_SAMPLE samples[TAI_GAME_STATE::kMaxIdleForces];
+  long cx = 0, cy = 0;
+  for (int i = 0; i < n; i++) {
+    samples[i] = SampleUnit(army[i]);
+    cx += samples[i].x;
+    cy += samples[i].y;
+  }
+  cx /= n;
+  cy /= n;
+  const float my_power = TAI_ArmyPower(samples, n);
+  const float est = TAI_EnemyPowerEstimate(visible_enemy_power, remembered_enemy_power,
+                                           (float)(game_time - enemy_seen_at));
+
+  switch (mil_state) {
+  case MIL_GATHER: {
+    TFORCE_UNIT *far[TAI_GAME_STATE::kMaxIdleForces];
+    int nf = 0;
+    for (int i = 0; i < n; i++)
+      if (army[i]->GetAction() == UA_STAY && tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) > kTaiRallyRadius)
+        far[nf++] = army[i];
+    OrderGroup(far, nf, rx, ry, NULL);
+
+    const TAI_PHASE &ph = strategy->GetPhase(current_phase);
+    const bool may_attack = ph.targets.attack_when_ready || retaliation.Active(game_time);
+    if (may_attack && TAI_ShouldAttack(my_power, est, n, personality, est > 0.f))
+      SetMilState(MIL_ATTACK, my_power, est, n);
+    break;
+  }
+
+  case MIL_ATTACK: {
+    int best = -1;
+    float best_score = -1e30f;
+    TAI_UNIT_SAMPLE local[kMaxEnemies];
+    int nl = 0;
+    for (int i = 0; i < n_enemies; i++) {
+      const TAI_UNIT_SAMPLE &s = enemy_samples[i];
+      const int d = tai_cheb_xy(s.x, s.y, (int)cx, (int)cy);
+      if (d <= kTaiLocalRadius && s.dps > 0.f)
+        local[nl++] = s;
+      if (d > kTaiTargetRadius)
+        continue;
+      const float sc = TAI_TargetScore(s, (float)d);
+      if (sc > best_score) {
+        best_score = sc;
+        best = i;
+      }
+    }
+    const float local_power = TAI_ArmyPower(local, nl);
+    if (TAI_ShouldRetreat(my_power, local_power, personality)) {
+      SetMilState(MIL_RETREAT, my_power, local_power, n);
+      break;
+    }
+    if (n < std::max(2, personality.rally_size / 2)) {
+      SetMilState(MIL_GATHER, my_power, local_power, n);
+      break;
+    }
+    if (best >= 0) {
+      TMAP_UNIT *target = enemy_units[best];
+      if (army_order.Changed(MIL_ATTACK, target->GetUnitID(), 0, 0))
+        OrderGroup(army, n, enemy_samples[best].x, enemy_samples[best].y, target);
+      else /* reinforcements and units that arrived: engage when close */
+        for (int i = 0; i < n; i++)
+          if (!tai_skip_assault_attack_for_approach(army[i], target) && army[i]->GetTarget() != target)
+            army[i]->StartAttacking(target, true);
+    } else if (ex >= 0 && ey >= 0) {
+      if (army_order.Changed(MIL_ATTACK, -1, ex, ey))
+        OrderGroup(army, n, ex, ey, NULL);
+      else {
+        TFORCE_UNIT *idle[TAI_GAME_STATE::kMaxIdleForces];
+        int ni = 0;
+        for (int i = 0; i < n; i++)
+          if (army[i]->GetAction() == UA_STAY && tai_cheb_xy(samples[i].x, samples[i].y, ex, ey) > kTaiRallyRadius)
+            idle[ni++] = army[i];
+        OrderGroup(idle, ni, ex, ey, NULL);
+      }
+    } else {
+      SetMilState(MIL_GATHER, my_power, 0.f, n);
+    }
+    break;
+  }
+
+  case MIL_RETREAT: {
+    if (army_order.Changed(MIL_RETREAT, -1, rx, ry))
+      OrderGroup(army, n, rx, ry, NULL);
+    int home = 0;
+    for (int i = 0; i < n; i++)
+      if (tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) <= kTaiRallyRadius + 1)
+        home++;
+    if (game_time - mil_state_since > kTaiRetreatSeconds || home * 10 >= n * 7)
+      SetMilState(MIL_GATHER, my_power, est, n);
+    break;
+  }
+  }
+
+  if (g_tai_think_trace_log)
+    tai_ai_trace((int)player->GetPlayerID(), "army: state=%s n=%d my=%.0f est=%.0f visible=%.0f rally=(%d,%d) foe=%d",
+                 MilStateName(mil_state), n, my_power, est, visible_enemy_power, rx, ry, enemy_pid);
 }
 
 void TAI_CONTROLLER::EmitDiagnosticLines(TAI_LineSink sink, void *user)
@@ -1886,6 +2111,11 @@ void TAI_CONTROLLER::EmitDiagnosticLines(TAI_LineSink sink, void *user)
           diag_eff.target_military_factories, diag_eff.min_buildings, diag_eff.min_defense_buildings,
           diag_eff.train_to_forces, ph.targets.scout_ratio, ph.targets.attack_when_ready ? "yes" : "no",
           ph.targets.build_farms ? "yes" : "no", target_escalation);
+  sink(user, buf);
+  snprintf(buf, sizeof(buf),
+          "Military: state=%s since=%.0fs visible_enemy=%.0f remembered=%.0f retaliation=%s(pid %d) t=%.0fs",
+          MilStateName(mil_state), game_time - mil_state_since, visible_enemy_power, remembered_enemy_power,
+          retaliation.Active(game_time) ? "on" : "off", retaliation.Target(), game_time);
   sink(user, buf);
   snprintf(buf, sizeof(buf), "Deficit: raw=%s  after_prereq=%s", GoalName(raw), GoalName(eff));
   sink(user, buf);
@@ -1939,6 +2169,7 @@ void TAI_CONTROLLER::Think(double dt)
   think_accumulator += dt;
   if (think_accumulator < level->GetThinkInterval())
     return;
+  game_time += think_accumulator;
   think_accumulator = 0;
 
   state.ScanFromPlayer(player);
@@ -2049,69 +2280,11 @@ void TAI_CONTROLLER::Think(double dt)
   if (g_tai_think_trace_log)
     TraceFactoryProductionNeeds();
 
-  if (phase.targets.scout_ratio > 0.f && state.idle_forces_len > 0) {
-    int scouts = (int)(phase.targets.scout_ratio * (float)state.idle_forces_len + 0.5f);
-    if (scouts < 1)
-      scouts = 1;
-    for (int si = 0; si < scouts; si++) {
-      ManageScouting();
-      state.ScanFromPlayer(player);
-    }
-  }
-
-  scout_phase++;
-
-  /* Assault: any visible enemy. Retaliation: after being attacked, focus that player's base (buildings near their
-   * start), then march on their start coords if still fogged. Earlier non-assault phases: threat-only unless
-   * retaliating. */
+  /* Military: one enemy scan per tick, proportional defense first, then the field army state machine. */
   state.ScanFromPlayer(player);
-  {
-    const TAI_PHASE &ph_mil = strategy->GetPhase(current_phase);
-    const bool assault_phase = ph_mil.name && std::strcmp(ph_mil.name, "assault") == 0;
-
-    TMAP_UNIT *threat = FindThreateningVisibleEnemyForPlayer(player);
-    if (threat)
-      retaliate_enemy_pid = (int)threat->GetPlayerID();
-
-    if (retaliate_enemy_pid >= 0) {
-      if (retaliate_enemy_pid >= PL_MAX_PLAYERS || !players || !players[retaliate_enemy_pid]
-          || !players[retaliate_enemy_pid]->active)
-        retaliate_enemy_pid = -1;
-    }
-
-    TMAP_UNIT *mil_target = NULL;
-    if (retaliate_enemy_pid >= 0) {
-      mil_target =
-          FindVisibleEnemyStructureNearestTheirStart(player, static_cast<T_BYTE>(retaliate_enemy_pid));
-      if (!mil_target)
-        mil_target = FindVisibleEnemyCombatUnitOfPlayer(player, static_cast<T_BYTE>(retaliate_enemy_pid));
-    }
-    if (!mil_target) {
-      if (retaliate_enemy_pid >= 0)
-        mil_target = FindThreateningVisibleEnemyForPlayer(player);
-      else if (assault_phase)
-        mil_target = FindVisibleEnemyForPlayer(player);
-      else
-        mil_target = FindThreateningVisibleEnemyForPlayer(player);
-    }
-
-    const bool coordinated_group = assault_phase || (retaliate_enemy_pid >= 0 && mil_target != NULL);
-
-    if (mil_target) {
-      retaliate_last_path_x = retaliate_last_path_y = -99999;
-      ManageMilitary(mil_target, coordinated_group);
-      state.ScanFromPlayer(player);
-    } else if (retaliate_enemy_pid >= 0 && players && retaliate_enemy_pid < PL_MAX_PLAYERS
-               && players[retaliate_enemy_pid] && players[retaliate_enemy_pid]->active) {
-      TPLAYER *foe = players[retaliate_enemy_pid];
-      if (foe->initial_x >= 0 && foe->initial_y >= 0)
-        TaiSendArmyTowardPosition(player, foe->initial_x, foe->initial_y, &retaliate_last_path_x,
-                                  &retaliate_last_path_y);
-      state.ScanFromPlayer(player);
-    } else {
-      retaliate_last_path_x = retaliate_last_path_y = -99999;
-    }
-  }
+  ScanEnemies();
+  ManageDefense();
+  ManageArmy();
 
   state.ScanFromPlayer(player);
 
@@ -2131,7 +2304,7 @@ void TAI_CONTROLLER::Think(double dt)
       target_escalation++;
   }
 
-  if (!enemy_contacted && FindVisibleEnemyForPlayer(player)) {
+  if (!enemy_contacted && n_enemies > 0) {
     enemy_contacted = true;
     int cp = strategy->GetCombatPhase();
     if (cp > current_phase)

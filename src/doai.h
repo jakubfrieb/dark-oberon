@@ -160,6 +160,9 @@ private:
   void GeneratePhases();
 };
 
+//! Army behaviour of a CPU player (defense runs independently every tick).
+enum TAI_MIL_STATE { MIL_GATHER, MIL_ATTACK, MIL_RETREAT };
+
 class TAI_CONTROLLER {
 public:
   TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *level, TAI_STRATEGY *strategy,
@@ -189,14 +192,32 @@ private:
   unsigned scout_phase;
   int current_phase;
   bool enemy_contacted;
-  //! Last enemy id for which we queued assault group path (avoid re-submitting every think tick).
-  int assault_group_path_target_id;
   //! On loop phase (assault): each fully satisfied tick bumps this so targets keep rising (no idle endgame).
   int target_escalation;
-  //! After we are attacked, focus this enemy player: destroy their base buildings, march to their start if fogged.
-  int retaliate_enemy_pid;
-  int retaliate_last_path_x;
-  int retaliate_last_path_y;
+
+  //! Seconds of simulated time seen by this controller (sum of think intervals).
+  double game_time;
+
+  //! Visible enemy units of this think tick (pointers valid only within the tick).
+  static const int kMaxEnemies = 256;
+  TMAP_UNIT *enemy_units[kMaxEnemies];
+  TAI_UNIT_SAMPLE enemy_samples[kMaxEnemies];
+  bool enemy_near_base[kMaxEnemies];
+  int n_enemies;
+  float visible_enemy_power;
+  float remembered_enemy_power;
+  double enemy_seen_at;
+
+  TAI_MIL_STATE mil_state;
+  double mil_state_since;
+  TAI_RETALIATION retaliation;
+  TAI_ORDER_MEMO army_order;
+  //! Units sent to defend this tick (excluded from the field army).
+  int defender_ids[TAI_GAME_STATE::kMaxIdleForces];
+  int n_defenders;
+  //! Dedicated scouts (excluded from defense and the field army).
+  int scout_ids[2];
+  int n_scouts;
   //! Rotates which idle military factory is tried first (Workshop vs Barracks on budget=1).
   unsigned factory_military_rr;
 
@@ -210,7 +231,18 @@ private:
   bool ManageBuilding(TAI_BUILD_GOAL goal);
   int AssistUnfinishedConstruction(int max_assign);
   int AssistDamagedFriendlyStructures(int max_assign);
-  void ManageMilitary(TMAP_UNIT *attack_target, bool assault_mode);
+  void ScanEnemies();
+  void ManageDefense();
+  void ManageArmy();
+  TAI_UNIT_SAMPLE SampleUnit(TMAP_UNIT *u) const;
+  int ChooseEnemyPlayer() const;
+  void GetBase(int *x, int *y) const;
+  bool IsScout(int unit_id) const;
+  bool IsDefender(int unit_id) const;
+  //! Field army: military units that are neither scouts nor defenders this tick.
+  int CollectArmy(TFORCE_UNIT **out, int max_out) const;
+  void OrderGroup(TFORCE_UNIT **forces, int n, int x, int y, TMAP_UNIT *attack_target);
+  void SetMilState(TAI_MIL_STATE s, float my_power, float enemy_power, int n);
   void ManageScouting();
   bool FindBuildPosition(TBUILDING_ITEM *item, TPOSITION &out_pos);
   //! Nearest source for which worker->CanMine is true (searches all deposits of that material).
