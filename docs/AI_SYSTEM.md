@@ -10,8 +10,9 @@ This document describes the gameplay-oriented “artificial opponent” layer ad
 - The AI issues the **same commands** as a human: `StartMine`, `StartBuild`, `AddUnitToOrder`, `StartAttacking`, etc. No special simulation bypass.
 - **Two axes** define behavior:
   - **Level** — competence: think interval, actions per tick, build multitasking (`TAI_LEVEL_EASY`, `_MEDIUM`, `_HARD`).
-  - **Strategy flavor params** — economy vs military vs defense via **`TAI_FLAVOR_PARAMS`** (`FLAVOR_AGGRESSIVE`, `FLAVOR_COMMERCIAL`, `FLAVOR_CALM`), which feed **`TAI_STRATEGY`** phase targets.
-- Default build today: **Easy + Aggressive** (see `TAI_PLAYER` constructor in [`src/doai.cpp`](../src/doai.cpp)).
+  - **Personality** — **`TAI_PERSONALITY`** (economy flavor **`TAI_FLAVOR_PARAMS`** + military temperament), rolled randomly per CPU from five presets with ±10 % noise. The flavor feeds **`TAI_STRATEGY`** phase targets; the temperament drives the military state machine.
+- **Level** comes from `ai_level` in `config.cfg` (`easy|medium|hard`, default `medium`) or from `addcpu <level>` on the dedicated server. Both are chosen lazily on the first AI tick (`TAI_PLAYER::EnsureController`, the slot id is set after construction) and logged: `CPU player <slot>: level=… personality=…`.
+- **Randomness** uses the AI's own PCG32 generator (**`TAI_RNG`**), never the global `rand()` that the simulation relies on. The AI runs only where the slot is local (leader), so AI randomness cannot desync followers.
 
 ## Architecture
 
@@ -22,6 +23,8 @@ This document describes the gameplay-oriented “artificial opponent” layer ad
 | `TAI_GAME_STATE` | Snapshot from `TPLAYER::units` (counts, idle lists, materials, sources, unload capability, energy, food in/out, defense building count, `any_factory_blocked_on_food`). |
 | `TAI_LEVEL` | Virtual API: `GetThinkInterval()`, `GetMaxActionsPerTick()`, etc. |
 | `TAI_FLAVOR_PARAMS` | Three floats: `aggressivity`, `defense_priority`, `econ_focus` (0–1). |
+| `TAI_PERSONALITY` | Flavor + `attack_ratio`, `retreat_ratio`, `rally_size`, `defense_commit`, `scout_count` ([`src/doai_logic.h`](../src/doai_logic.h)). |
+| `doai_logic.{h,cpp}` | Engine-independent decisions (RNG, personalities, army power, attack/retreat/defense, target score, retaliation expiry, order de-dup). Unit tests: `make test-ai` ([`tests/cpp/test_ai_logic.cpp`](../tests/cpp/test_ai_logic.cpp)). |
 | `TAI_STRATEGY` | Builds a fixed sequence of **`TAI_PHASE`** entries from those params; each phase has **`TAI_PHASE_TARGETS`** (min workers/forces/factories/buildings/defense, `scout_ratio`, `attack_when_ready`, `build_farms`). |
 | `ComputeHighestDeficit` | Maps current state + phase targets to the next **`TAI_BUILD_GOAL`** (then gated by `CanPursueGoal` / `ResolvePrerequisite`). See [Deficit order and food](#deficit-order-and-food) below. |
 
@@ -72,7 +75,8 @@ Existing flow still calls `player_array.AddComputerPlayer()` (e.g. quick play wi
 After launch, type:
 
 ```text
-addcpu
+addcpu            # level from config.cfg ai_level (default medium)
+addcpu hard       # easy | medium | hard for this slot only (leader-local, not synced)
 ```
 
 Same race assignment logic as the GUI (unused race from map list). See `RunDedicatedServer()` in `doengine.cpp`.
@@ -90,7 +94,33 @@ Same race assignment logic as the GUI (unused race from map list). See `RunDedic
 
 **How often can the phase change?** At most **once per AI think tick** for a given player. The tick runs only while the match is simulating, on the interval from **`TAI_LEVEL`** (default Easy ≈ 3 s, Medium ≈ 1.5 s, Hard ≈ 0.5 s). A new phase is taken when `TAI_PHASE::IsSatisfied()` is true at the **end** of that tick (or when **first enemy sighting** bumps `current_phase` to `combat_phase`).
 
-## Level × flavor matrix (design)
+## Military behaviour
+
+Every think tick the controller scans the map **once** (`ScanEnemies`: visible enemy units, their power, which are near our structures, who is hitting us), then:
+
+1. **Scouting** (`ManageScouting`) — `round(scout_count)` (1–2) dedicated scouts, only when the army has at least `scouts + 2` units; the lightest combat units are recruited. An idle scout gets a new random target: half the time near an enemy start, otherwise a random map point. Scouts are excluded from defense and the field army.
+2. **Defense** (`ManageDefense`) — enemies within 12 tiles of our structures that are military or attacking us are threats. The best-scored threat is attacked by the nearest units until their power ≥ `defense_commit × threat power` (`TAI_DefenseCommitCount`); the rest of the army is not pulled back.
+3. **Field army** (`ManageArmy`) — state machine:
+
+```mermaid
+stateDiagram-v2
+  GATHER --> ATTACK: attack_when_ready (or retaliation) and TAI_ShouldAttack
+  ATTACK --> RETREAT: local power ratio < retreat_ratio
+  ATTACK --> GATHER: army < max(2, rally_size/2)
+  RETREAT --> GATHER: 70 % home or 20 s
+```
+
+- **Rally point**: 8 tiles from our base toward the chosen enemy (`TAI_RallyPoint`); idle units away from it are grouped there.
+- **Attack** needs `rally_size` units and `my_power / enemy_estimate ≥ attack_ratio`; with no enemy seen yet, 1.5 × `rally_size` units. Enemy estimate = max(visible power, remembered power halved every 60 s).
+- **Targets** (`TAI_TargetScore`): units attacking us > combat units > armed structures > other structures; closer and wounded preferred, searched within 20 tiles of the army centroid, otherwise march on the enemy start.
+- **Army power** = (Σ gun power) × (Σ life) of the units (Lanchester estimate from `.rac` data).
+- **Retaliation**: whoever hits us becomes the target for 90 s after the last hit (`TAI_RETALIATION`), then the AI returns to the nearest enemy.
+- **Orders** are de-duplicated (`TAI_ORDER_MEMO`) and use one group path per order (no per-unit `StartMoving` on top of it).
+- `logs on` prints transitions: `Player <id> (<name>) military GATHER -> ATTACK (my=… enemy=… n=… t=…s)`.
+
+**Variability** besides personalities: `FindBuildPosition` walks the spiral in a random orientation and picks randomly among the first valid sites (margins and lanes are still respected); factories pick military products by weighted random choice (weight = (score / best)^(0.5 + aggressivity)), the heavy-unit quota still applies.
+
+## Level × personality
 
 | Level | Think interval (default) | Actions / tick | Notes |
 |-------|----------------------------|----------------|--------|
@@ -100,11 +130,15 @@ Same race assignment logic as the GUI (unused race from map list). See `RunDedic
 
 | Preset | `aggressivity` | `defense_priority` | `econ_focus` | Typical behavior |
 |--------|----------------|-------------------|---------------|------------------|
-| `FLAVOR_AGGRESSIVE` | 0.9 | 0.2 | 0.3 | Larger army targets, higher `scout_ratio`, attacks in assault phase when `attack_when_ready`. |
-| `FLAVOR_COMMERCIAL` | 0.2 | 0.6 | 0.9 | More workers, farms when `econ_focus > 0.5`, more defense buildings; **no** attack in assault (`aggressivity <= 0.3`). |
-| `FLAVOR_CALM` | 0.5 | 0.5 | 0.5 | Middle ground on all targets. |
+| Preset | agg | def | eco | attack_ratio | retreat_ratio | rally | defense_commit | scouts | Notes |
+|--------|-----|-----|-----|--------------|---------------|-------|----------------|--------|-------|
+| `aggressive` | 0.90 | 0.20 | 0.30 | 1.15 | 0.60 | 6 | 1.3 | 1.5 | attacks in assault |
+| `commercial` | 0.20 | 0.60 | 0.90 | 1.80 | 0.90 | 10 | 1.8 | 1 | economy, defense; attacks only when retaliating (`attack_when_ready` needs aggressivity > 0.3) |
+| `calm` | 0.50 | 0.50 | 0.50 | 1.40 | 0.75 | 8 | 1.5 | 1 | middle ground |
+| `rusher` | 1.00 | 0.05 | 0.25 | 1.00 | 0.50 | 4 | 1.2 | 2 | attacks already in militarize (`TAI_STRATEGY(..., rush=true)`) |
+| `turtle` | 0.40 | 0.95 | 0.60 | 2.00 | 1.00 | 14 | 2.0 | 1 | many towers, late big push |
 
-Any **Level × preset** pair is valid (e.g. Hard + Commercial = efficient turtle). To try another preset, change `TAI_PLAYER` to construct `TAI_STRATEGY(FLAVOR_COMMERCIAL)` (or pass a custom `TAI_FLAVOR_PARAMS`).
+`TAI_RollPersonality` multiplies each value by a random factor 0.9–1.1 (flavor clamped to 0–1, `retreat_ratio` ≤ 0.9 × `attack_ratio`, `rally_size` ±1, min 2). `logs <slot>` prints the rolled values (`AI: level=… personality=…`) and the military state (`Military: state=…`).
 
 ## Gameplay prerequisites (logical dependencies)
 
@@ -161,6 +195,8 @@ flowchart LR
 - Tries **`ManageBuilding(BG_FARM)`** when **either** global food runs short (`food_out > 0` and `food_in < food_out`) **or** **`any_factory_blocked_on_food`** is set (factories stuck on food for the next unit’s first payment — same condition as production code in [`src/dofactories.cpp`](../src/dofactories.cpp)). With **`logs think on`**, the line includes `net=y|n` and `factory_need_food=y|n`.
 - If **`worker_count < 2`** and **`energy_sufficient`**, queues a **worker** from the first idle factory that can produce `IT_WORKER`.
 
+**Repairs** (`AssistDamagedFriendlyStructures`) are ordered only when the stock covers 20 repair points of every material the structure needs (`TAI_CanAffordRepair`, `mat_per_pt` from `.rac`). The engine stops a repairing worker as soon as any material is below `mat_per_pt`; before this gate the same idle workers were re-ordered every tick, used the whole action budget and never went mining (economy deadlock after fights near the base).
+
 **Mining** (idle workers → sources) is **`AssignIdleWorkers`** later in the same tick, not inside `HandleResourceShortage`. It only uses materials that have both **`has_source`** and **`can_unload_material`**.
 
 Terrain, visibility, and `can_build` per worker type still depend on map/race data.
@@ -168,9 +204,9 @@ Terrain, visibility, and `can_build` per worker type still depend on map/race da
 ## Extending the AI
 
 1. **New level** — Subclass `TAI_LEVEL`, override timing/action limits; construct it in `TAI_PLAYER` (or add config later).
-2. **New personality** — Add a `TAI_FLAVOR_PARAMS` constant (or load from config) and pass it to `TAI_STRATEGY`. Adjust **`GeneratePhases()`** if you need extra phases or different formulas. Add or adjust **`CanPursueGoal` / `ResolvePrerequisite`** if new `TAI_BUILD_GOAL` values need global prerequisites.
+2. **New personality** — Add a preset to `TAI_PERSONALITY_PRESETS` in [`src/doai_logic.cpp`](../src/doai_logic.cpp) (and its count in `TAI_RollPersonality` / the tests). Adjust **`GeneratePhases()`** if you need extra phases or different formulas. Add or adjust **`CanPursueGoal` / `ResolvePrerequisite`** if new `TAI_BUILD_GOAL` values need global prerequisites.
 3. **Smarter building** — Improve `FindBuildPosition()` (spiral from `initial_x`/`initial_y`), add `BG_UPGRADE` handling using `ancestor` + `IsPositionAvailable(..., test_ancestor=true)`.
-4. **Scouting** — `phase.targets.scout_ratio` scales how many idle combat units get exploratory `StartMoving` orders per tick (`ManageScouting`); visibility APIs: `FindVisibleEnemyForPlayer` in `doai.cpp`.
+4. **Scouting / military** — tune `TAI_PERSONALITY` fields and the constants at the top of the military section in `doai.cpp` (`kTaiBaseThreatRadius`, `kTaiRallyDist`, …). Decision rules live in `doai_logic.cpp` — change them test-first (`make test-ai`). `phase.targets.scout_ratio` is no longer used by scouting.
 
 ## Related docs
 
@@ -179,7 +215,9 @@ Terrain, visibility, and `can_build` per worker type still depend on map/race da
 ## Source files
 
 - [`src/doai.h`](../src/doai.h) — Declarations.
-- [`src/doai.cpp`](../src/doai.cpp) — Implementation.
+- [`src/doai.cpp`](../src/doai.cpp) — Implementation (engine glue).
+- [`src/doai_logic.h`](../src/doai_logic.h) / [`src/doai_logic.cpp`](../src/doai_logic.cpp) — Engine-independent decisions; tests in [`tests/cpp/`](../tests/cpp/) (`make test-ai`), headless match smoke test `tests/cpp/ai_smoke.sh [map] [seconds] [level...]`.
+- [`src/doconfig.cpp`](../src/doconfig.cpp) — `ai_level`.
 - [`src/doplayers.cpp`](../src/doplayers.cpp) — `CreatePlayers()` selects `TAI_PLAYER` for computer slots.
 - [`src/doplayers.h`](../src/doplayers.h) — `TPLAYER::UpdateAI()` virtual hook.
 - [`src/doengine.cpp`](../src/doengine.cpp) — `ProcessFunction` AI tick, lobby `MNU_ADD_COMPUTER`, headless `addcpu`.
