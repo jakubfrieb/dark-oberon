@@ -90,6 +90,9 @@ float TAI_EnemyPowerEstimate(float visible, float remembered, float seconds_sinc
 //! Point @p dist tiles from base toward the enemy base, clamped to the map; base when enemy is unknown (<0).
 void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map_h, int *ox, int *oy);
 
+//! Stock covers @p points of repair (engine stops a repairing worker when any material < mat_per_pt).
+bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points);
+
 //! Revenge target that expires when nobody hits us for kExpire seconds.
 class TAI_RETALIATION {
 public:

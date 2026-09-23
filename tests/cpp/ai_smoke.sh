@@ -4,6 +4,7 @@
 # adds CPU players, starts the match, dumps `logs <slot>` at start and after SECS seconds.
 #
 # Usage: tests/cpp/ai_smoke.sh [map] [seconds] [level...]     e.g. ai_smoke.sh trial 300 hard easy
+# Env: AI_SMOKE_CMDS="logs think on" adds console commands before `start`.
 set -euo pipefail
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 MAP=${1:-trial}
@@ -26,6 +27,7 @@ set +e
   sleep 1
   for lv in "${LEVELS[@]}"; do echo "addcpu $lv"; sleep 1; done
   echo "logs on"
+  [ -n "${AI_SMOKE_CMDS:-}" ] && printf '%s\n' "$AI_SMOKE_CMDS"
   echo start
   sleep 3
   for i in $(seq 1 ${#LEVELS[@]}); do echo "logs $i"; done

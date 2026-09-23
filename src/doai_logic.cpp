@@ -226,6 +226,14 @@ void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map
   *oy = y;
 }
 
+bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points)
+{
+  for (int i = 0; i < n_materials; i++)
+    if (mat_per_pt[i] > 0.f && stored[i] < mat_per_pt[i] * points)
+      return false;
+  return true;
+}
+
 const double TAI_RETALIATION::kExpire = 90.0;
 
 bool TAI_ORDER_MEMO::Changed(int k, int t, int px, int py)

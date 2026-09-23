@@ -185,6 +185,18 @@ TEST(test_military_order_dedup) {
   CHECK(m.Changed(2, 6, 10, 10));
 }
 
+TEST(test_can_afford_repair) {
+  float per_pt[3] = {0.5f, 0.2f, 0.f};
+  float rich[3] = {100.f, 100.f, 0.f};
+  float no_gold[3] = {0.f, 100.f, 0.f};
+  float little[3] = {4.f, 100.f, 0.f};
+  CHECK(TAI_CanAffordRepair(rich, per_pt, 3, 20.f));
+  CHECK(!TAI_CanAffordRepair(no_gold, per_pt, 3, 20.f));
+  CHECK(!TAI_CanAffordRepair(little, per_pt, 3, 20.f));   // 20 points need 10 gold
+  float free_pt[3] = {0.f, 0.f, 0.f};
+  CHECK(TAI_CanAffordRepair(no_gold, free_pt, 3, 20.f));
+}
+
 int main() {
   for (int i = 0; i < g_nt; i++) {
     int before = g_fail;

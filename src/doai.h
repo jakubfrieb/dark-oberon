@@ -189,7 +189,6 @@ private:
   TAI_GAME_STATE state;
   double think_accumulator;
   unsigned mining_rr;
-  unsigned scout_phase;
   int current_phase;
   bool enemy_contacted;
   //! On loop phase (assault): each fully satisfied tick bumps this so targets keep rising (no idle endgame).

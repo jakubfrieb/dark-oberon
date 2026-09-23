@@ -43,6 +43,17 @@ static int tai_cheb_dist(const TPOSITION_3D &a, const TPOSITION_3D &b)
   return dx > dy ? dx : dy;
 }
 
+static bool tai_unit_alive(TMAP_UNIT *u)
+{
+  return u && !u->TestState(US_DYING) && !u->TestState(US_ZOMBIE) && !u->TestState(US_DELETE);
+}
+
+static int tai_cheb_xy(int ax, int ay, int bx, int by)
+{
+  const int dx = std::abs(ax - bx), dy = std::abs(ay - by);
+  return dx > dy ? dx : dy;
+}
+
 static void tai_free_path_sel_nodes(TPATH_INFO *path_info)
 {
   TSEL_NODE *node = path_info->unit_list;
@@ -584,7 +595,10 @@ static void TaiCountMilitaryForcesLightHeavy(TPLAYER *p, float heavy_threshold, 
   }
 }
 
-static bool TaiStructureNeedsRepair(TMAP_UNIT *u)
+//! Repair points the stock must cover before workers are sent (else they stop at once and idle forever).
+static const float kTaiRepairAffordPoints = 20.f;
+
+static bool TaiStructureNeedsRepair(TPLAYER *p, TMAP_UNIT *u)
 {
   if (!u || u->TestState(US_DYING) || u->TestState(US_ZOMBIE) || u->TestState(US_DELETE))
     return false;
@@ -599,7 +613,17 @@ static bool TaiStructureNeedsRepair(TMAP_UNIT *u)
   const int mx = mi->GetMaxLife();
   if (mx <= 0)
     return false;
-  return bu->GetLife() < (float)mx * 0.93f;
+  if (bu->GetLife() >= (float)mx * 0.93f)
+    return false;
+  /* Engine stops a repairing worker when any material < mat_per_pt: never order a repair we cannot pay,
+   * otherwise the same idle workers are re-ordered every tick and never go mining (economy deadlock). */
+  TBASIC_ITEM *bi = static_cast<TBASIC_ITEM *>(bu->GetPointerToItem());
+  float stored[SCH_MAX_MATERIALS_COUNT], per_pt[SCH_MAX_MATERIALS_COUNT];
+  for (int i = 0; i < scheme.materials_count; i++) {
+    stored[i] = p ? p->GetStoredMaterial(i) : 0.f;
+    per_pt[i] = bi ? bi->mat_per_pt[i] : 0.f;
+  }
+  return TAI_CanAffordRepair(stored, per_pt, scheme.materials_count, kTaiRepairAffordPoints);
 }
 
 void TAI_GAME_STATE::Clear()
@@ -829,14 +853,26 @@ bool TAI_CONTROLLER::FindBuildPosition(TBUILDING_ITEM *item, TPOSITION &out_pos)
     bool margin;
     bool lanes;
   } passes[4] = {{true, true}, {true, false}, {false, true}, {false, false}};
+  /* Variability: random spiral orientation, then a random pick among the first few valid sites. */
+  const int sx = rng.Chance(0.5f) ? 1 : -1;
+  const int sy = rng.Chance(0.5f) ? 1 : -1;
+  static const int kMaxSiteCandidates = 3;
+  TPOSITION cands[kMaxSiteCandidates];
+
   for (int pi = 0; pi < 4; pi++) {
     const bool use_margin = passes[pi].margin;
     const bool use_lanes = passes[pi].lanes;
+    int nc = 0;
+    int first_radius = -1;
     for (int radius = 2; radius < 40; radius++) {
-      for (int dx = -radius; dx <= radius; dx++) {
-        for (int dy = -radius; dy <= radius; dy++) {
-          if (abs(dx) != radius && abs(dy) != radius)
+      if (first_radius >= 0 && radius > first_radius + 2)
+        break;
+      for (int ddx = -radius; ddx <= radius && nc < kMaxSiteCandidates; ddx++) {
+        for (int ddy = -radius; ddy <= radius && nc < kMaxSiteCandidates; ddy++) {
+          if (abs(ddx) != radius && abs(ddy) != radius)
             continue;
+          const int dx = ddx * sx;
+          const int dy = ddy * sy;
           int px = cx + dx;
           int py = cy + dy;
           if (!item->IsPositionAvailable(px, py, false))
@@ -847,14 +883,18 @@ bool TAI_CONTROLLER::FindBuildPosition(TBUILDING_ITEM *item, TPOSITION &out_pos)
             continue;
           if (use_lanes && AiFootprintViolatesBoulevardLanes(player, cpos, item->GetWidth(), item->GetHeight()))
             continue;
-          if (pi > 0 && g_tai_think_trace_log)
-            tai_ai_trace((int)player->GetPlayerID(),
-                         "FindBuildPosition: using relaxed rules (margin=%s lanes=%s)",
-                         use_margin ? "y" : "n", use_lanes ? "y" : "n");
-          out_pos = cpos;
-          return true;
+          if (first_radius < 0)
+            first_radius = radius;
+          cands[nc++] = cpos;
         }
       }
+    }
+    if (nc > 0) {
+      if (pi > 0 && g_tai_think_trace_log)
+        tai_ai_trace((int)player->GetPlayerID(), "FindBuildPosition: using relaxed rules (margin=%s lanes=%s)",
+                     use_margin ? "y" : "n", use_lanes ? "y" : "n");
+      out_pos = cands[rng.Index(nc)];
+      return true;
     }
     if (g_tai_think_trace_log && player && pi < 3)
       tai_ai_trace((int)player->GetPlayerID(),
@@ -1015,7 +1055,7 @@ TAI_BUILD_GOAL TAI_CONTROLLER::ComputeHighestDeficit(const TAI_GAME_STATE &s, co
 TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *strat,
                                const TAI_PERSONALITY &pers, TAI_LEVEL_ID lv_id, uint64_t rng_seed)
   : player(owner), level(lvl), strategy(strat), personality(pers), level_id(lv_id), rng(rng_seed),
-    think_accumulator(0), mining_rr(0), scout_phase(0),
+    think_accumulator(0), mining_rr(0),
     current_phase(0), enemy_contacted(false), target_escalation(0), game_time(0.0), n_enemies(0),
     visible_enemy_power(0.f), remembered_enemy_power(0.f), enemy_seen_at(-1e9), mil_state(MIL_GATHER),
     mil_state_since(0.0), n_defenders(0), n_scouts(0), factory_military_rr(0)
@@ -1283,40 +1323,33 @@ int TAI_CONTROLLER::ManageFactories(TAI_BUILD_GOAL prod_goal, int max_orders)
           std::sort(cands, cands + nc, [](const Cand &a, const Cand &b) { return a.score > b.score; });
 
           bool ordered = false;
-          for (int j = 0; j < nc && !ordered; j++) {
-            TFORCE_ITEM *product = cands[j].p;
-            const int pb = TAI_PredictProduceBlocker(player, f, product);
-            if (pb >= 0 && g_tai_think_trace_log && player) {
-              if (pb == 0)
-                tai_ai_trace(pid,
-                             "ManageFactories: want %s @ %s but food balance too low for first payment -> next: BG_FARM if "
-                             "enabled, else gather / wait",
-                             product->name ? product->name : "?", fi->name ? fi->name : "?");
-              else if (pb == 1)
-                tai_ai_trace(pid,
-                             "ManageFactories: want %s @ %s but energy%% below factory min -> more generators / reduce drain",
-                             product->name ? product->name : "?", fi->name ? fi->name : "?");
-              else if (pb >= 2) {
-                int mid = pb - 2;
-                const char *mn = (mid >= 0 && mid < scheme.materials_count && scheme.materials[mid])
-                                     ? scheme.materials[mid]->name
-                                     : "?";
-                tai_ai_trace(pid,
-                             "ManageFactories: want %s @ %s but short on %s for first payment -> mine / trade that material",
-                             product->name ? product->name : "?", fi->name ? fi->name : "?", mn);
-              }
+          /* Variability: weighted random pick among affordable products instead of always the heaviest.
+           * Aggressive personalities lean harder towards heavy units (higher exponent). */
+          {
+            float w[32];
+            const float max_sc = cands[0].score > 0.f ? cands[0].score : 1.f;
+            const float expo = 0.5f + personality.flavor.aggressivity;
+            for (int j = 0; j < nc; j++) {
+              const int pb = TAI_PredictProduceBlocker(player, f, cands[j].p);
+              w[j] = (pb >= 0) ? 0.f : std::pow(std::max(cands[j].score, 1.f) / max_sc, expo);
+              if (pb >= 0 && g_tai_think_trace_log && player)
+                tai_ai_trace(pid, "ManageFactories: want %s @ %s but blocked (%s)",
+                             cands[j].p->name ? cands[j].p->name : "?", fi->name ? fi->name : "?",
+                             pb == 0 ? "food" : (pb == 1 ? "energy" : "material"));
             }
-            if (pb >= 0)
-              continue;
-            if (f->AddUnitToOrder(product)) {
-              placed++;
-              ordered = true;
-              if (g_tai_think_trace_log && player) {
-                const char *pnm = product->name ? product->name : "?";
-                const char *fn = fi->name ? fi->name : "?";
-                tai_ai_trace(pid, "ManageFactories(%s): queue %s @ %s (%s)", GoalName(prod_goal), pnm, fn,
-                             heavy_only ? "quota-heavy" : "heavy-prefer");
-              }
+            for (int attempt = 0; attempt < nc && !ordered; attempt++) {
+              const int j = rng.PickWeighted(w, nc);
+              if (w[j] <= 0.f)
+                break;
+              if (f->AddUnitToOrder(cands[j].p)) {
+                placed++;
+                ordered = true;
+                if (g_tai_think_trace_log && player)
+                  tai_ai_trace(pid, "ManageFactories(%s): queue %s @ %s (%s weighted)", GoalName(prod_goal),
+                               cands[j].p->name ? cands[j].p->name : "?", fi->name ? fi->name : "?",
+                               heavy_only ? "quota-heavy" : "mix");
+              } else
+                w[j] = 0.f;
             }
           }
           if (!ordered && nc > 0) {
@@ -1471,7 +1504,8 @@ bool TAI_CONTROLLER::ManageBuilding(TAI_BUILD_GOAL goal)
         w->StartRepair(static_cast<TBASIC_UNIT *>(site), true);
         if (g_tai_think_trace_log && player) {
           const char *bn = bi->name ? bi->name : "?";
-          tai_ai_trace((int)player->GetPlayerID(), "ManageBuilding(%s): StartBuild %s ok", GoalName(goal), bn);
+          tai_ai_trace((int)player->GetPlayerID(), "ManageBuilding(%s): StartBuild %s ok at (%d,%d)", GoalName(goal), bn,
+                       (int)build_pos.x, (int)build_pos.y);
         }
         return true;
       }
@@ -1569,7 +1603,7 @@ int TAI_CONTROLLER::AssistDamagedFriendlyStructures(int max_assign)
       if (!u->TestItemType(IT_BUILDING) && !u->TestItemType(IT_FACTORY))
         continue;
       TMAP_UNIT *mu = static_cast<TMAP_UNIT *>(u);
-      if (!TaiStructureNeedsRepair(mu))
+      if (!TaiStructureNeedsRepair(player, mu))
         continue;
 
       TBASIC_UNIT *site = static_cast<TBASIC_UNIT *>(u);
@@ -1609,42 +1643,75 @@ void TAI_CONTROLLER::ManageScouting()
 {
   if (!player || !player->GetLocalMap())
     return;
-  if (state.idle_forces_len == 0)
-    return;
 
-  TFORCE_UNIT *fu = NULL;
-  for (int i = 0; i < state.idle_forces_len; i++) {
-    if (!state.idle_forces[i]->TestItemType(IT_WORKER)) {
-      fu = state.idle_forces[i];
-      break;
-    }
+  /* Drop dead scouts. */
+  int kept = 0;
+  for (int i = 0; i < n_scouts; i++) {
+    bool alive = false;
+    for (TPLAYER_UNIT *u = player->units; u && !alive; u = u->GetNext())
+      alive = (int)u->GetUnitID() == scout_ids[i] && tai_unit_alive(static_cast<TMAP_UNIT *>(u));
+    if (alive)
+      scout_ids[kept++] = scout_ids[i];
   }
-  if (!fu)
-    return;
+  n_scouts = kept;
 
-  T_SIMPLE bx = player->initial_x;
-  T_SIMPLE by = player->initial_y;
-  if (bx < 0)
-    bx = fu->GetPosition().x;
-  if (by < 0)
-    by = fu->GetPosition().y;
+  int want = (int)std::lround(personality.scout_count);
+  want = std::max(1, std::min(2, want));
+  /* Scouting must not strip a small army. */
+  if (state.force_count < want + 2)
+    want = 0;
+  if (n_scouts > want)
+    n_scouts = want;
 
-  const int r_ring = 10 + (int)(scout_phase % 6u) * 5;
-  double ang = (scout_phase * 0.6180339887) * 6.28318530718;
-  int tx = bx + (int)(cos(ang) * (double)r_ring);
-  int ty = by + (int)(sin(ang) * (double)r_ring);
-  if (tx < 2)
-    tx = 2;
-  if (ty < 2)
-    ty = 2;
-  if (tx >= map.width - 2)
-    tx = (int)map.width - 3;
-  if (ty >= map.height - 2)
-    ty = (int)map.height - 3;
+  /* Recruit the lightest combat units as scouts. */
+  while (n_scouts < want) {
+    TFORCE_UNIT *pick = NULL;
+    float pick_score = 1e30f;
+    for (TPLAYER_UNIT *u = player->units; u; u = u->GetNext()) {
+      if (!u->TestItemType(IT_FORCE) || u->TestItemType(IT_WORKER))
+        continue;
+      TFORCE_UNIT *fu = static_cast<TFORCE_UNIT *>(u);
+      if (!tai_unit_alive(fu) || IsScout(fu->GetUnitID()) || IsDefender(fu->GetUnitID()))
+        continue;
+      const float sc = TaiMilitaryUnitTrainingScore(static_cast<TFORCE_ITEM *>(fu->GetPointerToItem()));
+      if (sc < pick_score) {
+        pick_score = sc;
+        pick = fu;
+      }
+    }
+    if (!pick)
+      break;
+    scout_ids[n_scouts++] = pick->GetUnitID();
+  }
 
-  TPOSITION_3D goal;
-  goal.SetPosition(tx, ty, fu->GetPosition().segment);
-  fu->StartMoving(goal, true);
+  /* Every scout that stands still gets a new random destination. */
+  for (int i = 0; i < n_scouts; i++) {
+    TFORCE_UNIT *fu = NULL;
+    for (TPLAYER_UNIT *u = player->units; u && !fu; u = u->GetNext())
+      if ((int)u->GetUnitID() == scout_ids[i])
+        fu = static_cast<TFORCE_UNIT *>(u);
+    if (!fu || fu->GetAction() != UA_STAY)
+      continue;
+    int tx = -1, ty = -1;
+    if (rng.Chance(0.5f)) {
+      const int foe = ChooseEnemyPlayer();
+      if (foe >= 0 && players[foe]->initial_x >= 0) {
+        tx = players[foe]->initial_x + rng.Index(7) - 3;
+        ty = players[foe]->initial_y + rng.Index(7) - 3;
+      }
+    }
+    if (tx < 0) {
+      tx = 2 + rng.Index(std::max(1, (int)map.width - 4));
+      ty = 2 + rng.Index(std::max(1, (int)map.height - 4));
+    }
+    tx = std::max(2, std::min(tx, (int)map.width - 3));
+    ty = std::max(2, std::min(ty, (int)map.height - 3));
+    TPOSITION_3D goal;
+    goal.SetPosition(tx, ty, fu->GetPosition().segment);
+    fu->StartMoving(goal, true);
+    if (g_tai_think_trace_log)
+      tai_ai_trace((int)player->GetPlayerID(), "scout %d -> (%d,%d)", scout_ids[i], tx, ty);
+  }
 }
 
 static const char *MilStateName(TAI_MIL_STATE s)
@@ -1673,17 +1740,6 @@ static const int kTaiLocalRadius = 10;
 static const int kTaiTargetRadius = 20;
 //! Retreat lasts at most this long before gathering again.
 static const double kTaiRetreatSeconds = 20.0;
-
-static bool tai_unit_alive(TMAP_UNIT *u)
-{
-  return u && !u->TestState(US_DYING) && !u->TestState(US_ZOMBIE) && !u->TestState(US_DELETE);
-}
-
-static int tai_cheb_xy(int ax, int ay, int bx, int by)
-{
-  const int dx = std::abs(ax - bx), dy = std::abs(ay - by);
-  return dx > dy ? dx : dy;
-}
 
 TAI_UNIT_SAMPLE TAI_CONTROLLER::SampleUnit(TMAP_UNIT *u) const
 {
@@ -2283,6 +2339,7 @@ void TAI_CONTROLLER::Think(double dt)
   /* Military: one enemy scan per tick, proportional defense first, then the field army state machine. */
   state.ScanFromPlayer(player);
   ScanEnemies();
+  ManageScouting();
   ManageDefense();
   ManageArmy();
 
