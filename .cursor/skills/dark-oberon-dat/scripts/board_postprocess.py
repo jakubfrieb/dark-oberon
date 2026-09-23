@@ -22,6 +22,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 WHITE = 235
+BG_WHITE = 245
 SHADOW_ALPHA = 250
 SHADOW_LUMA = 80
 FIGURE_ALPHA = 128
@@ -60,6 +61,9 @@ def restore_alpha(generated: Image.Image, original: Image.Image) -> Image.Image:
     gen = _fit(generated, original.size).astype(np.uint8)
     out = np.dstack([gen, alpha.astype(np.uint8)])
     out[shadow] = orig[shadow]
+    # codex painted plain background inside the old silhouette (orc is narrower)
+    background = (gen.min(axis=2) >= BG_WHITE) & ~shadow
+    out[background] = 0
     out[alpha == 0] = 0
     return Image.fromarray(out, "RGBA")
 

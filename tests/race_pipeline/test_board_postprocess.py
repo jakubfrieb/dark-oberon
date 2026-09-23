@@ -84,3 +84,11 @@ def test_process_all_writes_only_valid(tmp_path):
     assert not (w / "boards/edited/y__stay__b0.png").exists()
     assert (w / "review/y__stay__b0.png").exists()
     assert json.loads((w / "_post_report.json").read_text())["y__stay__b0"]["ok"] is False
+
+
+def test_restore_alpha_drops_white_background_inside_old_silhouette():
+    gen = np.array(orc_generated())
+    gen[10:40, 36:40] = 255          # orc is narrower: codex painted background there
+    out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
+    assert out.getpixel((38, 20))[3] == 0
+    assert out.getpixel((25, 20)) == (60, 140, 50, 255)

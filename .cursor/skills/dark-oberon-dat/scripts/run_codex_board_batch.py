@@ -78,6 +78,9 @@ class Batch:
     # -- state --------------------------------------------------------------
     def _set(self, key: str, ok: bool) -> None:
         with self.lock:
+            # merge with what other processes wrote meanwhile
+            if self.state_path.exists():
+                self.state = json.loads(self.state_path.read_text())
             prev = self.state.get(key, {})
             self.state[key] = {"status": "done" if ok else "failed",
                                "attempts": prev.get("attempts", 0) + 1}

@@ -19,6 +19,15 @@ STYLE (mandatory, matches the existing game art):
   plain white."""
 
 
+LAYOUT_RULE = """\
+IMPORTANT for buildings: keep the SAME OVERALL SHAPE, footprint and layout as the
+human building in image 1 (same walls, towers, roofs, courtyard and gate
+positions, same height). Only change materials, surfaces and decorations to
+the orc style (rough logs, hides, bones, tusks, spikes, stone). The orc
+building must fit exactly inside the human building's outline.
+"""
+
+
 def design_prompt(entity_id: str, entity: dict, entity_type: str, out_rel: str) -> str:
     kind = "unit" if entity_type == "unit" else "building"
     return f"""Use your image generation tool to create ONE image and save it as a PNG.
@@ -32,7 +41,7 @@ Create a character/model design sheet of its ORC counterpart "{entity['name']}":
 Show the same {kind} 3 times on a plain white background: front-left view,
 back-right view, and a close-up of the parts painted in the team colour
 (pure red). Same size and proportions as the human {kind} so it can replace it.
-
+{LAYOUT_RULE if kind == "building" else ""}
 {STYLE_RULES}
 
 Save to: ./{out_rel}  (1024x1024 PNG)"""
@@ -52,6 +61,9 @@ Attached image 2 is the approved design sheet of the ORC that replaces it:
 
 Repaint EVERY sprite as this orc. Pixel precision matters: the game cuts the
 sprites out of this board at fixed positions using the original outline.
+The shape comes from image 1; image 2 only defines materials, colours and
+decorations. Each sprite may differ (e.g. damaged/ruined or under
+construction) - keep those differences.
 - keep each sprite in the same position, same size, same pose, same facing
   direction and the same silhouette outline as in image 1;
 - keep the cast shadows; keep the plain white background;

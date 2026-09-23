@@ -29,3 +29,13 @@ def test_restyle_prompt_contents():
     assert "same position" in p.lower() and "1024x1024" in p
     assert "8 directions, 1 frame each" in p
     assert "white background" in p.lower()
+
+
+def test_building_design_keeps_human_layout():
+    p = design_prompt("barracks", ENT, "building", "design/barracks.png").lower()
+    assert "same overall shape" in p and "footprint" in p
+
+
+def test_restyle_prompt_says_design_is_only_for_materials():
+    p = restyle_prompt(dict(BOARD, entity_type="building"), ENT, "raw/x.png").lower()
+    assert "shape comes from image 1" in p

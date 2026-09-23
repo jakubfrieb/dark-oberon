@@ -83,3 +83,14 @@ def test_only_and_animation_filters_and_dry_run(tmp_path):
     assert len(run.calls) == 2  # only the two design calls
     b.restyle(only={"peasant"}, animation="stay")
     assert run.calls[-1][0] == "peasant__stay__b0.png" and len(run.calls) == 3
+
+
+def test_two_batches_do_not_lose_each_others_state(tmp_path):
+    w = make_work(tmp_path)
+    a = Batch(w, ENTS, runner=FakeRunner())
+    b = Batch(w, ENTS, runner=FakeRunner())
+    a.design(["footman"])
+    b.design(["peasant"])
+    state = json.loads((w / "_codex_state.json").read_text())
+    assert state["design:footman"]["status"] == "done"
+    assert state["design:peasant"]["status"] == "done"
