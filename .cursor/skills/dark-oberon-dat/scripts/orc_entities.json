@@ -1,0 +1,18 @@
+{
+  "footman":     {"name": "Grunt", "description": "a stocky green-skinned orc warrior with a heavy jaw and small tusks, bald head with a topknot, crude leather-and-iron armor, a big cleaver-like sword and a round wooden shield with a bone rim; team-colored shoulder pads, loincloth and shield paint"},
+  "peasant":     {"name": "Peon", "description": "a hunched skinny green orc laborer with big ears and small tusks, ragged brown tunic, carrying a crude pickaxe/tool; team-colored headband and belt"},
+  "moleman":     {"name": "Sapper", "description": "a small green goblin digger with a huge nose, goggles and a big shovel-claw, dirty brown overalls; team-colored cap"},
+  "catapult":    {"name": "Bone Catapult", "description": "a crude orc siege catapult of rough logs lashed with rope, bone and horn decorations, spiked wheels, a skull-shaped counterweight; team-colored banner/cloth on the frame"},
+  "airship":     {"name": "Goblin Zeppelin", "description": "a patched lumpy goblin balloon with a crude wooden gondola, propeller and exhaust pipes, stitched leather envelope; team-colored patches and flag"},
+  "townhall":    {"name": "Chieftain Hut", "description": "a big round orc hut of logs and hides with a thatched/hide roof, tusks and horns over the door, torches; team-colored banners"},
+  "fort":        {"name": "War Fort", "description": "a sturdy orc wooden fort with spiked log walls, skull decorations and a gate with tusks; team-colored banners and roof cloth"},
+  "castle":      {"name": "Great Hall", "description": "a massive orc great hall of dark stone and huge logs, spiked roof, giant tusks framing the entrance, bone totems; team-colored roof banners"},
+  "citadel":     {"name": "Stronghold", "description": "an imposing orc stronghold of rough dark stone blocks and spiked iron, tall horned towers, skull ornaments; team-colored flags and roof cloth"},
+  "barracks":    {"name": "War Camp", "description": "an orc war camp building: long hide tent-hall on log frame, weapon racks, spikes and a war drum; team-colored banners"},
+  "farm":        {"name": "Pig Farm", "description": "an orc pig farm: crude log hut with a muddy pen and fat pink pigs, straw roof, bones on the fence; team-colored cloth on the roof"},
+  "shed":        {"name": "Lumber Hut", "description": "a small orc lumber hut of rough logs with a hide roof, piles of logs and a big axe in a stump; team-colored flag"},
+  "manufactory": {"name": "Goblin Workshop", "description": "a noisy goblin workshop: ramshackle wood-and-scrap-metal building, chimney, gears and cogs, anvil; team-colored awning"},
+  "tower":       {"name": "Watchtower", "description": "a tall orc wooden watchtower on stilts lashed with rope, spiked platform, horn decorations; team-colored flag"},
+  "cannontower": {"name": "Skull Tower", "description": "a squat orc stone-and-log defense tower topped with a giant skull and a crude cannon; team-colored banner"},
+  "wall":        {"name": "Palisade", "description": "an orc palisade wall segment of sharpened vertical logs lashed with rope, with a few bones; team-colored cloth strip"}
+}
