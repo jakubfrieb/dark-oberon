@@ -1,7 +1,7 @@
 # Orčí rasa (orc-red / orc-blue / orc-yellow) — návrh
 
 Datum: 2026-09-23
-Stav: schváleno v konverzaci (část 1), čeká na review spec
+Stav: schváleno uživatelem (2026-09-23)
 
 ## Cíl
 
@@ -15,10 +15,10 @@ zobrazovaná jména.
 - Rozsah: 1:1 protějšek (ne nový roster, ne změna balancu).
 - Grafika: restyle existujících lidských boardů přes codex.
 - Barvy hráčů: 3 varianty red/blue/yellow.
+- **Styl grafiky se musí zachovat: vše má vypadat jako vymodelované z modelíny.**
 
 ### Předpoklady (moje)
 - Zvuky se přebírají z lidí beze změny.
-- Styl zůstává „plastic“ (hliněné/plastové 3D figurky, pohled shora šikmo), aby orci ve hře nevyčnívali.
 - Interní `id` jednotek/budov v `.rac` zůstávají stejná jako u lidí (`footman`, `castle`, …) — mapy, AI a `can_build` odkazy fungují beze změn. Mění se jen `name`.
 
 ## Kritéria hotovosti
@@ -28,6 +28,28 @@ zobrazovaná jména.
 3. Všech 16 entit (5 jednotek + 11 budov) má kompletní orčí grafiku ve všech animacích, které mají lidé.
 4. Na mapě lze nastavit hráči orčí rasu a odehrát hru proti lidem/AI (stavba, těžba, boj, smrt/zombie).
 5. Vizuálně: postavy jsou zelení orci, týmová barva je rozpoznatelná, měřítko a ukotvení (pozice na políčku, stín) sedí s lidmi.
+
+## Vizuální styl — modelína (závazné)
+
+Orci musí vypadat jako ze stejné sady figurek jako lidé: **ručně vymodelované z
+modelíny** a vyfocené/vyrenderované shora šikmo.
+
+- **Materiál:** matná modelína, měkce zaoblené tvary, silné a zjednodušené
+  proporce, žádné ostré hrany, žádné jemné detaily (vlasy, textury látek, kov
+  s odlesky). Detaily jsou „přilepené kuličky a válečky“ (oči, nárameníky, hroty).
+- **Světlo:** měkké světlo zleva shora, jemné stínování, slabý lesk; vržený stín
+  na zem jako u lidí (směr i délka převzaté z originálu).
+- **Barvy:** plné, sytě jednotné plochy jako z jednobarevné modelíny: zelená kůže
+  (2–3 odstíny), hnědá kůže/dřevo, šedé kosti/kámen, týmová barva čistě červená.
+  Žádné gradienty, šum ani fotorealistické textury.
+- **Měřítko a silueta:** stejná velikost figurky v buňce jako u lidí; orc smí být
+  mohutnější (širší ramena, sklopená hlava), ale nesmí přesáhnout masku originálu.
+- **Zakázáno:** pixel-art, cel-shading/obrysové linky, realistický render,
+  kreslený 2D vzhled, detailní textury, pozadí jiné než bílé.
+
+Tyto body jsou součástí každého codex promptu (design sheet i restyle) a
+prvního kroku kontroly v pilotu. Lidské boardy slouží zároveň jako **stylová
+reference**: prompt vždy obsahuje i původní lidský board.
 
 ## Mapování entit
 
@@ -78,7 +100,7 @@ z jiného umístění repa → spustit `compose` znovu do `ai-working/race-pipel
 
 ### 2. Design sheet na entitu
 Codex vygeneruje pro každou entitu jeden referenční obrázek (pohled zepředu/zezadu,
-detail týmově zbarvených částí) ve stylu plastic, s referencemi `orcs-racs/*.png`
+detail týmově zbarvených částí) ve stylu modelíny (viz Vizuální styl), s referencemi `orcs-racs/*.png`
 a lidským boardem entity. Uživatel design sheety schvaluje (u jednotek jednotlivě,
 u budov po skupinách). Uloženo v `ai-working/race-pipeline-orc/design/<entita>.png`.
 
@@ -127,6 +149,7 @@ týmové barvy. Pokračuje se až po schválení uživatelem.
 | Týmová barva „rozlitá“ do zelené kůže | prompt vyžaduje čistou červenou; recolor jen nad prahem saturace a v rozsahu odstínu červené |
 | Codex selže / nevytvoří soubor | retry, stav v JSON, pokračování od posledního hotového |
 | Budovy vypadají „lidsky“ | vlastní design sheety pro budovy (dřevo, kůže, kosti, hroty) |
+| Ztráta modelínového vzhledu (realistický/kreslený výstup) | stylová pravidla v každém promptu, lidský board jako reference, vizuální kontrola v pilotu a u design sheetů |
 
 ## Testování
 
