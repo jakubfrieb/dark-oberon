@@ -28,7 +28,7 @@ LIBRARIES += $(SDL2_MIXER_LIBS)
 endif
 # Dedicated server is always SOUND=0; do not link SDL2_mixer (LIBRARIES is parsed before target-specific SOUND).
 SERVER_LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
-OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
+OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doai_logic.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 OBJECTS_SERVER = $(filter-out doberon.o,$(OBJECTS)) doserver.o
 TARGETS = ../dark-oberon
 
@@ -110,10 +110,13 @@ dodevcheat.o: dodevcheat.cpp dodevcheat.h cfg.h dodraw.h doplayers.h doschemes.h
 dodraw.o: dodraw.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c dodraw.cpp
 
-doai.o: doai.cpp cfg.h doalloc.h doai.h dolayout.h dounits.h domap.h doschemes.h dotime.h doipc.h doplayers.h dowalk.h doevents.h
+doai_logic.o: doai_logic.cpp doai_logic.h
+	$(CPP) -c doai_logic.cpp
+
+doai.o: doai.cpp cfg.h doalloc.h doai.h doai_logic.h dolayout.h dounits.h domap.h doschemes.h dotime.h doipc.h doplayers.h dowalk.h doevents.h
 	$(CPP) -c doai.cpp
 
-doengine.o: doengine.cpp build_info.h cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h dodraw.h doai.h doengine.h doevents.h dofight.h dofile.h dofollower.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
+doengine.o: doengine.cpp build_info.h cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h dodraw.h doai.h doai_logic.h doengine.h doevents.h dofight.h dofile.h dofollower.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c doengine.cpp
 
 doevents.o: doevents.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
@@ -164,7 +167,7 @@ domouse.o: domouse.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h d
 donet.o: donet.cpp cfg.h doalloc.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h utils.h
 	$(CPP) -c donet.cpp
 
-doplayers.o: doplayers.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doai.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
+doplayers.o: doplayers.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doai.h doai_logic.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c doplayers.cpp
 
 doraces.o: doraces.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h

@@ -5,6 +5,9 @@ HEADLESS ?= 0
 build:
 	cd src && make SOUND=$(SOUND) HEADLESS=$(HEADLESS)
 
+test-ai:
+	$(MAKE) -C tests/cpp
+
 clean:
 	cd src && make clean
 	rm -f doberon

@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 
+#include "doai_logic.h"
 #include "dolayout.h"
 #include "dounits.h"
 
@@ -112,13 +113,6 @@ public:
   bool AllowMultipleBuilds() const override { return true; }
   float GetResourceAwareness() const override { return 1.0f; }
   int GetMaxConstructionHelpers() const override { return 4; }
-};
-
-//! Tunables that replace the old Aggressive / Commercial / Calm flavor classes.
-struct TAI_FLAVOR_PARAMS {
-  float aggressivity;      //!< 0..1 army size, scout_ratio, willingness to attack
-  float defense_priority;  //!< 0..1 towers/walls
-  float econ_focus;        //!< 0..1 workers, farms
 };
 
 extern const TAI_FLAVOR_PARAMS FLAVOR_AGGRESSIVE;
