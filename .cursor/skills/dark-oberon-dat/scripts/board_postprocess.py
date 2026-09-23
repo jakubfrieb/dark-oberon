@@ -73,15 +73,33 @@ def _fit(generated: Image.Image, size: tuple[int, int]) -> np.ndarray:
     return np.asarray(g).astype(np.int32)
 
 
+def _grow(mask: np.ndarray) -> np.ndarray:
+    g = mask.copy()
+    g[1:] |= mask[:-1]; g[:-1] |= mask[1:]
+    g[:, 1:] |= mask[:, :-1]; g[:, :-1] |= mask[:, 1:]
+    return g
+
+
+def _connected_to(candidate: np.ndarray, seed: np.ndarray) -> np.ndarray:
+    """Pixels of ``candidate`` 4-connected to ``seed`` (flood fill without scipy)."""
+    reached = _grow(seed) & candidate
+    while True:
+        nxt = _grow(reached) & candidate
+        if nxt.sum() == reached.sum():
+            return reached
+        reached = nxt
+
+
 def restore_alpha(generated: Image.Image, original: Image.Image) -> Image.Image:
     orig = np.asarray(original.convert("RGBA"))
     alpha, shadow, _ = _masks(original)
     gen = _fit(generated, original.size).astype(np.uint8)
     out = np.dstack([gen, alpha.astype(np.uint8)])
     out[shadow] = orig[shadow]
-    # codex painted plain background inside the old silhouette (orc is narrower)
-    background = (gen.min(axis=2) >= BG_WHITE) & ~shadow
-    out[background] = 0
+    # codex painted plain background inside the old silhouette (orc is narrower);
+    # only white connected to the outside counts - enclosed light details stay
+    candidate = (gen.min(axis=2) >= BG_WHITE) & ~shadow
+    out[_connected_to(candidate, alpha == 0)] = 0
     out[alpha == 0] = 0
     return Image.fromarray(out, "RGBA")
 

@@ -117,3 +117,10 @@ def test_embed_generated_keeps_full_size_board():
     from board_postprocess import embed_generated
     img = orc_generated()
     assert embed_generated(img, BOARD, (SIZE, SIZE)).tobytes() == img.tobytes()
+
+
+def test_restore_alpha_keeps_white_detail_enclosed_in_figure():
+    gen = np.array(orc_generated())
+    gen[20:25, 25:30] = 255          # light courtyard / white detail fully inside the figure
+    out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
+    assert out.getpixel((27, 22)) == (255, 255, 255, 255)
