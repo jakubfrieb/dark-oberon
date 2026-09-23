@@ -38,6 +38,24 @@ def flatten_on_white(img: Image.Image) -> Image.Image:
     return Image.alpha_composite(bg, rgba).convert("RGB")
 
 
+def slots_bbox(board: dict) -> tuple[int, int, int, int]:
+    """Union of all slot rectangles on the board as (x0, y0, x1, y1)."""
+    rects = [s["dst"] for s in board["slots"]]
+    return (min(r[0] for r in rects), min(r[1] for r in rects),
+            max(r[0] + r[2] for r in rects), max(r[1] + r[3] for r in rects))
+
+
+def embed_generated(generated: Image.Image, board: dict, size: tuple[int, int]) -> Image.Image:
+    """Codex restyles only the slot bbox crop; put it back onto a full white board."""
+    x0, y0, x1, y1 = slots_bbox(board)
+    g = generated.convert("RGB")
+    if (x0, y0, x1, y1) == (0, 0, *size) and g.size == size:
+        return g
+    full = Image.new("RGB", size, (255, 255, 255))
+    full.paste(g.resize((x1 - x0, y1 - y0), Image.LANCZOS), (x0, y0))
+    return full
+
+
 def _masks(original: Image.Image) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (alpha, shadow_mask, figure_mask) of the original board."""
     o = np.asarray(original.convert("RGBA")).astype(np.int32)
@@ -123,7 +141,7 @@ def process_all(work: Path, only: set[str] | None = None) -> dict:
         if not raw.exists():
             continue
         original = Image.open(boards_dir / board["board_file"])
-        generated = Image.open(raw)
+        generated = embed_generated(Image.open(raw), board, original.size)
         issues = validate_board(generated, original, board)
         processed = restore_alpha(generated, original)
         make_review(original, processed).save(review / board["board_file"])

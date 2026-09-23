@@ -47,13 +47,24 @@ back-right view, and a close-up of the parts painted in the team colour
 Save to: ./{out_rel}  (1024x1024 PNG)"""
 
 
+def _crop_size(board: dict) -> str:
+    rects = [s["dst"] for s in board["slots"] if "dst" in s]
+    if not rects:
+        size = board.get("board_size", 1024)
+        return f"{size}x{size}"
+    w = max(r[0] + r[2] for r in rects) - min(r[0] for r in rects)
+    h = max(r[1] + r[3] for r in rects) - min(r[1] for r in rects)
+    return f"{w}x{h}"
+
+
 def restyle_prompt(board: dict, entity: dict, out_rel: str) -> str:
+    size = _crop_size(board)
     cols, rows = board["grid"]
     n = len(board["slots"])
     info = board.get("prompt_hints", {}).get("frame_info", "")
     return f"""Use your image generation tool to EDIT attached image 1 and save the result as a PNG.
 
-Attached image 1 is a 1024x1024 sprite board from the game Dark Oberon: {n} sprites
+Attached image 1 is a {size} sprite board from the game Dark Oberon: {n} sprites
 arranged in {cols} columns x {rows} rows on a white background. They are the
 same human figure in the '{board['animation']}' animation ({info}).
 Attached image 2 is the approved design sheet of the ORC that replaces it:
@@ -67,10 +78,10 @@ construction) - keep those differences.
 - keep each sprite in the same position, same size, same pose, same facing
   direction and the same silhouette outline as in image 1;
 - keep the cast shadows; keep the plain white background;
-- keep the board 1024x1024 with the same {cols} columns x {rows} rows layout;
+- keep the image exactly {size} with the same {cols} columns x {rows} rows layout;
 - do not add, remove, merge or move sprites; nothing outside the sprites;
 - the orc must be identical across all sprites (same colours and gear as image 2).
 
 {STYLE_RULES}
 
-Save to: ./{out_rel}  (1024x1024 PNG)"""
+Save to: ./{out_rel}  ({size} PNG)"""

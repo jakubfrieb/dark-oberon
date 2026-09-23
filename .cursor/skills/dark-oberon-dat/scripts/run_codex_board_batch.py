@@ -29,7 +29,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from board_postprocess import flatten_on_white
+from board_postprocess import flatten_on_white, slots_bbox
 from codex_prompts import design_prompt, restyle_prompt
 
 HERE = Path(__file__).resolve().parent
@@ -113,18 +113,19 @@ class Batch:
                 return b["entity_type"]
         raise KeyError(eid)
 
-    def _flat_input(self, board_file: str) -> Path:
-        dst = self.work / "codex_in" / board_file
+    def _flat_input(self, board: dict) -> Path:
+        """Board flattened on white and cropped to its slots (codex fills the canvas)."""
+        dst = self.work / "codex_in" / board["board_file"]
         if not dst.exists():
             dst.parent.mkdir(parents=True, exist_ok=True)
-            flatten_on_white(Image.open(self.work / "boards" / board_file)).save(dst)
+            flat = flatten_on_white(Image.open(self.work / "boards" / board["board_file"]))
+            flat.crop(slots_bbox(board)).save(dst)
         return dst
 
     def _human_preview(self, eid: str) -> Path:
-        files = {b["animation"]: b["board_file"] for b in self.manifest["boards"]
-                 if b["entity_id"] == eid}
-        name = files.get("stay") or files.get("picture") or next(iter(files.values()))
-        return self._flat_input(name)
+        boards = {b["animation"]: b for b in self.manifest["boards"] if b["entity_id"] == eid}
+        board = boards.get("stay") or boards.get("picture") or next(iter(boards.values()))
+        return self._flat_input(board)
 
     # -- design -------------------------------------------------------------
     def design(self, entity_ids: list[str], force=False, parallel=1, dry_run=False) -> dict:
@@ -169,7 +170,7 @@ class Batch:
             key = f"board:{b['board_id']}"
             if not force and self._done(key, out):
                 continue
-            src = self._flat_input(b["board_file"])
+            src = self._flat_input(b)
             out.parent.mkdir(parents=True, exist_ok=True)
             prompt = restyle_prompt(b, self.entities[eid], f"raw/{b['board_file']}")
             jobs.append((key, prompt, [src, self.work / "design" / f"{eid}.png"], out))

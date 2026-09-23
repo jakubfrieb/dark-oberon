@@ -39,3 +39,9 @@ def test_building_design_keeps_human_layout():
 def test_restyle_prompt_says_design_is_only_for_materials():
     p = restyle_prompt(dict(BOARD, entity_type="building"), ENT, "raw/x.png").lower()
     assert "shape comes from image 1" in p
+
+
+def test_restyle_prompt_uses_crop_size():
+    b = dict(BOARD, grid=[1, 1], slots=[{"idx": 0, "dst": [4, 4, 400, 320]}])
+    p = restyle_prompt(b, ENT, "raw/x.png")
+    assert "400x320" in p and "1024x1024" not in p

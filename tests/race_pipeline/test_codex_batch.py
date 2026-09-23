@@ -94,3 +94,14 @@ def test_two_batches_do_not_lose_each_others_state(tmp_path):
     state = json.loads((w / "_codex_state.json").read_text())
     assert state["design:footman"]["status"] == "done"
     assert state["design:peasant"]["status"] == "done"
+
+
+def test_codex_input_is_cropped_to_slots(tmp_path):
+    w = make_work(tmp_path)
+    m = json.loads((w / "boards/_boards_manifest.json").read_text())
+    m["boards"][0]["slots"] = [{"idx": 0, "dst": [2, 2, 8, 6]}]
+    (w / "boards/_boards_manifest.json").write_text(json.dumps(m))
+    b = Batch(w, ENTS, runner=FakeRunner())
+    b.design(["footman"]); b.approve(["footman"])
+    b.restyle(only={"footman"}, animation="stay")
+    assert Image.open(w / "codex_in" / m["boards"][0]["board_file"]).size == (8, 6)

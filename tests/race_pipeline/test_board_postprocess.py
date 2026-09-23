@@ -92,3 +92,28 @@ def test_restore_alpha_drops_white_background_inside_old_silhouette():
     out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
     assert out.getpixel((38, 20))[3] == 0
     assert out.getpixel((25, 20)) == (60, 140, 50, 255)
+
+
+PORTRAIT = {"board_id": "p__picture__b0", "board_file": "p__picture__b0.png", "entity_id": "p",
+            "slots": [{"idx": 0, "dst": [4, 4, 40, 32]}]}
+
+
+def test_slots_bbox_is_union_of_slots():
+    from board_postprocess import slots_bbox
+    b = {"slots": [{"dst": [4, 4, 40, 32]}, {"dst": [48, 4, 40, 32]}]}
+    assert slots_bbox(b) == (4, 4, 88, 36)
+
+
+def test_embed_generated_puts_crop_back_at_bbox():
+    from board_postprocess import embed_generated
+    crop = Image.new("RGB", (80, 64), (0, 200, 0))          # codex output, any size
+    full = embed_generated(crop, PORTRAIT, (64, 64))
+    assert full.size == (64, 64)
+    assert full.getpixel((10, 10)) == (0, 200, 0)
+    assert full.getpixel((50, 50)) == (255, 255, 255)
+
+
+def test_embed_generated_keeps_full_size_board():
+    from board_postprocess import embed_generated
+    img = orc_generated()
+    assert embed_generated(img, BOARD, (SIZE, SIZE)).tobytes() == img.tobytes()
