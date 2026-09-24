@@ -66,7 +66,7 @@ Mirror coast/water between segment 0 and 1 when both are used.
 ## Code references
 
 - [`src/domap.cpp`](../../../src/domap.cpp) — load fragments, layers, objects.
-- [`docs/User_documentation_SK.md`](../../../docs/User_documentation_SK.md) — map file sections.
+- [`docs/User_documentation_EN.md`](../../../docs/User_documentation_EN.md) — map file sections.
 
 ## Shared library
 

@@ -142,7 +142,7 @@ stateDiagram-v2
 
 ## Gameplay prerequisites (logical dependencies)
 
-The manual ([`User_documentation_SK.md`](User_documentation_SK.md), mining / production) states that after mining, a worker goes to the **nearest building that accepts that material**; without such a building, the worker stalls at the source. Factories need **stored materials** and sufficient **player energy** (`min_energy` in `.rac`); production pauses if energy drops too low.
+The manual ([`User_documentation_EN.md`](User_documentation_EN.md), mining / production) states that after mining, a worker goes to the **nearest building that accepts that material**; without such a building, the worker stalls at the source. Factories need **stored materials** and sufficient **player energy** (`min_energy` in `.rac`); production pauses if energy drops too low.
 
 The AI separates **strategic intent** from **whether an action is valid now**:
 
