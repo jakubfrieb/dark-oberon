@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
+# src/Makefile generates build_info.h from ../VERSION (the git hash falls back to "unknown": .git is not in the context).
+COPY VERSION ./
 COPY src/ src/
 RUN make -C src server -j"$(nproc)"
 

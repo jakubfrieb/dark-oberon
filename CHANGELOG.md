@@ -9,6 +9,18 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-24
+
+### Changed
+- `README` rewritten as `README.md`: screenshots, what the fork adds (orc race, CPU players, map editor,
+  new maps), how to play over the internet through the Oberon Cloud lobby, and thanks to the original
+  authors.
+
+### Fixed
+- `docker compose up` in `server/` failed with `No rule to make target '../VERSION'`: the builder stage
+  copied only `src/`. The Dockerfile now copies `VERSION` too, and `src/build_info.h` is excluded from the
+  Docker context so a stale local build stamp can't end up in the image.
+
 ## [0.2.3] - 2026-09-24
 
 ### Changed
@@ -139,7 +151,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...v0.2.1

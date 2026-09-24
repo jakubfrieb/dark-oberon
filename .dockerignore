@@ -10,3 +10,4 @@ dark-oberon-server
 ai-working
 races/*/*.dat-unpacked
 .superpowers
+src/build_info.h
