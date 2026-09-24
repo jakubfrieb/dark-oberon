@@ -34,6 +34,26 @@ except ImportError:
     sys.exit("openai SDK required: pip install openai")
 
 
+def _load_dotenv() -> None:
+    """Lightweight .env loader — looks for .env at the git repo root."""
+    here = Path(__file__).resolve()
+    for parent in [here.parent, *here.parents]:
+        env = parent / ".env"
+        if env.is_file():
+            for line in env.read_text("utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+            return
+        if (parent / ".git").exists():
+            return
+
+
+_load_dotenv()
+
+
 PROMPT_TEMPLATE = """\
 Restyle the isometric game sprites in the second image to match the \
 character/style shown in the first reference image.

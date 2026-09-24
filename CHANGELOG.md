@@ -10,9 +10,23 @@ is the historical baseline and not tracked here.
 ## [Unreleased]
 
 ### Added
+- **Orc race** `orc-red`, `orc-blue`, `orc-yellow` — 1:1 counterpart of the humans (16 entities) in the
+  plasticine style, restyled with codex; team colours by deterministic recolouring.
+- **4-frame sword attack animation** for the human footman and the orc Grunt (was one static, enlarged frame).
+- **CPU AI**: random personality per CPU (aggressive / commercial / calm / rusher / turtle, ±10 % noise),
+  `ai_level` in `config.cfg` and `addcpu [easy|medium|hard]`, military state machine (gather → attack with
+  superiority → retreat), proportional defence, target scoring, expiring retaliation, dedicated scouts,
+  randomised build sites and weighted unit mix. Pure decision module `src/doai_logic.*` with `make test-ai`.
+- **Map generator** (`.cursor/skills/dark-oberon-map/scripts/generate_map.py`) for 2/4/6 players with closed
+  coasts, rock-outlined plateaus with ramps and balanced resources, plus `map_check.py` and a textured
+  isometric preview; 7 generated maps (Twin Ponds, Ridge Duel, Lake Country, Long Water, Crossroads,
+  Great Bay, Six Hills).
+- Race sprite pipeline with codex (`run_codex_board_batch.py`, `board_postprocess.py`, `attack_anim.py`,
+  `recolor_race.py`, `validate_race.py`) and the race generation playbook
+  (`.cursor/skills/dark-oberon-race/PLAYBOOK.md`); Python tests in `tests/race_pipeline` and `tests/mapgen`.
 - Cursor skill `versioning-changelog` defining SemVer policy and changelog workflow.
 - `TFOLLOWER::HasMyAddress()` predicate so callers can tell whether the leader has echoed the follower's externally-visible address yet.
-- `obvious_bugs.md` triage report.
+- `docs/obvious_bugs.md` triage report.
 - `ARCHITECTURE_REFACTOR_PLAN.md` tracking multi-week architecture work (sim/renderer split, `dofile.cpp` rewrite, deterministic-lockstep network model).
 - `RENDER_OBJECTS` variable in `src/Makefile` documenting the 6 pure-rendering objects that should eventually leave the dedicated-server build.
 
@@ -22,11 +36,19 @@ is the historical baseline and not tracked here.
 - `CreateGame()` `@@FIXME@@` replaced with an actual contract comment about `Disconnect()` semantics.
 
 ### Fixed
+- AI: never left the "establish" phase when a map starts with only a town hall; blocked worker training on
+  the global energy balance; never built energy (farms); kept every miner on gold; re-ordered unaffordable
+  repairs every tick (economy deadlock).
+- `.dat` packing strips the TGA 2.0 footer Pillow writes (the engine reads textures sequentially and failed
+  with "Error reading TGA data").
 - `TNET_MESSAGE::Init_receive` no longer copies a fixed 255 bytes; it now reads only the actual message size and rejects out-of-range sizes (was a stack over-read into the message buffer).
 - `TFOLLOWER` initialises `my_address` / `my_port` to a deterministic `0.0.0.0:0` instead of leaving them uninitialised; the single caller in `doengine.cpp` now gates on `HasMyAddress()` before classifying a player as local vs remote.
 - Four bare `new` sites (`dobuildings.cpp`, `dosources.cpp`, `donet.cpp`, `glfont.cpp`) switched to the `NEW` macro so allocations are visible to the memory tracker.
 - `src/dofile.cpp`: 6 unbounded `sprintf` callsites into `TFILE_LINE` buffers (`AddValue`, `WriteStr`, `WriteInt`, `WriteFloat`, `WriteDouble`, `WriteSimple`, `WriteByte`) now use `snprintf(..., FILE_MAX_LINE_LENGTH, ...)`. Previously a long `value` passed to `WriteStr` could overflow the 1024-byte stack buffer.
 - `src/dofile.cpp` `Reload()` long-line accumulator (`buff = strcat(buff, values)`): added explicit length checks against `sizeof(buffer)` (10 × `FILE_MAX_LINE_LENGTH`) before each `strcat`. A malformed `.rac` file with many `_`-continued lines could previously overflow the 10240-byte stack buffer.
+
+### Removed
+- Test maps `orc_test` and `attack_test` (the race playbook describes a throwaway arena instead).
 
 ### Security
 - Closed the `Init_receive` stack over-read described above (low exploitability today, but an attack surface for any future caller passing a smaller buffer).
@@ -55,7 +77,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Graphical layer modules replaced.
 
 ### Removed
-- Retired the local Stable Diffusion / Automatic1111 pipeline (`dark-oberon-sd` skill) in favour of the Codex / OpenAI image pipeline.
+- Retired the local Stable Diffusion / Automatic1111 pipeline in favour of the Codex / OpenAI image pipeline
+  (this repository still keeps the `dark-oberon-sd` skill for offline use).
 - Stopped tracking generated log files (`logs/full.log`, `logs/error.log`, `src/.doxygen.log`) — they remain on disk locally but are no longer committed.
 
 ### Fixed
