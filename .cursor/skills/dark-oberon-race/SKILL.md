@@ -241,27 +241,27 @@ After finalize:
 - DAT format + scripts: [dark-oberon-dat skill](../dark-oberon-dat/SKILL.md)
 - Engine loaders: [`src/doraces.cpp`](../../src/doraces.cpp), [`src/dodata.cpp`](../../src/dodata.cpp)
 
-## Codex pipeline (modelína) — orci
+## Codex pipeline (plasticine) — orcs
 
-Kreslí `codex exec` (obrázky generuje nativně ~1254 px a sám je zmenší); vše okolo je deterministické a pokryté testy (`tests/race_pipeline`).
+`codex exec` does the drawing (it generates images natively at ~1254 px and downscales them itself); everything around it is deterministic and covered by tests (`tests/race_pipeline`).
 
 ```bash
 S=.cursor/skills/dark-oberon-dat/scripts; W=$PWD/ai-working/race-pipeline-orc
 bash $S/race_pipeline.sh compose --source $PWD/races/human-red --work-dir $W
 bash $S/race_pipeline.sh boards  --work-dir $W
 python3 $S/run_codex_board_batch.py design  $W --entities footman --refs ai-working/race-pipeline-human-red/orcs-racs
-python3 $S/run_codex_board_batch.py approve $W footman          # až po schválení design sheetu
+python3 $S/run_codex_board_batch.py approve $W footman          # only after the design sheet is approved
 python3 $S/run_codex_board_batch.py restyle $W --only footman --parallel 4
-bash $S/race_pipeline.sh codex-post --work-dir $W --only footman  # validace + alfa z originálu + unboards
+bash $S/race_pipeline.sh codex-post --work-dir $W --only footman  # validation + alpha from original + unboards
 bash $S/race_pipeline.sh finalize --work-dir $W --output races/orc-red --race-id orc-red \
   --race-name "Plastic Orcs - Red" --names-json $S/orc_entities.json
 bash $S/race_pipeline.sh variants --source races/orc-red --race-prefix orc --name-prefix "Plastic Orcs"
 ```
 
-Zjištění z pilotu (Grunt + War Camp):
-- Codex dostává jen **výřez boardu ohraničený sloty** (jinak u portrétu nakreslí malý objekt do rohu).
-- Budovy: design sheet i restyle musí **zachovat tvar lidské budovy** (jinak codex zkopíruje tvar z design sheetu).
-- Prompt vysvětluje typ animace: `picture` = portrét od okraje k okraji, `build` = fáze stavby (nedokončené), `zombie` = trosky.
-- Post-process bere alfu z lidského originálu, zachová lidský stín, bílé pozadí spojené s okolím zprůhlední.
-- Neúspěšné boardy (`_post_report.json`, náhledy v `$W/review/`) přegeneruj `restyle --only <e> --animation <a> --force`.
-- Nespouštěj dva procesy nad stejným `$W` bez nutnosti; stav se sice slučuje, ale každý proces zapisuje celý soubor.
+Findings from the pilot (Grunt + War Camp):
+- Codex receives only the **board crop bounded by the slots** (otherwise it draws a tiny object in the corner of the portrait).
+- Buildings: both the design sheet and restyle must **preserve the human building's shape** (otherwise codex copies the shape from the design sheet).
+- The prompt explains the animation type: `picture` = edge-to-edge portrait, `build` = construction stages (unfinished), `zombie` = ruins.
+- Post-process takes the alpha from the human original, keeps the human shadow, and makes white background connected to the surroundings transparent.
+- Regenerate failed boards (`_post_report.json`, previews in `$W/review/`) with `restyle --only <e> --animation <a> --force`.
+- Do not run two processes on the same `$W` unless necessary; state is merged, but each process writes the whole file.

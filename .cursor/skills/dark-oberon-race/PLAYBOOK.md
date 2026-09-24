@@ -1,101 +1,101 @@
-# Generování ras přes codex — playbook (zkušenosti z orků, 2026-09)
+# Generating races with codex — playbook (lessons from the orcs, 2026-09)
 
-Souhrn toho, co při tvorbě orčí rasy (`races/orc-{red,blue,yellow}`) fungovalo, co ne a jak
-postupovat příště — včetně úplně nové rasy, která nebude 1:1 kopií lidí.
+A summary of what worked and what didn't when creating the orc race (`races/orc-{red,blue,yellow}`), and how
+to proceed next time — including a completely new race that will not be a 1:1 copy of the humans.
 
-Nástroje: `.cursor/skills/dark-oberon-dat/scripts/` (`race_pipeline.sh`, `run_codex_board_batch.py`,
-`board_postprocess.py`, `attack_anim.py`, `recolor_race.py`, `validate_race.py`), testy
+Tools: `.cursor/skills/dark-oberon-dat/scripts/` (`race_pipeline.sh`, `run_codex_board_batch.py`,
+`board_postprocess.py`, `attack_anim.py`, `recolor_race.py`, `validate_race.py`), tests
 `tests/race_pipeline/` (`python3 -m pytest tests/race_pipeline`).
 
 ---
 
-## 1. Postup, který se osvědčil
+## 1. The process that proved itself
 
-1. **Styl zamknout předem.** Všechno musí vypadat jako vymodelované z modelíny (matná hmota,
-   zaoblené tvary, světlo zleva shora, žádné obrysy ani pixel-art). Pravidla jsou v
-   `codex_prompts.py:STYLE_RULES` a jdou do každého promptu.
-2. **Pilot: jedna jednotka + jedna budova**, až po schválení zbytek. Pilot odhalil většinu
-   problémů (portrét, tvar budov, stavební fáze, bílé lemy, TGA patička).
-3. **Design sheet na entitu → schválení uživatelem → teprve pak restyle** (`design`, `approve`,
-   `restyle`). Schvalování po skupinách (jednotky / hlavní budovy / výroba / obrana).
-4. **Restyle existujících boardů 1:1** (lidská grafika jako předloha): codex dostane lidský board
-   + design sheet a přemaluje každý sprite na stejném místě, ve stejné póze a velikosti.
-5. **Deterministický post-process:** alfa z lidského originálu (sprite sedí přesně do buňky,
-   kotva a stín zůstanou), validace `coverage` / `spill` / `unchanged`, náhled `review/`.
-6. **Neúspěšné boardy** přegenerovat `--force` (max 3×); když je výsledek vizuálně OK a jen
-   neprojde prahem (typicky malé objekty se září), přijmout vědomě `board_postprocess.py --accept`
-   (pamatuje se v `_accepted.json`).
-7. **Týmová barva:** generovat jen červenou variantu (týmové části „čistě červeně“),
-   modrou/žlutou dělat deterministicky `race_pipeline.sh variants` (kalibrované mapování
-   `team_blue.json`, `team_yellow.json`). Zelená kůže / hnědé dřevo zůstanou.
-8. **Kontrola v herní velikosti** (64 px sprity na trávě `(96,128,64)` vedle lidí) — v plném
-   rozlišení vypadá vše dobře, problémy (lemy, díry, měřítko) jsou vidět až takhle.
-9. **Validace a engine:** `validate_race.py races/<id> --reference races/human-red`, pak
-   headless server (`make server` v dočasné kopii `src/`, `addcpu`×2, `start`) — musí dojít
-   na `Update: Running` bez `Err:`.
-10. **Testovací mapa pro novou rasu** (jednorázová, necommitovat): kopie `maps/trial.map` s `name "<rasa>"
-    místo `"human-red"`; pro kontrolu animací boje postavit obě armády ~8 polí od sebe
-    (`start_point_0/1` blízko, v `<Units>` jen vojáci) — boj začne hned po startu.
+1. **Lock the style up front.** Everything must look modelled from plasticine (matte material,
+   rounded shapes, light from the top left, no outlines or pixel art). The rules live in
+   `codex_prompts.py:STYLE_RULES` and go into every prompt.
+2. **Pilot: one unit + one building**, the rest only after approval. The pilot uncovered most
+   problems (portrait, building shape, construction stages, white fringes, TGA footer).
+3. **Design sheet per entity → user approval → only then restyle** (`design`, `approve`,
+   `restyle`). Approve in groups (units / main buildings / production / defence).
+4. **Restyle existing boards 1:1** (human graphics as the template): codex gets the human board
+   + design sheet and repaints every sprite in the same place, in the same pose and size.
+5. **Deterministic post-process:** alpha from the human original (the sprite fits the cell exactly,
+   anchor and shadow are kept), validation of `coverage` / `spill` / `unchanged`, preview in `review/`.
+6. **Failed boards:** regenerate with `--force` (max 3×); when the result looks fine visually and only
+   misses the threshold (typically small glowing objects), accept it deliberately with `board_postprocess.py --accept`
+   (remembered in `_accepted.json`).
+7. **Team colour:** generate only the red variant (team parts "pure red"),
+   produce blue/yellow deterministically with `race_pipeline.sh variants` (calibrated mapping
+   `team_blue.json`, `team_yellow.json`). Green skin / brown wood stay as they are.
+8. **Check at in-game size** (64 px sprites on grass `(96,128,64)` next to the humans) — at full
+   resolution everything looks fine; problems (fringes, holes, scale) only show up this way.
+9. **Validation and engine:** `validate_race.py races/<id> --reference races/human-red`, then
+   a headless server (`make server` in a temporary copy of `src/`, `addcpu`×2, `start`) — it must reach
+   `Update: Running` without `Err:`.
+10. **Test map for a new race** (one-off, do not commit): a copy of `maps/trial.map` with `name "<race>"`
+    instead of `"human-red"`; to check combat animations, place both armies ~8 tiles apart
+    (`start_point_0/1` close together, only soldiers in `<Units>`) — combat starts right after the start.
 
-## 2. Co nefungovalo a jak se to řeší
+## 2. What didn't work and how it is handled
 
-| Problém | Příčina | Řešení (už v nástrojích) |
+| Problem | Cause | Solution (already in the tools) |
 |---|---|---|
-| Hra nenačetla rasu: `Error reading TGA data` | Pillow zapisuje TGA 2.0 s patičkou `TRUEVISION-XFILE`; engine čte `.dat` sekvenčně a `dsize` ignoruje | `do_dat_tool.py pack` ořezává data za pixely; `validate_race.py` je hlídá |
-| Portrét = malá hlava v rohu | codex dostal celý board 1024², slot zabíral 400×320 | codexu posílat jen výřez slotů (`slots_bbox`) a vložit zpět (`embed_generated`) |
-| Budova má jiný tvar než lidská | codex kopíroval tvar z design sheetu | v design i restyle promptu „zachovej tvar/půdorys lidské budovy“ (`LAYOUT_RULE`) |
-| Stavební fáze nakreslené jako hotové budovy | codex nechápe význam animace | nápovědy podle animace (`ANIMATION_HINTS`: `picture`, `build`, `zombie`, `projectile`) |
-| Bílé lemy kolem užší postavy | codex namaloval pozadí uvnitř staré siluety | bílou zprůhlednit, ale **jen spojenou s okolím** (flood-fill); jinak vzniknou díry (dvůr kasáren) |
-| Projektil (32 px) neprošel validací | lidský kámen má rozmazanou záři | `--accept` po vizuální kontrole |
-| Paralelní běhy si přepisovaly stav | každý proces zapisoval celý JSON | stav se před zápisem slučuje; přesto nespouštět zbytečně víc procesů nad stejným `W` |
-| Útok vypadal jako „zvětšení“ | původní data mají 1 statický, větší snímek útoku | nová animace `attack_anim.py` (4 snímky, `atime` = `offensive_feed_time`) |
-| Grunt v útoku otočený špatným směrem | reference byl jen design sheet (pohled zepředu) | reference = board se **všemi 8 směry** + `--views "5:back-left,6:back,7:back-right"` |
-| Codex „selhal“ na všech voláních | došel limit ChatGPT plánu | `run_codex` teď vyhodí `CodexUsageLimit`; počkat na reset (hláška obsahuje čas) |
-| Codex nenašel vstupní obrázky | relativní cesty, codex běží s `-C work` | všechny cesty pro codex absolutní |
-| Kalibrace barev párovala špatně | lidské varianty mají jiné indexy skupin (`g020_…`) | párovat podle `skupina__id` |
-| Světlá věž (Watchtower) působí lidsky | design zdědil světlou omítku | u design sheetu hlídat materiály (tmavé dřevo/kámen) — uživatel to schválil vědomě |
+| The game failed to load the race: `Error reading TGA data` | Pillow writes TGA 2.0 with a `TRUEVISION-XFILE` footer; the engine reads `.dat` sequentially and ignores `dsize` | `do_dat_tool.py pack` trims data past the pixels; `validate_race.py` checks for it |
+| Portrait = tiny head in the corner | codex got the whole 1024² board, the slot took 400×320 | send codex only the slot crop (`slots_bbox`) and embed it back (`embed_generated`) |
+| Building has a different shape than the human one | codex copied the shape from the design sheet | "keep the human building's shape/footprint" in both design and restyle prompts (`LAYOUT_RULE`) |
+| Construction stages drawn as finished buildings | codex doesn't understand what the animation means | per-animation hints (`ANIMATION_HINTS`: `picture`, `build`, `zombie`, `projectile`) |
+| White fringes around a narrower figure | codex painted background inside the old silhouette | make white transparent, but **only where connected to the surroundings** (flood-fill); otherwise holes appear (barracks courtyard) |
+| Projectile (32 px) failed validation | the human stone has a blurred glow | `--accept` after a visual check |
+| Parallel runs overwrote each other's state | each process wrote the whole JSON | state is merged before writing; still, don't run more processes on the same `W` than needed |
+| Attack looked like "zooming in" | original data have 1 static, larger attack frame | new animation `attack_anim.py` (4 frames, `atime` = `offensive_feed_time`) |
+| Grunt faced the wrong way while attacking | the reference was only the design sheet (front view) | reference = board with **all 8 directions** + `--views "5:back-left,6:back,7:back-right"` |
+| Codex "failed" on every call | the ChatGPT plan limit ran out | `run_codex` now raises `CodexUsageLimit`; wait for the reset (the message includes the time) |
+| Codex could not find input images | relative paths, codex runs with `-C work` | all paths passed to codex are absolute |
+| Colour calibration paired things wrongly | human variants have different group indices (`g020_…`) | pair by `group__id` |
+| Light tower (Watchtower) looks human | the design inherited light plaster | watch materials on the design sheet (dark wood/stone) — the user approved it knowingly |
 
-| Stavební fáze vypadala lidsky (šedý kámen) | codex převzal materiál z lidského boardu | `restyle --hint "…same orc materials as the finished building…"` |
-| Zbytky lidských předmětů (modrá ruda, bílé kameny, tečkované obrysy) | alfa z lidského originálu drží i ostrůvky, které codex vyplní světle | post-process: stín jen šedý (ne barevný), odstranění světlých ostrůvků, osiřelých poloprůhledných obrysů a světlého lemu na obrysu |
-| Modrý kámen na orčím katapultu | lidský předmět, nápověda nezabrala | deterministicky `W/_retint.json` (`{"catapult": {"from_hue": [190,260], "to_hue": 30, "sat": 0.15}}`) |
+| Construction stage looked human (grey stone) | codex took the material from the human board | `restyle --hint "…same orc materials as the finished building…"` |
+| Leftover human items (blue ore, white stones, dotted outlines) | alpha from the human original keeps islands that codex fills with light colours | post-process: grey-only shadow (not coloured), removal of light islands, orphaned semi-transparent outlines and the light fringe on the outline |
+| Blue stone on the orc catapult | human item, the hint didn't help | deterministically via `W/_retint.json` (`{"catapult": {"from_hue": [190,260], "to_hue": 30, "sat": 0.15}}`) |
 
-**Review hotové rasy:** metriky proti lidské rase (bílé pixely, lem, ztracená plocha, magenta,
-týmová barva) + kontaktní listy všech textur na trávě; podezřelé kusy porovnat 1:1 s lidským
-originálem. Po změně post-processu vždy zkontrolovat regrese (úbytek neprůhledné plochy > 2 %).
-`finalize` validuje ještě před `attack_anim apply` → chyby `footman_attack` size jsou v tu chvíli
-očekávané, po `apply` musí validace projít.
+**Reviewing a finished race:** metrics against the human race (white pixels, fringe, lost area, magenta,
+team colour) + contact sheets of all textures on grass; compare suspicious pieces 1:1 with the human
+original. After any post-process change always check for regressions (loss of opaque area > 2 %).
+`finalize` validates before `attack_anim apply` → `footman_attack` size errors are
+expected at that point; after `apply` validation must pass.
 
-Provozní drobnosti: headless server po startu hry nereaguje na `quit` (ukončovat
-`timeout -k`); server zapisuje logy do `logs/` repozitáře (nesplést s logy hráče); scratchpad
-se po restartu session maže (binárky serveru stavět znovu); `finalize` přepíše `.dat` ze sheetů —
-**animaci útoku pak znovu aplikovat** (`attack_anim.py apply`, snímky zůstávají v `ai-working/attack-*`)
-a znovu spustit `variants`.
+Operational details: the headless server does not respond to `quit` after the game starts (terminate it with
+`timeout -k`); the server writes logs to the repository's `logs/` (don't confuse with the player's logs); the scratchpad
+is wiped after a session restart (rebuild the server binaries); `finalize` rewrites the `.dat` from the sheets —
+**then re-apply the attack animation** (`attack_anim.py apply`, frames stay in `ai-working/attack-*`)
+and run `variants` again.
 
-## 3. Úplně nová rasa (ne 1:1 kopie lidí) — doporučený postup
+## 3. A completely new race (not a 1:1 copy of the humans) — recommended process
 
-Rozdíl proti orkům: pro nové jednotky/budovy **neexistuje předloha**, ze které by šla převzít
-alfa, kotva a počty snímků. Proto:
+Difference from the orcs: for new units/buildings **there is no template** to take
+alpha, anchor and frame counts from. Therefore:
 
-1. **Návrh obsahu:** seznam jednotek a budov, role, statistiky → nový `.rac` (id, `tg_*`
-   skupiny, `can_build`, `products`, materiály). Kde to jde, držet **rozměry buněk a počty
-   snímků** podle nejbližší lidské entity (jednotka 64×64, 8 směrů; budovy podle `width/height`),
-   aby šly použít stejné kotvy (`pointx/pointy`) a stíny.
-2. **Předloha tvaru:** pro každou novou entitu vybrat lidskou entitu podobné velikosti jako
-   „siluetu a měřítko“ (kotva, velikost v buňce). Tam, kde má nová entita zůstat tvarově
-   blízko, lze dál použít restyle 1:1 (nejpřesnější).
-3. **Nové snímky bez předlohy** generovat stejně jako `attack_anim.py`: magentové pozadí,
-   mřížka 2×2 se širokým okrajem, klíčování, jednotné měřítko na směr (z jednoho referenčního
-   snímku), ukotvení nohou na zemní bod, stín převzít z předlohy (nebo syntetizovat).
-   Reference pro codex = board se všemi 8 směry + nápověda pohledu pro zadní směry.
-4. **Pořadí:** design sheety → schválení → 1 jednotka + 1 budova pilot (včetně herního
-   testu) → zbytek → barevné varianty → validace → headless test → dočasná aréna (bod 10).
-5. **Validátor** dnes porovnává s referenční rasou 1:1 (stejné skupiny a rozměry). Pro novou
-   rasu bude potřeba režim „jen konzistence“ (každá `tg_*` skupina existuje, 8 textur pro
-   směrové skupiny, `hcount*vcount` sedí s rozměrem, žádná data za pixely).
-6. **AI** nové rasy funguje bez úprav, pokud `.rac` dodrží typy (`w`/`f`/`b`/`a`), `can_build`
-   a továrny s `products` (AI čte `build_list`, nemá natvrdo jména).
+1. **Content design:** list of units and buildings, roles, stats → a new `.rac` (id, `tg_*`
+   groups, `can_build`, `products`, materials). Where possible, keep **cell sizes and frame
+   counts** from the closest human entity (unit 64×64, 8 directions; buildings by `width/height`),
+   so the same anchors (`pointx/pointy`) and shadows can be used.
+2. **Shape template:** for each new entity pick a human entity of similar size as its
+   "silhouette and scale" (anchor, size in the cell). Where the new entity should stay close in
+   shape, the 1:1 restyle can still be used (most accurate).
+3. **Generate new frames without a template** the same way as `attack_anim.py`: magenta background,
+   2×2 grid with a wide margin, keying, uniform scale per direction (from a single reference
+   frame), feet anchored to the ground point, shadow taken from the template (or synthesized).
+   Reference for codex = board with all 8 directions + a view hint for the back directions.
+4. **Order:** design sheets → approval → pilot of 1 unit + 1 building (including an in-game
+   test) → the rest → colour variants → validation → headless test → temporary arena (item 10).
+5. **The validator** currently compares 1:1 against the reference race (same groups and sizes). A new
+   race will need a "consistency only" mode (every `tg_*` group exists, 8 textures for
+   directional groups, `hcount*vcount` matches the size, no data past the pixels).
+6. **AI** for a new race works without changes as long as the `.rac` respects the types (`w`/`f`/`b`/`a`), `can_build`
+   and factories with `products` (the AI reads `build_list`, it has no hardcoded names).
 
-## 4. Rychlá reference příkazů
+## 4. Quick command reference
 
 ```bash
 S=.cursor/skills/dark-oberon-dat/scripts; W=$PWD/ai-working/race-pipeline-<id>
@@ -104,14 +104,14 @@ bash $S/race_pipeline.sh boards  --work-dir $W
 python3 $S/run_codex_board_batch.py design  $W --entities <e1,e2> --refs <ref-dir> --parallel 4
 python3 $S/run_codex_board_batch.py approve $W <e1> <e2>
 python3 $S/run_codex_board_batch.py restyle $W --only <e1,e2> --parallel 5
-bash $S/race_pipeline.sh codex-post --work-dir $W            # validace + alfa + unboards
-python3 $S/board_postprocess.py $W --only <e> --accept <board_id>   # vědomé přijetí
+bash $S/race_pipeline.sh codex-post --work-dir $W            # validation + alpha + unboards
+python3 $S/board_postprocess.py $W --only <e> --accept <board_id>   # deliberate acceptance
 bash $S/race_pipeline.sh finalize --work-dir $W --output races/<id>-red --race-id <id>-red \
   --race-name "<Name> - Red" --names-json <names.json>
-# animace útoku (nové snímky)
+# attack animation (new frames)
 python3 $S/attack_anim.py prepare  --unpacked <unpacked> --stay-group <unit>_stay --work ai-working/attack-<unit>
 python3 $S/attack_anim.py generate --work ai-working/attack-<unit> --reference <board-8-dirs.png> \
-  --subject "<popis>" --views "5:back-left,6:back,7:back-right"
+  --subject "<description>" --views "5:back-left,6:back,7:back-right"
 python3 $S/attack_anim.py build    --unpacked <unpacked> --stay-group <unit>_stay --work ai-working/attack-<unit>
 python3 $S/attack_anim.py apply    --unpacked <unpacked> --group <unit>_attack --work ai-working/attack-<unit>
 bash $S/race_pipeline.sh variants --source races/<id>-red --race-prefix <id> --name-prefix "<Name>"

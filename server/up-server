@@ -2,7 +2,7 @@
 set -euo pipefail
 SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE="$SERVER_DIR/docker-compose.yml"
-# Compose Bake vyžaduje buildx; bez něj WARN při každém buildu — klasický builder stačí.
+# Compose Bake requires buildx; without it every build prints a WARN — the classic builder is enough.
 export COMPOSE_BAKE=false
 
 usage() {

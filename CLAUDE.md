@@ -4,16 +4,16 @@
 - Race and map workflows: `.cursor/skills/dark-oberon-race/PLAYBOOK.md`, `.cursor/skills/dark-oberon-map/`.
 - Tests: `make test-ai` (C++ AI logic), `python -m pytest tests/race_pipeline tests/mapgen`.
 
-## Versioning & Changelog (SemVer) — ZÁVAZNÉ
-- Každá **hotová iterace** se verzuje podle Semantic Versioning **MAJOR.MINOR.PATCH**:
-  - MAJOR = nekompatibilní změna, MINOR = nová funkce zpětně kompatibilní, PATCH = oprava.
-  - Detailní pravidla (co je breaking pro `.dat`/`.rac`/mapy/síťový protokol, kategorie záznamů):
+## Versioning & Changelog (SemVer) — BINDING
+- Every **finished iteration** is versioned using Semantic Versioning **MAJOR.MINOR.PATCH**:
+  - MAJOR = incompatible change, MINOR = new backward-compatible feature, PATCH = fix.
+  - Detailed rules (what counts as breaking for `.dat`/`.rac`/maps/network protocol, entry categories):
     `.cursor/skills/versioning-changelog/SKILL.md`.
-- Vede se **CHANGELOG.md** ve formátu [Keep a Changelog](https://keepachangelog.com):
-  novinky průběžně do sekce `## [Unreleased]` (Added/Changed/Fixed/Removed/Security); při dokončení iterace
-  přesun Unreleased do `## [X.Y.Z] - RRRR-MM-DD`, aktualizuj odkazy na konci souboru a bumpni verzi.
-- **Jediný zdroj verze je soubor `VERSION`** v kořeni (např. `0.2.0`). `src/Makefile` z něj generuje
-  `build_info.h` (`DO_VERSION_STRING`, zobrazeno v menu). Verzi nikde jinde natvrdo nepiš.
-- „Hotová iterace" = stav mergnutý do `master`, který se dá sestavit a hrát.
-- Změna není hotová, dokud není CHANGELOG aktualizovaný a verze bumpnutá.
-- Git tag `vX.Y.Z` a push jen na požádání uživatele.
+- Maintain **CHANGELOG.md** in the [Keep a Changelog](https://keepachangelog.com) format:
+  add changes continuously under `## [Unreleased]` (Added/Changed/Fixed/Removed/Security); when an iteration
+  is finished, move Unreleased to `## [X.Y.Z] - YYYY-MM-DD`, update the links at the end of the file and bump the version.
+- **The single source of the version is the `VERSION` file** in the root (e.g. `0.2.0`). `src/Makefile` generates
+  `build_info.h` from it (`DO_VERSION_STRING`, shown in the menu). Never hardcode the version anywhere else.
+- "Finished iteration" = a state merged into `master` that builds and is playable.
+- A change is not done until the CHANGELOG is updated and the version is bumped.
+- Git tag `vX.Y.Z` and push only when the user asks.

@@ -1,9 +1,9 @@
-# Lobby UI: Traefik → https://oberon.cloud.digitalmind.cz (HTTP/S na portu 8080 uvnitř sítě).
-# Herní TCP: klienti se připojují na oberon-game.cloud.digitalmind.cz:<port> (17000–17009).
-# Nastav stejnou A záznamu na IP serveru jako u lobby; Traefik pro tyto porty neproxyuje (je to vlastní protokol).
+# Lobby UI: Traefik → https://oberon.cloud.digitalmind.cz (HTTP/S on port 8080 inside the network).
+# Game TCP: clients connect to oberon-game.cloud.digitalmind.cz:<port> (17000–17009).
+# Point the A record at the same server IP as the lobby; Traefik does not proxy these ports (custom protocol).
 #
-# Stabilní project name = stejné labely/Traefik i když compose leží v /server nebo v repo/server/.
-# (Bez `name` by Compose bral název z nadřazené složky → jiný projekt než dřív z kořene repa → orphan / duplicitní kontejnery.)
+# Stable project name = same labels/Traefik whether compose lives in /server or in repo/server/.
+# (Without `name`, Compose would take the parent folder name → a different project than before from the repo root → orphan / duplicate containers.)
 name: dark-oberon
 
 services:
@@ -21,7 +21,7 @@ services:
       - DATA_DIR=/app
       - WEB_PORT=8080
       - GAME_PUBLIC_HOST=oberon-game.cloud.digitalmind.cz
-      # Veřejná doména = skenery; access log v kontejneru jen zahlcuje (Traefik má vlastní logy).
+      # Public domain = scanners; the access log in the container is just noise (Traefik has its own logs).
       - GUNICORN_ACCESS_LOG=/dev/null
     networks:
       - public_proxy

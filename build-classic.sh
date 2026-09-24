@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Klasický klient Dark Oberon: make v src/ → binárka dark-oberon v koreni projektu.
+# Classic Dark Oberon client: make in src/ → dark-oberon binary in the project root.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
