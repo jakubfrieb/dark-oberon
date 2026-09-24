@@ -9,6 +9,14 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-24
+
+### Changed
+- All Slovak/Czech source comments and debug/log strings in `src/` translated to English (no code changes).
+- Documentation translated to English: the programmer, user and project manuals (`docs/*_SK.md` renamed to
+  `docs/*_EN.md`; the original Slovak PDFs are kept), `RACE_SPEC_FOR_AI.md`, design specs and plans,
+  `CLAUDE.md`, the race playbook, skills and server scripts.
+
 ## [0.2.1] - 2026-09-24
 
 ### Changed
@@ -111,7 +119,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jakubfrieb/dark-oberon/releases/tag/v0.1.0
