@@ -93,7 +93,21 @@ def learn_adjacency(map_paths, sch_path: Path) -> set:
     return allowed
 
 
-def check_adjacency(grid: np.ndarray, allowed: set) -> list[str]:
+def _edges_match(a: str, d: str, b: str, masks: dict) -> bool:
+    """Shared edge of the two fragments has the same terrain (masks are column-major).
+    Full-rock masks (rocks_s, rocks_w, ...) say nothing about the drawn edge -> never match."""
+    ma, mb = masks.get(a), masks.get(b)
+    if not ma or not mb or set(ma) == {30} or set(mb) == {30}:
+        return False
+    if d == "E":
+        return [ma[20 + y] for y in range(5)] == [mb[y] for y in range(5)]
+    return [ma[x * 5 + 4] for x in range(5)] == [mb[x * 5] for x in range(5)]
+
+
+def check_adjacency(grid: np.ndarray, allowed: set, sch_path: Path | None = None) -> list[str]:
+    """Pairs must occur in the hand-made maps, or (with @p sch_path) line up exactly on the
+    shared edge (e.g. a ramp right after a straight edge, which the original author never used)."""
+    masks = {n: ids for n, ids in scheme_fragments(sch_path, 1).values()} if sch_path else {}
     errs = []
     h, w = grid.shape
     for cy in range(h):
@@ -102,7 +116,8 @@ def check_adjacency(grid: np.ndarray, allowed: set) -> list[str]:
                 if cx + dx >= w or cy + dy >= h:
                     continue
                 a, b = grid[cy, cx], grid[cy + dy, cx + dx]
-                if (a, d, b) not in allowed and not (a == b and a in ("grass", "sea")):
+                if (a, d, b) not in allowed and not (a == b and a in ("grass", "sea")) \
+                        and not _edges_match(a, d, b, masks):
                     errs.append(f"cell ({cx},{cy}): {a} -{d}- {b} never seen in hand-made maps")
     return errs
 
@@ -168,7 +183,7 @@ def check_map(path: Path) -> list[str]:
     sch = root / "schemes" / "plastic.sch"
     m = read_map(path, sch)
     allowed = learn_adjacency([root / "maps" / n for n in HANDMADE], sch)
-    errs = check_adjacency(m.grid, allowed)
+    errs = check_adjacency(m.grid, allowed, sch)
     obstacles = [(x, y, SIZES.get(sid, 3)) for sid, x, y, _l, _a in m.sources]
     errs += check_connectivity(walkable_grid(m.grid, sch, obstacles), m.starts)
     errs += check_resources(m.sources, m.starts)

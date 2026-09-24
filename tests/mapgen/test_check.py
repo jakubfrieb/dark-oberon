@@ -50,3 +50,19 @@ def test_resources_overlap_and_balance():
     assert any("overlap" in e for e in check_resources(overlap, starts))
     unbalanced = [("goldmine", 32, 20, 100, 35000)]
     assert any("balance" in e for e in check_resources(unbalanced, starts))
+
+
+def test_adjacency_accepts_unseen_pair_with_matching_edges():
+    allowed = learn_adjacency(HANDMADE, SCH)
+    assert ("rocks_e", "S", "rocks_e_end_n") not in allowed
+    g = np.full((2, 1), "grass", dtype=object)
+    g[0, 0], g[1, 0] = "rocks_e", "rocks_e_end_n"
+    assert check_adjacency(g, allowed, SCH) == []
+
+
+def test_adjacency_rejects_unseen_full_rock_pair():
+    allowed = learn_adjacency(HANDMADE, SCH)
+    assert ("rocks_s", "E", "rocks_w") not in allowed
+    g = np.full((1, 2), "grass", dtype=object)
+    g[0, 0], g[0, 1] = "rocks_s", "rocks_w"
+    assert check_adjacency(g, allowed, SCH)

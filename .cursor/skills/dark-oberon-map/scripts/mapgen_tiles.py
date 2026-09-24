@@ -104,11 +104,16 @@ def _remove_saddles(mask: np.ndarray) -> bool:
 
 
 def smooth_region(mask: np.ndarray, table: dict = WATER_TABLE) -> np.ndarray:
-    """Opening 3x3, remove diagonal saddles and any cell no fragment fits; repeat until stable."""
+    """Opening 3x3 of the region and of its outside, remove diagonal saddles and any cell no
+    fragment fits; repeat until stable."""
     m = mask.copy()
     for _ in range(64):
+        before = m.copy()
         m = _opening(m)
-        changed = _remove_saddles(m)
+        # the outside must be as thick as the region: 1-cell land strips between two parts of
+        # a lake have no fragment either (edges would not line up) -> fill them
+        m = ~_opening(~m)
+        changed = _remove_saddles(m) or not np.array_equal(before, m)
         bad = [(cx, cy) for cy in range(m.shape[0]) for cx in range(m.shape[1])
                if m[cy, cx] and outside_sides(m, cx, cy) and outside_sides(m, cx, cy) not in table]
         for cx, cy in bad:

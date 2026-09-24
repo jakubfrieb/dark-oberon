@@ -94,3 +94,25 @@ def test_fragment_ids_and_underground():
     ids0 = fragment_ids(SCH, 0)
     for n in ("coast_n", "coast_wn", "sea", "grass", "rocks_s"):
         assert ug_name(n) in ids0
+
+
+def _edge_ok(a, d, b, masks):
+    col = lambda n, x: [masks[n][x * 5 + y] for y in range(5)]
+    row = lambda n, y: [masks[n][x * 5 + y] for x in range(5)]
+    return col(a, 4) == col(b, 0) if d == "E" else row(a, 4) == row(b, 0)
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_smoothed_random_water_has_seamless_edges(seed):
+    from map_check import scheme_fragments
+    masks = {n: ids for n, ids in scheme_fragments(SCH, 1).values()}
+    rng = np.random.default_rng(seed)
+    s = smooth_region(rng.random((24, 24)) > 0.5, WATER_TABLE)
+    g = [[(outline_fragment(s, cx, cy, WATER_TABLE) or "sea") if s[cy, cx] else "grass" for cx in range(24)]
+         for cy in range(24)]
+    for cy in range(24):
+        for cx in range(24):
+            if cx < 23:
+                assert _edge_ok(g[cy][cx], "E", g[cy][cx + 1], masks), (cx, cy, g[cy][cx], g[cy][cx + 1])
+            if cy < 23:
+                assert _edge_ok(g[cy][cx], "S", g[cy + 1][cx], masks), (cx, cy, g[cy][cx], g[cy + 1][cx])
