@@ -189,6 +189,28 @@ def unpack_dat(dat_path: Path, out_dir: Path) -> None:
     print(f"Unpacked to {out_dir}")
 
 
+def engine_tga_bytes(raw: bytes, name: str = "") -> bytes:
+    """Return TGA bytes the engine can read from a .dat stream.
+
+    The engine (src/dodata.cpp -> tgaRead) reads textures sequentially and does
+    not skip ``dsize``: any bytes after the pixel data (e.g. the TGA 2.0
+    'TRUEVISION-XFILE' footer Pillow writes) shift every following record.
+    Uncompressed images are cut right after the pixel data.
+    """
+    idlen, cmaptype, itype = raw[0], raw[1], raw[2]
+    cmaplen = raw[5] | (raw[6] << 8)
+    cmapbytes = cmaplen * ((raw[7] + 7) // 8) if cmaptype == 1 else 0
+    w, h, bpp = raw[12] | (raw[13] << 8), raw[14] | (raw[15] << 8), (raw[16] + 7) // 8
+    if itype in (1, 2, 3):
+        end = 18 + idlen + cmapbytes + w * h * bpp
+        if len(raw) < end:
+            raise ValueError(f"truncated TGA: {name}")
+        return raw[:end]
+    if raw.endswith(b"TRUEVISION-XFILE.\x00"):
+        raise ValueError(f"RLE TGA with TGA 2.0 footer is not supported by the engine: {name}")
+    return raw
+
+
 def pack_dat(manifest_dir: Path, out_dat: Path) -> None:
     manifest_dir = manifest_dir.resolve()
     mf_path = manifest_dir / "manifest.json"
@@ -216,7 +238,7 @@ def pack_dat(manifest_dir: Path, out_dat: Path) -> None:
             tga_path = manifest_dir / rel
             if not tga_path.is_file():
                 raise FileNotFoundError(f"texture file missing: {tga_path}")
-            raw = tga_path.read_bytes()
+            raw = engine_tga_bytes(tga_path.read_bytes(), rel)
             _write_pascal_str_to_buf(tex_blob, t["id"])
             tex_blob += struct.pack(
                 "<BBiiiBI",
