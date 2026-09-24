@@ -9,6 +9,24 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-24
+
+### Changed
+- README describes what the fork actually is and how to build it; `docs/obvious_bugs.md` now has a status
+  column (only the `dofile.cpp` `strcpy` item is still open).
+- `.gitignore` / `.dockerignore` fixed: build stamps are no longer tracked, and `ai-working/` plus unpacked
+  `.dat` directories stay out of the Docker build context.
+
+### Removed
+- ~2000 lines of dead C++ code in `src/`: functions, methods, header inlines, macros and globals with no
+  callers, set-but-unused locals, commented-out code blocks, and the unused `TMAP_SURFACE` activity array.
+  No gameplay change.
+- The retired Stable Diffusion / A1111 pipeline (`dark-oberon-sd` skill, `run_sd_board_batch.py`,
+  `test_sd_api.py`) and the unreferenced `export_frames.py`, `import_frames.py`, `export_board_sections.py`.
+- The unused `udf_lib/` stub and its orphaned `tests/conftest.py`.
+- CVS/SourceForge-era make targets (`devel_stats.html`, `update_web`, `prepare-release`),
+  `src/create_makefile.sh`, `src/Makefile~` and `src/.doxygen.log`.
+
 ## [0.2.0] - 2026-09-24
 
 ### Added
@@ -93,6 +111,7 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jakubfrieb/dark-oberon/releases/tag/v0.1.0
