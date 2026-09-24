@@ -23,7 +23,7 @@ def test_header_players_and_races(tmp_path):
     assert re.search(r'^name "Gen test"', text, re.M) and "width 160" in text and 'scheme "plastic"' in text
     assert "max_count 4" in text and len(re.findall(r"start_point_\d+ ", text)) == 4
     assert all(f'name "{r}"' in text for r in RACES) and len(RACES) == 6
-    assert text.count('"townhall" 0 0') == 6
+    assert text.count('"townhall" 0 0') == 6 and text.count('"farm" -4 0') == 6
 
 
 def test_underground_mirrors_water_and_air_is_empty(tmp_path):

@@ -13,11 +13,11 @@ import numpy as np
 
 from map_check import BALANCE_RADIUS, SIZES
 
-BASE_FREE = 9             # nothing within this radius (Chebyshev, footprint centre) of a start
-BASE_GOLD = (11, 16)
-BASE_COAL = (12, 19)
+BASE_FREE = 11            # start village (7x7 town hall + units) stays free (Chebyshev, footprint centre)
+BASE_GOLD = (13, 18)
+BASE_COAL = (14, 20)
 BASE_FORESTS = 24         # forests within BASE_FOREST_R of every start (exactly -> balanced)
-BASE_FOREST_R = (10, 21)
+BASE_FOREST_R = (13, 22)
 FAR_FROM_BASES = BALANCE_RADIUS + 4
 CONTESTED_GOLD = (2, 3)
 TOTAL_FORESTS = 330
@@ -43,8 +43,11 @@ def _reachable(walk: np.ndarray, start) -> np.ndarray:
 
 
 class _Placer:
-    def __init__(self, walk, starts):
-        self.ok = _reachable(walk, starts[0]) & walk
+    def __init__(self, walk, starts, ground=None, ramps=()):
+        # reachable for land units, on terrain the engine accepts for sources, away from ramps
+        self.ok = _reachable(walk, starts[0]) & walk & (walk if ground is None else ground)
+        for cx, cy in ramps:
+            self.ok[max(0, (cy - 1) * 5):(cy + 2) * 5, max(0, (cx - 1) * 5):(cx + 2) * 5] = False
         self.occ = np.zeros_like(walk)
         self.starts = starts
         self.out = []
@@ -95,9 +98,10 @@ def _cluster(placer, rng, centre, n, keep) -> int:
     return placed
 
 
-def place_resources(layout, walk: np.ndarray, rng) -> list:
+def place_resources(layout, walk: np.ndarray, rng, ground: np.ndarray | None = None) -> list:
+    """@p ground: fields where sources may stand (walkable_grid(..., max_layer=SOURCE_MAX_LAYER))."""
     starts = layout.starts
-    p = _Placer(walk, starts)
+    p = _Placer(walk, starts, ground, layout.ramps)
     for st in starts:
         if not p.ring(rng, "goldmine", st, *BASE_GOLD, GOLD_BASE_AMOUNT):
             raise RuntimeError(f"no room for base goldmine at {st}")

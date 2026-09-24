@@ -14,7 +14,8 @@ def placed(request):
     lay = make_layout(request.param)
     grid = layout_grid(lay)
     walk = walkable_grid(grid, SCH, [])
-    return lay, walk, place_resources(lay, walk, np.random.default_rng(request.param))
+    ground = walkable_grid(grid, SCH, [], max_layer=20)
+    return lay, walk, place_resources(lay, walk, np.random.default_rng(request.param), ground)
 
 
 def test_counts(placed):
@@ -51,3 +52,14 @@ def test_every_start_has_gold_and_wood_nearby(placed):
         near = [r for r in res if (r[1] - sx) ** 2 + (r[2] - sy) ** 2 <= 22 ** 2]
         assert any(r[0] == "goldmine" for r in near)
         assert sum(r[0] == "forest" for r in near) >= 16
+
+
+def test_sources_only_where_the_engine_allows_them_and_ramps_stay_open(placed):
+    lay, walk, res = placed
+    grid = layout_grid(lay)
+    ground = walkable_grid(grid, SCH, [], max_layer=20)      # engine: sources on layers 10..20
+    for sid, x, y, _l, _a in res:
+        s = SIZES[sid]
+        assert ground[y:y + s, x:x + s].all(), (sid, x, y)
+        for (cx, cy) in lay.ramps:
+            assert not (cx - 1 <= (x + s / 2) // 5 <= cx + 1 and cy - 1 <= (y + s / 2) // 5 <= cy + 1), (sid, x, y)

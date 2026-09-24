@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from map_check import HANDMADE, check_adjacency, learn_adjacency, repo_root, walkable_grid
+from map_check import HANDMADE, SOURCE_MAX_LAYER, check_adjacency, learn_adjacency, repo_root, walkable_grid
 from mapgen_layout import FRAG, layout_grid, make_layout
 from mapgen_resources import place_resources
 from mapgen_tiles import fragment_ids, ug_name
@@ -25,6 +25,8 @@ from mapgen_tiles import fragment_ids, ug_name
 RACES = ["human-red", "human-blue", "human-yellow", "orc-red", "orc-blue", "orc-yellow"]
 START_MATERIALS = "1500 1000 1000"
 # start village relative to the start point (town hall is 7x7, anchored at the start point)
+# a farm supplies the energy the first barracks needs (plastic: only farms produce energy)
+START_BUILDINGS = [("townhall", 0, 0), ("farm", -4, 0)]
 START_UNITS = [("peasant", 1, 8, 0), ("peasant", 3, 8, 0), ("peasant", 5, 8, 0), ("peasant", 7, 8, 0),
                ("footman", 8, 1, 2), ("footman", 8, 4, 2)]
 
@@ -40,9 +42,11 @@ def _players(starts) -> str:
         for j, (uid, x, y, d) in enumerate(START_UNITS):
             tail = "    unit id, x position, y position, z position, direction, life" if j == 0 else ""
             lines.append(f'            unit_{j} "{uid}" {x} {y} 1 {d} 100{tail}')
-        lines += ["          </Units>", "          ", "          <Buildings>", "            count 1",
-                  '            building_0 "townhall" 0 0 100    building id, x position, y position, life',
-                  "          </Buildings>", "        </Set 0>", "      </Sets>", f"    </Race {i}>", "    "]
+        lines += ["          </Units>", "          ", "          <Buildings>", f"            count {len(START_BUILDINGS)}"]
+        for j, (bid, x, y) in enumerate(START_BUILDINGS):
+            tail = "    building id, x position, y position, life" if j == 0 else ""
+            lines.append(f'            building_{j} "{bid}" {x} {y} 100{tail}')
+        lines += ["          </Buildings>", "        </Set 0>", "      </Sets>", f"    </Race {i}>", "    "]
     return "\n".join(lines)
 
 
@@ -85,7 +89,8 @@ def generate(seed: int, out: Path, name: str | None = None, cells: int = 32) -> 
     else:
         raise RuntimeError(f"no seamless layout for seed {seed}")
     walk = walkable_grid(grid, sch, [])
-    sources = place_resources(lay, walk, np.random.default_rng(seed))
+    ground = walkable_grid(grid, sch, [], max_layer=SOURCE_MAX_LAYER)
+    sources = place_resources(lay, walk, np.random.default_rng(seed), ground)
 
     ids1, ids0 = fragment_ids(sch, 1), fragment_ids(sch, 0)
     g1 = np.vectorize(lambda n: ids1[n])(grid)

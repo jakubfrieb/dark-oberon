@@ -122,8 +122,11 @@ def check_adjacency(grid: np.ndarray, allowed: set, sch_path: Path | None = None
     return errs
 
 
-def walkable_grid(grid: np.ndarray, sch_path: Path, obstacles) -> np.ndarray:
-    """[y, x] field walkability for land units; obstacles = (x, y, size) footprints."""
+SOURCE_MAX_LAYER = 20      # sources (goldmine, forest, coal) may stand on layers 10..20 only
+
+
+def walkable_grid(grid: np.ndarray, sch_path: Path, obstacles, max_layer: int = WALK_MAX) -> np.ndarray:
+    """[y, x] field walkability for land units (layers 10..max_layer); obstacles = (x, y, size)."""
     by_name = {}
     for name, ids in scheme_fragments(sch_path, 1).values():
         by_name.setdefault(name, ids)
@@ -134,7 +137,7 @@ def walkable_grid(grid: np.ndarray, sch_path: Path, obstacles) -> np.ndarray:
             ids = by_name.get(grid[cy, cx]) or [10] * 25
             for i, layer in enumerate(ids):
                 x, y = i // FRAG, i % FRAG
-                walk[cy * FRAG + y, cx * FRAG + x] = WALK_MIN <= layer <= WALK_MAX
+                walk[cy * FRAG + y, cx * FRAG + x] = WALK_MIN <= layer <= max_layer
     for x, y, s in obstacles:
         walk[y:y + s, x:x + s] = False
     return walk
