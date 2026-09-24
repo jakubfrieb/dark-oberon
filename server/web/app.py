@@ -8,6 +8,7 @@ Games nobody is connected to are stopped after LOBBY_IDLE_MINUTES.
 """
 from __future__ import annotations
 
+import atexit
 import datetime
 import functools
 import hmac
@@ -53,6 +54,10 @@ LOGIN_FAIL_LIMIT = 10       # failed logins per IP per 15 minutes
 NON_HUMAN_PLAYERS = {"HyperPlayer", "Computer"}
 
 
+def log(msg: str) -> None:
+    print(f"[lobby] {msg}", file=sys.stderr, flush=True)
+
+
 def _secret_key() -> str:
     key = os.environ.get("LOBBY_SECRET_KEY", "").strip()
     if key:
@@ -94,27 +99,38 @@ class GameInstance:
         self.owner = owner
         self.created_at = time.time()
         self.idle_since: float | None = None
+        self.stopping = False          # set when the lobby itself ends the game
         self._lock = threading.Lock()
         self.last_json = None
 
         threading.Thread(target=self._stderr_reader, daemon=True).start()
 
     def _stderr_reader(self):
-        try:
-            for line in iter(self.proc.stderr.readline, ""):
-                if not line:
-                    break
-                line = line.strip()
-                print(f"[server:{self.port}] {line}", file=sys.stderr, flush=True)
-                if line.startswith('{"players"'):
-                    try:
-                        data = json.loads(line)
-                        with self._lock:
-                            self.last_json = data
-                    except json.JSONDecodeError:
-                        pass
-        except Exception:
-            pass
+        # Must keep draining stderr until the server exits: once the pipe buffer (~64 KB) is full,
+        # the game server blocks on its next log line and the game freezes for everyone.
+        while True:
+            try:
+                line = self.proc.stderr.readline()
+            except (ValueError, OSError):   # pipe closed
+                break
+            except Exception as e:          # never die silently; decoding itself is lenient
+                log(f"{self.label()}: error reading the server log: {e!r}")
+                time.sleep(0.1)
+                continue
+            if not line:
+                break
+            line = line.strip()
+            print(f"[server:{self.port}] {line}", file=sys.stderr, flush=True)
+            if line.startswith('{"players"'):
+                try:
+                    data = json.loads(line)
+                    with self._lock:
+                        self.last_json = data
+                except json.JSONDecodeError:
+                    pass
+
+    def label(self) -> str:
+        return f"{self.map_name}:{self.port} of {self.owner}"
 
     def request_status(self):
         if self.proc.poll() is not None:
@@ -127,6 +143,7 @@ class GameInstance:
         time.sleep(0.15)
 
     def stop(self):
+        self.stopping = True
         try:
             if self.proc.stdin:
                 self.proc.stdin.write("quit\n")
@@ -228,11 +245,15 @@ class InstanceManager:
                 stdin=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.DEVNULL,
-                text=True,
+                # Player names and map texts need not be valid UTF-8; a strict decoder would
+                # raise in the log reader.
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
             inst = GameInstance(inst_id, map_name, port, proc, owner)
             self._instances[inst_id] = inst
+            log(f"started {inst.label()} (pid {proc.pid})")
             return inst
 
     def get(self, inst_id: str) -> GameInstance | None:
@@ -247,7 +268,25 @@ class InstanceManager:
         with self._instances_lock:
             dead = [k for k, v in self._instances.items() if v.proc.poll() is not None]
             for k in dead:
-                del self._instances[k]
+                inst = self._instances.pop(k)
+                if not inst.stopping:
+                    code = inst.proc.poll()
+                    how = f"killed by signal {-code}" if code < 0 else f"exit code {code}"
+                    log(f"game {inst.label()} ended unexpectedly ({how})")
+
+    def stop_game(self, inst: GameInstance, why: str) -> None:
+        log(f"stopping {inst.label()} ({why})")
+        inst.stop()
+        self.remove(inst.id)
+
+    def shutdown(self, why: str) -> None:
+        """Stop every running game, e.g. when this lobby process exits."""
+        with self._instances_lock:
+            instances = [i for i in self._instances.values() if i.proc.poll() is None]
+        if instances:
+            log(f"{why}: stopping {len(instances)} running game(s)")
+        for inst in instances:
+            self.stop_game(inst, why)
 
     def list_snapshots(self, viewer: str | None = None):
         with self._instances_lock:
@@ -274,14 +313,16 @@ class InstanceManager:
             too_old = now - inst.created_at > MAX_GAME_SECONDS
             idle = inst.idle_since is not None and now - inst.idle_since > IDLE_SECONDS
             if too_old or idle:
-                why = "max lifetime" if too_old else "idle"
-                print(f"[lobby] stopping {inst.map_name}:{inst.port} of {inst.owner} ({why})",
-                      file=sys.stderr, flush=True)
-                inst.stop()
-                self.remove(inst.id)
+                self.stop_game(inst, "max lifetime" if too_old else "idle")
 
 
 manager = InstanceManager()
+log(f"lobby worker {os.getpid()} started")
+# Game servers are children of this worker and quit when their stdin closes, so a worker that
+# exits (restart, shutdown) takes every game with it. Say so in the log instead of dropping
+# players silently. (A SIGKILL, e.g. gunicorn's worker timeout, cannot be caught; gunicorn
+# logs "WORKER TIMEOUT" then.)
+atexit.register(lambda: manager.shutdown(f"lobby worker {os.getpid()} exiting"))
 
 
 def _reaper_loop():
@@ -290,7 +331,7 @@ def _reaper_loop():
         try:
             manager.reap()
         except Exception as e:  # never let housekeeping kill the thread
-            print(f"[lobby] reaper error: {e}", file=sys.stderr, flush=True)
+            log(f"reaper error: {e!r}")
 
 
 if os.environ.get("LOBBY_REAPER", "1") != "0":
@@ -474,8 +515,7 @@ def api_start_game(inst_id):
 @api_login_required
 def api_stop(inst_id):
     inst = owned_instance(inst_id)
-    inst.stop()
-    manager.remove(inst_id)
+    manager.stop_game(inst, "stopped by its owner")
     return jsonify({"ok": True})
 
 

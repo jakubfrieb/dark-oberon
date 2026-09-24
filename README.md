@@ -120,7 +120,7 @@ Lake Country, Long Water, Crossroads, Great Bay** and **Six Hills**.
 
 You don't need to set up a server or forward ports. Games run on the
 **Oberon Cloud** at [digitalmind.cz](https://digitalmind.cz), and the lobby
-at **<https://oberon.cloud.digitalmind.cz>** shows every game that's running.
+at **<https://oberon-game.cloud.digitalmind.cz>** shows every game that's running.
 
 <p align="center">
   <img src="docs/screenshots/15_lobby.png" alt="Oberon Cloud lobby" width="820">

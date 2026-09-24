@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Starts the lobby (and its game servers) in the background, then follows the logs.
+# Ctrl+C or closing the terminal only stops following the logs; the lobby and running
+# games keep going. Stop the stack with: docker compose -f docker-compose.yml down
 set -euo pipefail
 SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILES=(-f "$SERVER_DIR/docker-compose.yml")
@@ -10,13 +13,16 @@ fi
 export COMPOSE_BAKE=false
 
 usage() {
-  echo "Usage: ${0##*/} [--build | --rebuild]" >&2
-  echo "  --build    docker compose up --build (cached, fast C++ recompile)" >&2
-  echo "  --rebuild  docker compose build --no-cache, then up (full rebuild)" >&2
+  echo "Usage: ${0##*/} [--build | --rebuild] [--no-logs]" >&2
+  echo "  --build    rebuild the image (cached, fast C++ recompile) before starting" >&2
+  echo "  --rebuild  rebuild the image from scratch (--no-cache) before starting" >&2
+  echo "  --no-logs  start in the background and return, without following the logs" >&2
+  echo "Rebuilding recreates the container: games that are running at that moment end." >&2
   exit 1
 }
 
 MODE=up
+FOLLOW_LOGS=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
@@ -28,6 +34,9 @@ while [[ $# -gt 0 ]]; do
     --rebuild)
       MODE=rebuild
       ;;
+    --no-logs)
+      FOLLOW_LOGS=0
+      ;;
     *)
       echo "Unknown option: $1" >&2
       usage
@@ -36,15 +45,42 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+# Lobby address from .env (PROJECT_WEBSITE behind a reverse proxy, otherwise the local port).
+print_server_url() {
+  local website="" port="8080" line
+  if [[ -f "$SERVER_DIR/.env" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      case "$line" in
+        PROJECT_WEBSITE=*) website="${line#PROJECT_WEBSITE=}" ;;
+        WEB_HOST_PORT=*) port="${line#WEB_HOST_PORT=}" ;;
+      esac
+    done < "$SERVER_DIR/.env"
+    website="${website%\"}"; website="${website#\"}"
+    website="${website%\'}"; website="${website#\'}"
+    port="${port%\"}"; port="${port#\"}"
+  fi
+  if [[ -n "$website" ]]; then
+    echo "[SERVER] https://${website}"
+  else
+    echo "[SERVER] http://127.0.0.1:${port:-8080}"
+  fi
+}
+
 case "$MODE" in
   rebuild)
     docker compose "${COMPOSE_FILES[@]}" build --no-cache
-    exec docker compose "${COMPOSE_FILES[@]}" up --remove-orphans
+    docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans
     ;;
   build)
-    exec docker compose "${COMPOSE_FILES[@]}" up --build --remove-orphans
+    docker compose "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
     ;;
   *)
-    exec docker compose "${COMPOSE_FILES[@]}" up --remove-orphans
+    docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans
     ;;
 esac
+
+print_server_url
+if [[ "$FOLLOW_LOGS" == 1 ]]; then
+  echo "[SERVER] running in the background; Ctrl+C stops only the log output"
+  exec docker compose "${COMPOSE_FILES[@]}" logs -f --tail 50
+fi

@@ -32,7 +32,11 @@
 #include <vector>
 
 #ifdef UNIX
+# include <cerrno>
 # include <signal.h>
+#endif
+#ifndef WINDOWS
+# include <netinet/tcp.h>
 #endif
 
 #include "dologs.h"
@@ -59,6 +63,23 @@ TPOOL<TNET_MESSAGE> * pool_net_messages;
 //=========================================================================
 // Socket functions
 //=========================================================================
+
+/**
+ *  Game connections cross NATs and firewalls, which forget connections that stay quiet for a
+ *  while. TCP keepalive keeps them alive and detects a dead peer in about a minute (30 s idle,
+ *  then 6 probes 10 s apart) instead of the system default of hours. Where the fine-grained
+ *  options are missing (Windows), only the system default keepalive is switched on.
+ */
+static void EnableKeepalive (int fd) {
+  int on = 1;
+  setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, (const char *)&on, sizeof (on));
+#if defined(TCP_KEEPIDLE) && defined(TCP_KEEPINTVL) && defined(TCP_KEEPCNT)
+  int idle = 30, interval = 10, count = 6;
+  setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, (const char *)&idle, sizeof (idle));
+  setsockopt (fd, IPPROTO_TCP, TCP_KEEPINTVL, (const char *)&interval, sizeof (interval));
+  setsockopt (fd, IPPROTO_TCP, TCP_KEEPCNT, (const char *)&count, sizeof (count));
+#endif
+}
 
 /**
  *  Initializes sockets, which are used for networking.
@@ -136,6 +157,7 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
     throw ConnectingErrorException ();
   }
 
+  EnableKeepalive (fd);
   connected = true;
 }
 
@@ -234,7 +256,7 @@ void TNET_MESSAGE::Send (int fd) {
 
   do {
     if ((len = send (fd, start + pos, size - pos, 0)) == -1) {
-      Debug (SOCKET_ERROR_MESSAGE ("Error sending message"));
+      Warning (SOCKET_ERROR_MESSAGE ("Error sending message, closing the connection"));
       shutdown (fd, 2);
       do_close (fd);
       throw TNET_MESSAGE::SendError ();
@@ -485,6 +507,8 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
       break;
     }
 
+    EnableKeepalive (new_fd);
+
     self->subthread_fd.push_back (new_fd);
     self->subthread_address.push_back (remote_addr.sin_addr);
 
@@ -517,7 +541,10 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 int SDLCALL TNET_LISTENER::listener_accept (void *d) {
   TNET_LISTENER::ACCEPT_DATA *data = static_cast<TNET_LISTENER::ACCEPT_DATA *>(d);
 
-  Debug (LogMsg ("Got connection from: %s", inet_ntoa (data->address.sin_addr)));
+  /* Connections come and go rarely, so they are logged at Info level: when a player drops out,
+     the log says who and why. */
+  string peer = LogMsg ("%s:%hu", inet_ntoa (data->address.sin_addr), ntohs (data->address.sin_port));
+  Info (LogMsg ("Listener: connection from %s", peer.c_str ()));
 
   int fd = data->fd;
   TNET_LISTENER *self = data->self;
@@ -528,12 +555,21 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
 
   while (1) {
     if ((pos = recv (fd, reinterpret_cast<char*>(buf), 1, 0)) == -1) {
-      Error (SOCKET_ERROR_MESSAGE ("Listener: recv failed"));
-      return 0;
+      /* Report the lost connection like a closed one (on_disconnect below); returning here
+         used to leave the player in the game as a ghost. */
+#ifndef WINDOWS
+      int err = errno;
+#endif
+      Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost", peer.c_str ())));
+#ifndef WINDOWS
+      if (err != EBADF)   // EBADF: already closed by the talker after a send error
+#endif
+        do_close (fd);
+      break;
     }
 
     if (pos == 0) {
-      Debug ("Listener: Remote host closed connection");
+      Info (LogMsg ("Listener: %s closed the connection", peer.c_str ()));
       do_close (fd);
       break;
     }
@@ -543,7 +579,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
        message on used to throw from Init_receive and terminate the whole server. */
     if (*size < TNET_MESSAGE::GetHeaderSize ()) {
       Warning (LogMsg ("Listener: dropping connection from %s: invalid message size %d",
-                       inet_ntoa (data->address.sin_addr), *size));
+                       peer.c_str (), *size));
       do_close (fd);
       break;
     }
@@ -552,9 +588,9 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
     do {
       if ((len = recv (fd, reinterpret_cast<char*>(buf + pos), *size - pos, 0)) <= 0) {
         if (len < 0)
-          Error (SOCKET_ERROR_MESSAGE ("Listener: recv failed"));
+          Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost in the middle of a message", peer.c_str ())));
         else
-          Debug ("Listener: Remote host closed connection in the middle of a message");
+          Warning (LogMsg ("Listener: %s closed the connection in the middle of a message", peer.c_str ()));
         complete = false;
         break;
       }
@@ -700,6 +736,8 @@ int SDLCALL TNET_TALKER::talker_thread_function (void *talker_class) {
           int fd = self->distinct_remote_addresses[i]->GetFileDescriptor ();
           msg->Send (fd);
         } catch (TNET_MESSAGE::SendError &) {
+          Warning (LogMsg ("Talker: dropping connection to %s",
+                           inet_ntoa (self->distinct_remote_addresses[i]->GetAddress ())));
           self->distinct_remote_addresses[i]->Disconnect ();
         }
       }
@@ -708,6 +746,8 @@ int SDLCALL TNET_TALKER::talker_thread_function (void *talker_class) {
         int fd = self->remote_address[msg->GetDest ()]->GetFileDescriptor ();
         msg->Send (fd);
       } catch (TNET_MESSAGE::SendError &) {
+        Warning (LogMsg ("Talker: dropping connection to %s",
+                         inet_ntoa (self->remote_address[msg->GetDest ()]->GetAddress ())));
         self->remote_address[msg->GetDest ()]->Disconnect ();
       }
     }

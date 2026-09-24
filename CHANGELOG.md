@@ -9,6 +9,33 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-25
+
+### Changed
+- `server/up-server` starts the lobby in the background (`up -d`) and then only follows the logs, so
+  Ctrl+C or a closed terminal no longer stops the lobby and the running games. It prints the lobby URL
+  from `.env` (`PROJECT_WEBSITE`), and `--no-logs` returns right after the start.
+
+### Added
+- Game connections use TCP keepalive (30 s idle, then 6 probes 10 s apart where the system allows it,
+  the system default on Windows), so NATs and firewalls keep quiet connections open and a dead peer is
+  detected in about a minute.
+- Connection logging on the game server at Info/Warning level: every connection, clean close, reset,
+  a message cut off, and a failed send, with the peer's IP and port and the reason.
+- Lobby log: every game server start, stop (and why: owner, idle, max lifetime, lobby exiting) and any
+  unexpected end with its exit code or signal.
+
+### Fixed
+- A player whose connection broke with an error (e.g. `Connection reset by peer`) stayed in the game as
+  a ghost: the listener thread returned without reporting the disconnect.
+- Lobby: the thread that reads a game server's log died silently on the first byte that was not valid
+  UTF-8 (e.g. a player name with national characters). Nobody drained the pipe afterwards, and after
+  about 64 KB of log the game server blocked and the game froze. The log is now decoded leniently and
+  read until the server exits.
+- Lobby: when the lobby worker exits, it stops its games and logs it, instead of the games ending
+  silently when their stdin closes.
+- README: the Oberon Cloud lobby is at `https://oberon-game.cloud.digitalmind.cz`.
+
 ## [0.4.0] - 2026-09-25
 
 ### Added
@@ -242,7 +269,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...v0.3.0
