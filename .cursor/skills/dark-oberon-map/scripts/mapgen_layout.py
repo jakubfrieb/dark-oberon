@@ -172,3 +172,17 @@ def make_layout(seed: int, cells: int = 32) -> Layout:
         if cells_connected(lay) and lay.water.sum() >= 40 and lay.plateau.sum() >= 30 and len(lay.ramps) >= 4:
             return lay
     raise RuntimeError(f"no valid layout for seed {seed}")
+
+
+def layout_grid(lay: Layout) -> np.ndarray:
+    """Fragment names [cy, cx] for the earth segment."""
+    h, w = lay.water.shape
+    grid = np.full((h, w), "grass", dtype=object)
+    for cy in range(h):
+        for cx in range(w):
+            if lay.water[cy, cx]:
+                grid[cy, cx] = outline_fragment(lay.water, cx, cy, WATER_TABLE) or "sea"
+            elif lay.plateau[cy, cx]:
+                grid[cy, cx] = lay.ramps.get((cx, cy)) or outline_fragment(lay.plateau, cx, cy, PLATEAU_TABLE) \
+                    or "grass"
+    return grid
