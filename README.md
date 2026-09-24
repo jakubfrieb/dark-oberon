@@ -153,13 +153,13 @@ nobody has been connected for 30 minutes, and after 8 hours at most.
 
 ## Build and run
 
-The game runs on **Linux**, **Windows** and **Haiku** (64-bit). Ready-to-run zips for Windows and
-Haiku are on the [Releases](https://github.com/jakubfrieb/dark-oberon/releases) page, or you can
-build them yourself (see below).
+The game runs on **Linux**, **Windows** and **Haiku** (64-bit). Ready-to-run packages for all three
+are on the [Releases](https://github.com/jakubfrieb/dark-oberon/releases) page, or you can build
+them yourself (see below).
 
 | | System | How to get it |
 |---|---|---|
-| <img alt="Linux" src="docs/badges/linux.svg"> | any current distro | build from source with `make` |
+| <img alt="Linux" src="docs/badges/linux.svg"> | glibc 2.34+ (Debian 12, Ubuntu 22.04, Fedora 35…) | unpack `dark-oberon-<version>-linux-x86_64.tar.gz`, run `./dark-oberon`, or build with `make` |
 | <img alt="Windows" src="docs/badges/windows.svg"> | Windows 10 / 11 | unzip `dark-oberon-<version>-win64.zip`, run `dark-oberon.exe` |
 | <img alt="Haiku" src="docs/badges/haiku.svg"> | Haiku R1/beta6 | unzip `dark-oberon-<version>-haiku-x86_64.zip` after `pkgman install libsdl2 sdl2_mixer glu` |
 
@@ -173,6 +173,10 @@ make               # with sound; the binary ./dark-oberon ends up in the reposit
 ```
 
 - **Without sound:** `make SOUND=0` (no SDL2_mixer needed).
+- **All release packages at once:** `make dist` (Windows, Haiku and Linux, built in parallel).
+- **Release package:** `make linux-dist` builds a portable tarball in an Ubuntu 22.04 Docker container
+  (`dist/dark-oberon-<version>-linux-x86_64.tar.gz`). The release package needs only the runtime
+  libraries: `sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0 libglu1-mesa` (or your distro's `sdl2 sdl2_mixer glu`).
 - **Dedicated server:** `make -C src server`.
 - **Tests:** `make test-ai` (C++ AI logic and config-file parser) and `python -m pytest tests/race_pipeline tests/mapgen tests/lobby`
   (the lobby tests need Flask: `pip install -r server/web/requirements.txt`).

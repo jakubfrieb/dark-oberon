@@ -21,4 +21,5 @@ cp README.md CHANGELOG.md "$STAGE/"
 [ -f docs/gpl.txt ] && cp docs/gpl.txt "$STAGE/"
 
 (cd "$ROOT/dist" && zip -qr "$NAME.zip" "$NAME")
+rm -rf "$STAGE"
 echo "Created dist/$NAME.zip ($(du -h "$ROOT/dist/$NAME.zip" | cut -f1))"

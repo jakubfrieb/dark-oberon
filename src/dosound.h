@@ -68,8 +68,8 @@ enum TVOLUME_TYPE {
 
 #if SOUND
 
-struct Mix_Chunk;
-struct Mix_Music;
+// Not forward-declared: SDL_mixer < 2.6 typedefs Mix_Music from struct _Mix_Music.
+#include <SDL2/SDL_mixer.h>
 
 class TSOUND {
 public:

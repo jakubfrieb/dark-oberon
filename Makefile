@@ -13,16 +13,28 @@ windows:
 	$(MAKE) -C src -f Makefile.win
 	scripts/package-windows.sh
 
+# All release packages at once; Windows (obj-win/), Haiku (VM) and Linux (Docker)
+# build in separate places, so they run in parallel.
+dist:
+	$(MAKE) -C src build_info.h
+	$(MAKE) -j3 windows haiku linux-dist
+
+# Portable Linux release: built in an Ubuntu 22.04 container (needs Docker).
+linux-dist:
+	scripts/package-linux.sh
+
 # Haiku build: compiled natively on a Haiku box over SSH (HAIKU_HOST, default `haiku`).
 haiku:
 	scripts/package-haiku.sh
 
 windows-clean:
 	$(MAKE) -C src -f Makefile.win clean
-	rm -rf dist
+	rm -rf dist/dark-oberon-*-win64*
 
 test-ai:
 	$(MAKE) -C tests/cpp
 
 clean:
 	cd src && make clean
+
+.PHONY: build windows haiku linux-dist dist windows-clean test-ai clean

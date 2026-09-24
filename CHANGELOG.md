@@ -9,6 +9,21 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-24
+
+### Added
+- Portable Linux release: `make linux-dist` builds the client in an Ubuntu 22.04 Docker container and packs
+  it with the game data into `dist/dark-oberon-<version>-linux-x86_64.tar.gz`. It needs glibc 2.34 or newer
+  (Debian 12, Ubuntu 22.04, Fedora 35 and later) plus SDL2, SDL2_mixer and GLU from the distro.
+
+### Fixed
+- The game did not build with SDL2_mixer older than 2.6 (e.g. Ubuntu 22.04): `dosound.h` forward-declared
+  `struct Mix_Music`, which conflicts with the older `typedef struct _Mix_Music Mix_Music`.
+
+### Changed
+- `make dist` builds the Windows, Haiku and Linux packages in parallel.
+- `make windows-clean` removes only the Windows packages from `dist/`, not the Linux and Haiku ones.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added
@@ -206,7 +221,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...v0.2.3
