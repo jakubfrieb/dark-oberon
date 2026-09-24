@@ -51,7 +51,6 @@ class TFORCE_UNIT;
 #define WLK_NODES_NUM         256             //!< Number of fields in heap_nodes array.
 #define WLK_UNKNOWN_AREA      255             //!< Value sets as state in the local map when field is in the unknown area.
 #define WLK_WARFOG            0               //!< Value sets as state in the local map when field is in the warfog.
-#define WLK_MAX_MAP_SIZE      (62500 * DAT_SEGMENTS_COUNT + 1)            //!< Size of help array.
 #define WLK_EMPTY_FIELD       255             //!< Field without any player.
 #define WLK_NO_GUARDED        0               //!< Signifies field, which isn't guarded in loc_field array. Isn't used now!
 
@@ -200,10 +199,6 @@ public:
   T_SIMPLE GetWidth() const
     { return width;}
 
-  /** @return The method returns map depth.*/
-  T_SIMPLE GetDepth() const
-    { return depth;}
-
 private:
   /** Constructor which allocates fields in the map. */
   TA_STAR_MAP(T_SIMPLE width, T_SIMPLE height, T_SIMPLE depth = DAT_SEGMENTS_COUNT);
@@ -264,8 +259,6 @@ public:
 
   TPATH_LIST *AddToPath(TPOSITION_3D adding);
   TPOSITION_3D GetNextPosition();
-  TPOSITION_3D GetPrevPosition();
-  TPOSITION_3D GetPostitionInPath(int steps_count);           //! returns position i steps ago
 
   T_SIMPLE GetFirstFieldX() const;              //! Get x position of first field in the first node.
   T_SIMPLE GetFirstFieldY() const;              //! Get y position of first field in the first node.
@@ -275,12 +268,7 @@ public:
   TPOSITION_3D GetGoalPosition();                       //!<Get goal of the path.
   TPATH_LIST* CreateCopy(int shift_x, int shift_y, int shift_z);          //!<The path list create copy of the itself with shift.
   double CountTime(TFORCE_UNIT *unit);      //!<Counts the time, which unit spends on the exact way.
-  void DecreaseSteps(int st_count) { steps -= st_count;};    //! Decreases variable steps, used when building is build, unit cant go to the goal, but just near the newly built building.
   void IncreaseASteps();                        //!< Increases actuall step
-  void DecreaseASteps();                        //!< Decrease actuall step
-  void SetASteps(int value) {a_step = value;};
-  void SetSteps(int value) { steps = value;};
-  void SetANode(TPATH_NODE * n) { a_node = n;};
   TPOSITION_3D GetRealGoalPosition() { return real_goal_position;};
   void SetRealGoalPosition(TPOSITION_3D new_pos) { real_goal_position = new_pos;};
 private:
@@ -302,7 +290,6 @@ struct TPATH_NODE {
   TPOSITION_3D path_pos[WLK_NODES_NUM];
 
   TPATH_NODE(TPATH_NODE *first, TPOSITION_3D adding);  //!< Adding constructor.
-  TPATH_NODE(TPOSITION_3D goal);    //!< Constructor.
 private:
   TPATH_NODE(TPATH_NODE &origin, int sx, int sy, int sz);   //!< Constructor creates copy with shift.
   friend TPATH_LIST* TPATH_LIST::CreateCopy(int, int, int);

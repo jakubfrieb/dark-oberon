@@ -50,7 +50,6 @@ TQUEUE_EVENTS * queue_events;
  *  Mutex to assure safe data sharing between graphic thread and update thread.
  */
 SDL_mutex *delete_mutex = NULL;
-SDL_mutex *path_mutex = NULL;
 
 //=========================================================================
 // class TEVENT
@@ -99,22 +98,6 @@ void TEVENT::Clear(bool all)
     queue_left = queue_right = NULL;
   }
 }
-
-// Sets  player_id in event.
-void TEVENT::SetPlayerID(int new_player_id) {
-  if (new_player_id < player_array.GetCount()) player_id = new_player_id;
-  else player_id = 0;
-};
-
-
-/** Sets request_id. */
-void TEVENT::SetRequestID(int new_request_id, int player_id)
-{ 
-  if (new_request_id != 0) // set given request_id
-    request_id = new_request_id;
-  else  // generating new request_id
-    request_id = players[player_id]->IncrementRequestCounter();
-};
 
 /**
  *  Sets all properties of event.

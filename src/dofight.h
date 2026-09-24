@@ -110,10 +110,6 @@ public:
   * @param new_acc  Value of the new accuracy.*/
   void SetAccuracy(const float new_acc) 
     {if (new_acc >= 1.0f) accuracy = 1.0f; else if (new_acc <= 0) accuracy = 0; else accuracy = new_acc;};
-  /** Increase/decrease accuracy according to the parameter. Returns new value of accuracy.
-  * @param change Value of change.*/
-  float ChangeAccuracy(const float change) 
-    {accuracy += change; if (accuracy < 0) accuracy = 0; else if (accuracy > 1.0f) accuracy = 1.0f; return accuracy;};
  
   unsigned char GetFlags() const    //!< Returns flags of attack.
     {return flags;};
@@ -125,10 +121,6 @@ public:
    *  @param added Added flags. */
   void AddFlag(const unsigned char added) 
     {flags |= added;};
-  /** The method tests whether specified flags are settedd.
-   *  @return The method returns true if flags are setted otherwise returns false.*/
-  bool TestFlags(const unsigned char tested)
-    { return ((flags & tested) != 0);}
 
   TGUN_POWER GetPower() const       //!< Returns power of the gun.
     {return power;};
@@ -215,11 +207,6 @@ public:
    *  sets armour to zero.
    *  @param new_armour Value of new armour.*/
   void SetArmour(const int new_armour) {if (new_armour >= 0) armour = new_armour; else armour = 0;};
-  /** Changes the armour by value of @p change. If resulting value is
-   *  lower then zero sets armour to zero.
-   *  @param change Value of change.
-   *  @return Value of armour after change. */
-  int ChangeArmour(const int change) {armour += change; if (armour < 0) armour = 0; return armour;};
 
   //! Returns value of protection.
   float GetProtection()
@@ -265,9 +252,6 @@ public:
   * @param gun  Pointer to the new gun.*/
   void SetOffensive(TGUN *gun) {if (offensive) delete offensive; offensive = gun;};
   TDEFENSE* GetDefense() const {return defense;};         //!< Returns defense.
-  /** Sets pointer to the defense. Dealocate old instance of the TDEFENSE class.
-  * @param def  Pointer to the new defense instance of the TDEFENSE class.*/
-  void SetDefense(TDEFENSE *def) {if (defense) delete defense; defense = def;};
 
   TNEURON_VALUE GetWorth() {return worth;};   //!< Returns value
   void SetWorth(TNEURON_VALUE val) {worth = val;};  //!< Sets value

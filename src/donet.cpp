@@ -759,17 +759,6 @@ void TNET_TALKER::DisconnectAddress (int id) {
   delete old;
 }
 
-void TNET_TALKER::DisconnectAddress (in_addr address, in_port_t port) {
-  for (unsigned i = 0; i < remote_address.size (); i++) {
-    if ((TNET_RESOLVER::NetworkToAscii (remote_address[i]->GetAddress ())
-          == TNET_RESOLVER::NetworkToAscii (address))
-        && remote_address[i]->GetPort () == port)
-    {
-      DisconnectAddress (i);
-    }
-  }
-}
-
 void TNET_TALKER::RemoveAddress (int id) {
   if (!remote_address[id]->IsEmpty ()) {
     in_addr address = remote_address[id]->GetAddress ();

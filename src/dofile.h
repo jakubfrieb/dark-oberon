@@ -163,7 +163,6 @@ public:
   void WriteValue(char *value);
   void SetValue(char *value);
   void AddValue(char *value);
-  void ClearValues();
   
   TFE_ITEM(TFE_SECTION *powner, char *iname, char *ivalue, bool modify);
   ~TFE_ITEM(void);
@@ -203,13 +202,8 @@ public:
   void Clear(void);
   TFE_SECTION *SelectSection(char *name, bool mandatory);
 
-  void DeleteSection(char *section);
-  void DeleteItem(char *item);
-
   void WriteValue(char *item, char *value);
   int  ReadValue(char *value, char *item, bool warning);
-  bool SetValue(char *item, char *value);
-  void ClearValues(char *item);
   int ResetValue(char *item);
 
   void AddLoadedValue(char *item, char *value);
@@ -254,8 +248,6 @@ public:
 
   bool SelectSection(char *section, bool mandatory);
   void UnselectSection(void);
-  void DeleteSection(char *section);
-  void DeleteItem(char *item);
 
   void WriteLine(char *line);
 
@@ -270,23 +262,13 @@ public:
   bool ReadIntGE(int *value, char *item, int min, int def_value);
   bool ReadIntRange(int *value, char *item, int min, int max, int def_value);
 
-  void WriteFloat(char *item, float value);
   bool ReadFloat(float *value, char *item, float def_value);
   bool ReadFloatGE(float *value, char *item, float min, float def_value);
   bool ReadFloatRange(float *value, char *item, float min, float max, float def_value);
 
-  void WriteDouble(char *item, double value);
-  bool ReadDouble(double *value, char *item, double def_value);
-  bool ReadDoubleGE(double *value, char *item, double min, double def_value);
-  bool ReadDoubleRange(double *value, char *item, double min, double max, double def_value);
-
-  void WriteSimple(char *item, T_SIMPLE value);
-  bool ReadSimple(T_SIMPLE *value, char *item, T_SIMPLE def_value);
   bool ReadSimpleGE(T_SIMPLE *value, char *item, T_SIMPLE min, T_SIMPLE def_value);
   bool ReadSimpleRange(T_SIMPLE *value, char *item, T_SIMPLE min, T_SIMPLE max, T_SIMPLE def_value);
 
-  void WriteByte(char *item, T_BYTE value);
-  bool ReadByte(T_BYTE *value, char *item, T_BYTE def_value);
   bool ReadByteGE(T_BYTE *value, char *item, T_BYTE min, T_BYTE def_value);
   bool ReadByteRange(T_BYTE *value, char *item, T_BYTE min, T_BYTE max, T_BYTE def_value);
 
@@ -295,8 +277,6 @@ public:
 #if SOUND
   bool ReadSound(TSND_GROUP * value, char *item, TSND_TABLE * snd_table, char * section);
 #endif
-  
-  void ClearValues(char *item);
 
   void SetIndentString(char *str);
 

@@ -52,11 +52,6 @@ class TAI_PLAYER;
 #define PL_HASHTABLE_UNITS_SIZE  100
 #define PL_MAX_START_POINTS  32
 
-// area visibility
-#define AV_NOT_VISIBLE      0
-#define AV_VISIBLE          1
-#define AV_WARFOG           2
-
 // building height coef
 #define MAP_BUILDING_COEF   100
 
@@ -110,7 +105,6 @@ private:
 
 public: 
   TPLAYER_UNIT * GetUnitPointer(int g_unit_id);   // Returns pointer to unit identified by unit_id.
-  int GetUnitID(TPLAYER_UNIT * g_player_unit);    // Returns identificator of unit identified by pointer.
 
   void AddToHashTable(int a_unit_id, TPLAYER_UNIT * a_player_unit); // Add new hash unit to table.
   void RemoveFromHashTable(int r_unit_id);                          // Remove hash unit from table.
@@ -144,21 +138,10 @@ public:
     const T_BYTE seg_min, const T_BYTE seg_max, 
     const T_SIMPLE width, const T_SIMPLE height);
 
-  bool IsAreaUnknown(const T_SIMPLE x, const T_SIMPLE y, const T_BYTE seg, const T_SIMPLE width, const T_SIMPLE height);
   bool IsAnyAreaUnknown(const T_SIMPLE x, const T_SIMPLE y, const T_BYTE seg, const T_SIMPLE width, const T_SIMPLE height);
 
   TLOC_MAP();
   ~TLOC_MAP();
-
-  /** @return The method returns width of the map.*/ 
-  T_SIMPLE GetMapWidth() const
-    { return width;}
-  /** @return The method returns height of the map.*/ 
-  T_SIMPLE GetMapHeight() const
-    { return height;}
-  /** @return The method returns depth of the map.*/ 
-  T_SIMPLE GetMapDepth() const
-    { return depth;}
 
   /** Tests whether position is in borders of map. Does not test segment coordinate. */
   bool IsInMap(const T_SIMPLE x, const T_SIMPLE y)
@@ -242,10 +225,6 @@ public:
   //!< Increments requests counter of player.
   int IncrementRequestCounter(){request_counter++; return request_counter;};
 
-  //!< Returns actual global_unit_counter.
-  int GetGlobalUnitCounter(void){return global_unit_counter;};
-  //!< Returns atual local_unit_counter.
-  int GetLocalUnitCounter(void){return local_unit_counter;};
   //!< Updates local map for building.
   void UpdateLocalMap(const TPOSITION_3D position, TBUILDING_ITEM * const pitem, const bool my_building, const T_SIMPLE player_ID, const bool built);
   //!< Updates local map for new built units.
@@ -275,14 +254,6 @@ public:
   int GetInFood() {return food_in;};
   //!< Returns sum of food taken from player by his units and buildings (negative food).
   int GetOutFood() {return food_out;};
-
-  T_BYTE GetPercentFood() { if (!food_out || food_in >= food_out) return 100; else return ((food_in * 100) / food_out); }
-
-  //!< Indicates whether the player is AI
-  int GetPlayerType() { return player_type; }
-
-  //!< Reset all have_order (set them to false)
-  void ResetOrders();
 
   TPLAYER(void);
   virtual ~TPLAYER(void);
@@ -363,7 +334,6 @@ public:
 
   void ChooseRandomStartPoints ();
   void SetStartPointsCount (int value);
-  int GetStartPointsCount () const { return start_points_count; }
   int GetStartPoint (int player_index);
   void SetStartPoint (int player_index, int value);
 
@@ -425,7 +395,6 @@ extern TPLAYER_ARRAY player_array;
 //=========================================================================
 
 bool CreatePlayers();
-void DeleteUnits(TMAP_UNIT *units);
 void DeletePlayers();
 #if !HEADLESS
 bool GrowPlayersRuntime(int old_count, int new_count);

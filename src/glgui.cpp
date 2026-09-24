@@ -35,10 +35,6 @@
 // Definitions
 //=========================================================================
 
-#ifndef T_BYTE
-#define T_BYTE unsigned char
-#endif
-
 #define GUI_MAX_CLIP_LEVEL  32
 #define GUI_CLIP_EPSILON    0.1f
 
@@ -898,24 +894,6 @@ TGUI_BOX *TGUI_PANEL::AddChild(TGUI_BOX *box)
 }
 
 
-TGUI_BOX *TGUI_PANEL::GetChild(intptr_t key)
-{
-  TGUI::self->Lock();
-
-  TGUI_BOX *box;
-
-  for (box = child_list; box; box = box->GetNext())
-    if (box->key == key) {
-      TGUI::self->Unlock();
-      return box;
-    }
-
-  TGUI::self->Unlock();
-
-  return NULL;
-}
-
-
 int TGUI_PANEL::GetChildOrder(TGUI_BOX *child)
 {
   TGUI::self->Lock();
@@ -1433,22 +1411,6 @@ void TGUI_LIST::SetCaption(const char *bcaption)
   if (bcaption && *bcaption) item_index = 0;
   else item_index = -1;
 
-  TGUI::self->Unlock();
-}
-
-
-void TGUI_LIST::SetSelFontColor(GLfloat r, GLfloat g, GLfloat b)
-{
-  TGUI::self->Lock();
-  SET_COLOR(sel_font_color, r, g, b);
-  TGUI::self->Unlock();
-}
-
-
-void TGUI_LIST::SetSelColor(GLfloat r, GLfloat g, GLfloat b)
-{
-  TGUI::self->Lock();
-  SET_COLOR(sel_color, r, g, b);
   TGUI::self->Unlock();
 }
 
@@ -2279,74 +2241,6 @@ void TGUI_SCROLL_BOX::ResetSliders()
 }
 
 
-void TGUI_SCROLL_BOX::ShowSlider(TGUI_SLIDER_TYPE type)
-{
-  TGUI::self->Lock();
-
-  if (sliders[type]->IsVisible()) {
-    TGUI::self->Unlock();
-    return;
-  }
-
-  GLfloat pom;
-
-  switch (type) {
-  case GUI_ST_HORIZONTAL:
-
-    if (sliders[GUI_ST_VERTICAL]->IsVisible()) { 
-      sliders[GUI_ST_VERTICAL]->SetPosY(sliders[GUI_ST_HORIZONTAL]->GetHeight());
-      sliders[GUI_ST_VERTICAL]->SetHeight(height - sliders[GUI_ST_HORIZONTAL]->GetHeight());
-
-      sliders[GUI_ST_HORIZONTAL]->SetWidth(width - sliders[GUI_ST_VERTICAL]->GetWidth());
-    }
-    else sliders[GUI_ST_HORIZONTAL]->SetWidth(width);
-   
-    break;
-
-  case GUI_ST_VERTICAL:
-
-    if (sliders[GUI_ST_HORIZONTAL]->IsVisible()) {
-      sliders[GUI_ST_VERTICAL]->SetPosY(sliders[GUI_ST_HORIZONTAL]->GetHeight());
-      sliders[GUI_ST_VERTICAL]->SetHeight(height - sliders[GUI_ST_HORIZONTAL]->GetHeight());
-
-      sliders[GUI_ST_HORIZONTAL]->SetWidth(width - sliders[GUI_ST_VERTICAL]->GetWidth());
-    }
-    else {
-      sliders[GUI_ST_VERTICAL]->SetPosY(0);
-      sliders[GUI_ST_VERTICAL]->SetHeight(height);
-    }
-
-    break;
-
-  default: break;
-  }
-
-  // show slider
-  sliders[type]->Show();
-
-  // compute new sliders position
-  if (sliders[GUI_ST_HORIZONTAL]->IsVisible()) {
-    pom = ch_envelope.GetMaxX() - width + 2 * padding;
-    if (sliders[GUI_ST_VERTICAL]) pom += sliders[GUI_ST_VERTICAL]->GetWidth();
-    if (pom > 0) pom = ch_dx / pom;
-    else pom = 0.0f;
-
-    sliders[GUI_ST_HORIZONTAL]->SetPosition(pom);
-  }
-
-  if (sliders[GUI_ST_VERTICAL]->IsVisible()) {
-    pom = ch_envelope.GetMaxY() - height + 2 * padding;
-    if (sliders[GUI_ST_HORIZONTAL]) pom += sliders[GUI_ST_HORIZONTAL]->GetHeight();
-    if (ch_dy > 0) pom = ch_dy / pom;
-    else pom = 0.0f;
-
-    sliders[GUI_ST_VERTICAL]->SetPosition(1 - pom);
-  }
-
-  TGUI::self->Unlock();
-}
-
-
 void TGUI_SCROLL_BOX::HideSlider(TGUI_SLIDER_TYPE type)
 {
   TGUI::self->Lock();
@@ -2696,17 +2590,6 @@ void TGUI_SCROLL_BOX::Clear()
 // TGUI_LIST_BOX
 //=========================================================================
 
-void TGUI_LIST_BOX::ResetSliders()
-{
-  TGUI::self->Lock();
-
-  if (sliders[GUI_ST_HORIZONTAL]) sliders[GUI_ST_HORIZONTAL]->SetPosition(0);
-  if (sliders[GUI_ST_VERTICAL]) sliders[GUI_ST_VERTICAL]->SetPosition(1);
-
-  TGUI::self->Unlock();
-}
-
-
 void TGUI_LIST_BOX::ShowSlider(TGUI_SLIDER_TYPE type)
 {
   if (sliders[type]) return;
@@ -2778,22 +2661,6 @@ void TGUI_LIST_BOX::ShowSlider(TGUI_SLIDER_TYPE type)
 
     sliders[GUI_ST_VERTICAL]->SetPosition(1 - pom);
   }
-
-  TGUI::self->Unlock();
-}
-
-
-void TGUI_LIST_BOX::HideSlider(TGUI_SLIDER_TYPE type)
-{
-  if (!sliders[type]) return;
-
-  TGUI::self->Lock();
-
-  if (type == GUI_ST_HORIZONTAL); //items->SetPos(0, height - items->GetHeight());
-  else if (sliders[GUI_ST_HORIZONTAL]) sliders[GUI_ST_HORIZONTAL]->SetWidth(width);
-
-  delete sliders[type];
-  sliders[type] = NULL;
 
   TGUI::self->Unlock();
 }

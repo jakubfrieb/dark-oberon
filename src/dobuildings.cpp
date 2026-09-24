@@ -711,8 +711,6 @@ void TBUILDING_UNIT::DeleteFromPlayerArray()
     if (static_cast<TBUILDING_ITEM *>(pitem)->GetAllowedMaterial(i))
     {
       GetPlayer()->material_array[i].RemoveNode(this);
-      //GetPlayer()->sources[i].Iterator(&TSOURCE_UNIT::BuildingDestroyed,this);
-      //vyhodit premennu
     }
   }
 }

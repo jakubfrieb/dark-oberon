@@ -128,7 +128,6 @@ class TMAP_POOLED_LIST;
 
 // units
 #define UNI_TRY_TO_MOVE_LIMIT   4.0       //!< Time limit for trying to move without punish. [seconds]
-#define UNI_TRY_TO_STAY_LIMIT   1.0       //!< Time limit for trying to stay (unit trys to leave another unit). [seconds]
 #define UNI_TRY_TO_MOVE_SHIFT   0.2       //!< Timeshift between 2 tryings to move. [seconds]
 #define UNI_TRY_TO_LEAVE_SHIFT  1.0       //!< Timeshift between 2 tryings to leave a unit and addings to map.
 #define UNI_TRY_TO_PRODUCE_SHIFT  5.0     //!< Timeshift between 2 tryings to produce a unit.
@@ -152,14 +151,8 @@ class TMAP_POOLED_LIST;
 //searching nearest building
 #define WRK_MAX_PATH_TIME       99999999      //!< Maximal time that can take worker's path from point A to B   
 
-//how many percents of left material after will be return to player after building was deleted
-#define RET_MAT_PERCENTAGE      50
-
-
 #define LIST_HIDING             1
 #define LIST_WORKING            2
-
-#define UNI_MAX_PF_STEPS_COUNT  50            //!< Maximal count of steps of pathfinder during fast path counting (AI)
 
 
 //========================================================================
@@ -272,11 +265,9 @@ public:
   virtual ~TDRAW_UNIT();  //! Destructor.
 
   TGUI_ANIMATION* GetAnimation() const {return animation;};   //!< Returns pointer to animation structure of the unit.
-  void SetAnimation(TGUI_ANIMATION *new_anim) {animation = new_anim;};  //!< Sets pointer to animation structure of unit to value from param.
 
   TPOSITION_3D GetPosition() const {return pos;};         //!< Returns position of unit in mapels. Unit's position are coordinates of southwest corner of unit.
   TPOSITION_3D GetCenterPosition();
-  TPOSITION_3D TranslateToCentralize(const TPOSITION_3D position);
   void SetPosition(const TPOSITION_3D new_pos);           //!< Sets position of unit to position of param if it is in the map.  
   void SetPosition(const T_SIMPLE nx, const T_SIMPLE ny, const T_SIMPLE ns); //!< Sets position of unit to position of parameters if it is in the map.
 
@@ -377,12 +368,8 @@ public:
 
   TEVENT * pevent; //!< Pointer to event.
 
-  /** Sets pointer to owner of the unit. 
-  * @param owner  Pointer to the new unit's owner. */
-  void SetPlayer(TPLAYER *owner) { player = owner; }
   bool TestPlayer(TPLAYER *owner) { return player == owner; }
 
-  TPLAYER_UNIT();           //! Constructor only zeroizes values.
   TPLAYER_UNIT(int set_player, int p_x, int p_y, int p_z, TDRAW_ITEM* set_item, int new_unit_id, bool global_unit); //! Parametrized constructor
  
   virtual ~TPLAYER_UNIT();  //! Destructor.
@@ -392,13 +379,6 @@ public:
   
   char GetItemType() { return static_cast<TMAP_ITEM *>(pitem)->GetItemType(); };
   bool TestItemType(TITEM_TYPE it) { return (static_cast<TMAP_ITEM *>(pitem)->GetItemType() == it); };
-  
-  /** The method returns whether the unit has order */
-  bool HaveOrder() {return have_order;};
-  /** Set have_order to true */
-  void SetOrder() {have_order = true;};
-  /** Set have_order to false */
-  void ResetOrder() {have_order = false;};
 
   /** Sets state to the value in the parameter.
   * @param putted  New value of the unit state. */
@@ -431,8 +411,6 @@ protected:
   unsigned int state;     //!< Unit state [US_...].
   int waiting_request_id; //!< If unit is waiting for some request, request id is stored here
   int sound_request_id;   //!< If unit is sending request for sound to itself, sound is played only when it is expected and sill valid.
-
-  bool have_order;    //!< If unit has order in this round of AI
 };
 
 
@@ -463,7 +441,6 @@ public:
 
   void SetSelected(bool sel) { selected = sel; };         //!< Sets selected parameter.
   bool GetSelected(void) { return selected; };            //!< Returns selected parameter.
-  int GetWaitRequestId() { return waiting_request_id;};    //<! Returns waiting request id.
   void SetWaitRequestId(int wr_id) { waiting_request_id = wr_id;};  //<! Sets waiting request id.
   
   bool IsInMap(void) { return is_in_map; };               //!< Returns if unit is in map.
@@ -483,7 +460,6 @@ public:
   /* Heal unit for the value of the parameter but outside to maximum life of unit kind */
   float Heal(const float value); 
 
-  TMAP_UNIT();                        //! Constructor.
   TMAP_UNIT(int uplayer, int ux, int uy, int uz, TMAP_ITEM *mi, int new_unit_id, bool global_unit);   //! Constructor that sets position of unit and its kind.
   virtual ~TMAP_UNIT();   //! Destructor.
 
@@ -526,8 +502,6 @@ public:
     bool result = !will_be_deleted; pointer_counter--; if (!pointer_counter && will_be_deleted) delete this; return result;
   }
 
-  TGUI_ANIMATION* GetBurnAnimation() const { return burn_animation; };          //!< Returns pointer to animation structure of the unit.
-  TGUI_ANIMATION* GetSignAnimation() const { return sign_animation; };          //!< Returns pointer to animation of insufficient material or aid.
   void ResetSignAnimation() { sign_animation = NULL; }
 
   bool IsSelected() { return selected; }
@@ -608,9 +582,6 @@ private:
 };
 
 
-//forward declaration
-class TITERATOR_POOLED_LIST;
-
 /**
  *  List which doesn't allocate members but takes its from the pool.
  */
@@ -650,12 +621,6 @@ public:
 
   /** Adds new node at the beginning of the list. */
   void AddNode(TMAP_UNIT * const new_pitem);
-  /** Adds new node at the beginning of the list only if it isn't in list. */
-  bool AddNonDupliciteNode(TMAP_UNIT * const new_pitem);
-  /** Adds new node at the end of the list. */
-  void AddNodeToEnd(TMAP_UNIT * const new_pitem);
-  /** Adds new node at the end of the list only if it isn't in list. */
-  bool AddNonDupliciteNodeToEnd(TMAP_UNIT * const new_pitem);
   /** The method removes node from the list. */
   bool RemoveNode(TMAP_UNIT* delete_node);
 
@@ -678,10 +643,6 @@ public:
   bool IsEmpty() const
     { return (length == 0); };
 
-  /** The method creates iterator for walking through the list.
-   *  @return The method returns pointer to iterator on success. Otherwise NULL*/
-  TITERATOR_POOLED_LIST* GetIterator() const;
-
 protected:
 
   TNODE *first;          //!< First node in the list.
@@ -691,37 +652,6 @@ private:
 
   unsigned int length;   //!< Length of the list.
   TPOOL<TNODE> *pool;    //!< Pool with preallocated nodes for the list.
-
-  friend class TITERATOR_POOLED_LIST;
-};
-
-
-/**
- *  Simple iterator for walking through pooled list.
- *
- *  @sa TPOOLED_LIST
- */
-class TITERATOR_POOLED_LIST {
-public:
-
-  TITERATOR_POOLED_LIST(const TPOOLED_LIST *const list)
-    { actual = list->first;}
-
-  /** @return The method returns true if in the list is next unit. */
-  bool HasNextUnit() const
-    { return ((actual != NULL) && (actual->GetNext() != NULL));}
-
-  /** The method returns pointer to actual unit and moves to next node.
-   *  @return The method returns pointer to next unit if exists otherwise NULL.*/
-  TMAP_UNIT* NextUnit() 
-  { 
-    TMAP_UNIT *result = NULL; 
-    if (actual != NULL) { result = actual->GetUnit(); actual = reinterpret_cast<TPOOLED_LIST::TNODE*>(actual->GetNext());} 
-    return result;
-  }
-
-private:
-  TPOOLED_LIST::TNODE *actual;  //!< Pointer to actual position in the list.
 };
 
 
@@ -756,17 +686,6 @@ public:
   double GetImpactTime() const
     {return impact_time;};
 
-  /** Add parameter to x coordinate.
-   *  @param ch Change of the x coordinate. */
-  float ChangeX(const float ch) 
-    {return rpos_x += ch;};
-  /** Add parameter to y coordinate.
-   *  @param ch Change of the y coordinate. */
-  float ChangeY(const float ch) 
-    {return rpos_y += ch;};
-  /** Returns segment of the actual position. */
-  T_SIMPLE GetSegment() const 
-    {return pos.segment;};
   double GetSegmentTime() const     //!< Returns time lefted to leave the actual segment.
     {return seg_time;};
   /** Sets time lefted to leave the actual segment.
@@ -834,9 +753,7 @@ public:
   bool IsAimableByUnit(TPOSITION pos, int x_new, int y_new, int u_width, int u_height, int range_min, int range_max);      //!< Test whether unit can aim the field.
   bool IsGoodDistance(int tx, int ty, int radius_min, int radius_max);
 
-  void ShowNeedFood();
   void ShowNeedEnergy();
-  void ShowNeedMaterial(T_BYTE mat);
   void ShowNeedElement(T_BYTE id);
 
   /** The method checks neighbourhood of the unit to start attack to enemy.*/
@@ -899,7 +816,6 @@ public:
   bool IsLanding() const
     {return TestState(US_LANDING);};
 
-  bool MoveInDirection(int direct);               //!< Move unit one field in the direction from parameter.
   bool LandUnit(TPOSITION_3D * position);         //!< The unit try to land.
 
   /** Sets actual speed of the unit but only if the new speed is greater then zero.
@@ -907,32 +823,11 @@ public:
   void SetSpeed(const float new_sp) {if (new_sp <= 0) return; else speed = new_sp;};
   float GetSpeed() const {return speed;};         //!< Returns actual speed of the moving unit.
 
-  /** Sets actual rotation speed of the unit but only if the new speed is greater then zero.
-   *  @param new_sp New speed of the unit. */
-  void SetRotationSpeed(const float new_sp) {if (new_sp <= 0) return; else speed = new_sp;};
-  float GetRotationSpeed() const {return speed;};           //!< Returns actual rotation speed of the unit.
-
-  /** Sets move time but only if the new move time is greater or equal then zero.
-   *  @param new_mt New move time. */
-  void SetMoveTime(const double new_mt) {if (new_mt >= 0) move_time = new_mt;};
-  /** Returns time of moving. */
-  double GetMoveTime() const {return move_time;};
-
   /** Sets try to move timer to zero. */
   void ResetTryToMoveTimer() {try_move_shift = 0.0;};
-  /** Sets ty to move timer to value from parameter. 
-   *  @param nttms  New value of the try to move timer.*/
-  void SetTryToMoveTimer(const double nttms) { try_move_shift = nttms;};
-  /** Returns value of the try to move timer. */
-  double GetTryToMoveTimer() const { return try_move_shift;};
 
   /** Sets try to land timer to zero. */
   void ResetTryToLandTimer() {try_land_shift = 0.0;};
-  /** Sets ty to land timer to value from parameter. 
-   *  @param nttls  New value of the try to land timer.*/
-  void SetTryToLandTimer(const double nttls) { try_land_shift = nttls;};
-  /** Returns value of the try to land timer. */
-  double GetTryToLandTimer() const { return try_land_shift;};
 
   /** Sets goal of the way. Doesn't control whether value from parameter is correct.
    *  @param ng New goal of the unit.*/
@@ -964,7 +859,6 @@ public:
   { this->held = held; this->held_where = held_where; this->held_list = which_list; }
 
   void SetHider(TMAP_UNIT *hid) { hider = hid; }
-  TMAP_UNIT *GetHider() { return hider; }
   
   /** The method start attack to the unit from parameter.*/
   virtual bool StartAttacking(TMAP_UNIT *unit, bool auto_call);
@@ -973,8 +867,6 @@ public:
   virtual bool ExistInSegment(int bottom, int top) const;
 
 protected:
-  /** Tests whether is adjacent position in direction from parameter available to move. */
-  unsigned int IsAdjacentPositionAvailable(const int direct);
   /** Tests whether is selected position available to move. */
   bool IsSelectedPositionAvailable(const TPOSITION_3D new_pos);
 
@@ -1093,12 +985,8 @@ class TWORKER_UNIT : public TFORCE_UNIT {
 public:
   //! Gets the material type which the unit has mined.
   char GetMaterial() { return mined_material; };
-  //! Sets the material type which the unit has mined.
-  void SetMaterial(char material_type) { mined_material = material_type; };
   //! Gets the amount of material the unit extracted and is carrying.
   float GetMaterialAmount() { return material_amount; };
-  //! Sets the amount of material the unit is carrying.
-  void SetMaterialAmount(float mat_amount) { material_amount = mat_amount ;};
   //! Finds a new source (when the old one has collapsed).
   
   // help functions to finding new source (FindNewSource() function)
@@ -1237,7 +1125,6 @@ public:
   * @param flags  Flags of attacker stored in his TARMAMENT class. */
   virtual bool DoesAttackTakeEffect(char const flags) const
     { return ((flags & static_cast<char>(FIG_GUN_DAMAGE_SOURCES))?true:false);};
-//  void BuildingDestroyed(void *);         //!< Fills flags into player_array when building from param is destroyed.
 
   /** Method creates ghost unit which is drawn under warfog. */
   virtual void CreateGhost();
@@ -1297,10 +1184,6 @@ public:
   virtual void ProcessEvent(TEVENT * proc_event);
   virtual bool UpdateGraphics(double time_shift);
 
-  /** Returns time lefted to complete production of the unit.*/
-  double GetLeftedTime() const
-    { return production_time;};
-  
   bool CanAddUnitToOrder(TFORCE_ITEM *unit_item = NULL);
   bool AddUnitToOrder(TFORCE_ITEM *unit_item);
   void TakeOffUnitFromOrder();
@@ -1308,7 +1191,6 @@ public:
   void CancelProducing(int orderid);
 
   TPRODUCEABLE_NODE* GetOrderedUnit(int index) { return order[(producing + index) % UNI_MAX_ORDER_LENGTH]; }
-  TPOSITION_3D FindPlaceForProduct(TFORCE_ITEM *fitem);         //!< Find empty and available place for product.
 
   /** @return -1 if factory can produce next part of unit, 0-food needed, 1-energy needed, >1-material with id i-2 needed */
   signed char GetNeedID() {return need_id;};
@@ -1316,7 +1198,6 @@ public:
   bool HasRallyPoint() const { return rally_active; }
   const TPOSITION_3D &GetRallyGoal() const { return rally_goal; }
   void SetRallyGoalFromLocal(const TPOSITION_3D &goal);
-  void ClearRallyPointFromLocal();
 
 private:
   TPRODUCEABLE_NODE* order[UNI_MAX_ORDER_LENGTH];     //!< Order of the units to production.

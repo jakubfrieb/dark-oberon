@@ -67,7 +67,6 @@ class TMAP;
 #define MAP_KEY_MOVE_RIGHT    0x00000010   //!< Moves map right with keyboard.
 #define MAP_KEY_MOVE_UP       0x00000100   //!< Moves map up with keyboard.
 #define MAP_KEY_MOVE_DOWN     0x00001000   //!< Moves map down with keyboard.
-#define MAP_KEY_MOVE          0x00001111   //!< Map moves with keyboard.
 
 #define MAP_MOUSE_MOVE_LEFT   0x00010000   //!< Moves map left with mouse.
 #define MAP_MOUSE_MOVE_RIGHT  0x00100000   //!< Moves map right with mouse.
@@ -84,13 +83,6 @@ class TMAP;
 
 // map terrains
 #define MAP_EMPTY_SURFACE  255    //!< Special value in map surface
-
-// activity of actions
-#define ACTIV_ATTACK 3                    //!< Activity koeficient of attack
-#define ACTIV_MINE 3                      //!< Activity koeficient of mine
-#define ACTIV_REPAIR 2                    //!< Activity koeficient of repair
-#define ACTIV_MOVE 2                      //!< Activity koeficient of move
-#define ACTIV_DEFAULT 1                   //!< Default activity koeficient
 
 //=========================================================================
 // Included files
@@ -169,19 +161,9 @@ struct TMAP_SURFACE {
   TTERRAIN_ID t_id;     //!< Terrain id.
   TMAP_UNIT *unit;      //!< Unit that stays here.
   TMAP_UNIT *ghost;     //!< Ghost that stays here.
-  TNEURON_VALUE *activity;     //<! Activity of every player.
 
   TMAP_SURFACE();        //!< Basic constructor.
   ~TMAP_SURFACE();
-
-  void GetActivity(const T_SIMPLE PlayerID, TNEURON_VALUE *my_activity, TNEURON_VALUE *enemy_activity);
-  void DecreaseActivity(T_SIMPLE factor);
-  void IncreaseActivity(const T_SIMPLE PlayerID, TNEURON_VALUE added) {activity[PlayerID] += added;};
-
-  void Clear() {
-    if (activity) delete [] activity;
-    activity = NULL;
-  }
 
   /** @return The method returns the list of units which watch this field.*/
   TMAP_POOLED_LIST* GetWatchersList() const
@@ -422,9 +404,6 @@ public:
 
   //!< The method tests whether position is free.
   bool IsPositionFree(T_SIMPLE width, T_SIMPLE height, const TPOSITION_3D &pos);
-  
-  //! Returns seconds how long has been the map played.
-  double GetPlayTime (double time_actual) { return (time_actual - start_time); }
 
   TMAP();
   ~TMAP() { Clear(); };

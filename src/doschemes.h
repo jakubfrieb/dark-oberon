@@ -114,7 +114,6 @@ public:
 
   void SetTextures(TTEX_GROUP *group);
   void SetUsed(bool use) { used = use; }
-  bool IsUsed() { return used; }
   int  GetAnimCount() { return anim_count; }
   TTEX_GROUP *GetTexGroup() { return tex_group; }
   TGUI_TEXTURE *GetFirstTexture() {

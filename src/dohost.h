@@ -149,10 +149,6 @@ public:
     talker->DisconnectAddress (id);
   }
 
-  void DisconnectAddress (in_addr address, in_port_t port) {
-    talker->DisconnectAddress (address, port);
-  }
-
   void RemoveAddress (int id) {
     talker->RemoveAddress (id);
   }

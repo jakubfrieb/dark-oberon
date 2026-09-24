@@ -59,16 +59,9 @@ typedef struct {
 } TGA_HEADER;
 
 
-#define TGA_CMAPTYPE_NONE      0      //!< Value of TGA_HEADER::cmaptype, when there is no colormap present.
 #define TGA_CMAPTYPE_PRESENT   1      //!< Value of TGA_HEADER::cmaptype, when there is a colormap present.
 
-#define TGA_IMAGETYPE_NONE     0      //!< Value of TGA_HEADER::imagetype. @todo okomentovat vsetky TGA_IMAGETYPE_*
-#define TGA_IMAGETYPE_CMAP     1      //!< Value of TGA_HEADER::imagetype.
-#define TGA_IMAGETYPE_TC       2      //!< Value of TGA_HEADER::imagetype.
-#define TGA_IMAGETYPE_GRAY     3      //!< Value of TGA_HEADER::imagetype.
-#define TGA_IMAGETYPE_CMAP_RLE 9      //!< Value of TGA_HEADER::imagetype.
-#define TGA_IMAGETYPE_TC_RLE   10     //!< Value of TGA_HEADER::imagetype.
-#define TGA_IMAGETYPE_GRAY_RLE 11     //!< Value of TGA_HEADER::imagetype.
+#define TGA_IMAGETYPE_CMAP_RLE 9      //!< Value of TGA_HEADER::imagetype (RLE-compressed colormapped image).
 
 #define TGA_IMAGEINFO_ALPHA_MASK   0x0f    //!< Mask to get TGA_HEADER::_alphabits from TGA_HEADER::imageinfo;
 #define TGA_IMAGEINFO_ALPHA_SHIFT  0       //!< Shift to get TGA_HEADER::_alphabits from TGA_HEADER::imageinfo;

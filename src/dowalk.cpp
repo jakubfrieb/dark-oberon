@@ -50,9 +50,6 @@
 //=========================================================================
 
 //#define PRINT_LOCAL_MAP_DURING_DEBUGGING
-#ifdef PRINT_LOCAL_MAP_DURING_DEBUGGING
-  #define FILENAME_LOC_MAP "localni.txt"
-#endif
 
 
 //=========================================================================
@@ -312,7 +309,6 @@ bool TA_STAR_ALG::PathFinder(TPOSITION_3D goal, TFORCE_UNIT *unit,TLOC_MAP *loc_
   int act_goal_dist;   //square of the distance between goal and field, which was as last added to the CLOSE set
   int min_goal_dist  =0;
   TPOSITION_3D r_pos = goal; //set goal to help variable
-  bool goal_set = false; 
   int num_of_steps =0;
 
   if (max_steps_cnt)
@@ -396,7 +392,6 @@ bool TA_STAR_ALG::PathFinder(TPOSITION_3D goal, TFORCE_UNIT *unit,TLOC_MAP *loc_
     //stop searching if we are at he field from the goal set
     if (this->star_map->fields[now->pos.segment][now->pos.x][now->pos.y].is_goal)
     {
-      goal_set = true;
       goal = now->pos;
       cont = false;
       break;
@@ -680,15 +675,13 @@ inline bool TA_STAR_ALG::IsUnavailableField (int x, int y, int z, TFORCE_ITEM *t
 #define IS_LANDABLE_AREA(i,j,x,y,z,a,m)    {\
             (a) = true;\
             (m) = easiest[(z)];\
-            bool one_landable = false;\
             for ((i) = (x); (a) && ((i) < type->GetWidth() + (x)); (i)++)\
               for ((j) = (y); (a) && ((j) < type->GetHeight() + (y)); (j)++)\
               {\
                 if (map.IsInMap((i), (j)) && (!IS_OCCUPIED_BY_ENEMY((i),(j),(z),playerID)))\
                 {\
-                  if (!IS_UNLANDABLE_FIELD((i),(j),(z)) || (loc_map[(z)][(x)][(y)].state == WLK_UNKNOWN_AREA))\
-                    one_landable = true;\
-                  else if (IsUnavailableField((i),(j),(z),type,loc_map))\
+                  if (IS_UNLANDABLE_FIELD((i),(j),(z)) && (loc_map[(z)][(x)][(y)].state != WLK_UNKNOWN_AREA)\
+                      && IsUnavailableField((i),(j),(z),type,loc_map))\
                     (a) = false;\
                   if ((a))\
                   {\
@@ -1309,23 +1302,6 @@ TPATH_NODE::TPATH_NODE(TPATH_NODE *first_old, TPOSITION_3D adding)
 
 
 /**
- *  Class constructor. Used to add a goal of a path in TA_STAR_ALG::PathFinder().
- *
- *  @param goal  Goal of path.
- *
- *  @sa TA_STAR_ALG
- */
-TPATH_NODE::TPATH_NODE(TPOSITION_3D goal)
-{
-  next = prev = NULL;
-  first = WLK_NODES_NUM - 1;
-  register int i =0;
-  for (i = 0; i < first; path_pos[i++].x = LAY_UNAVAILABLE_POSITION);
-  path_pos[i] = goal;
-}
-
-
-/**
  *  Constructor creates copy of the origin from parameters. Each valid field
  *  position shifts about values from parameters.
  */
@@ -1444,36 +1420,6 @@ TPOSITION_3D TPATH_LIST::GetNextPosition()
   else                        //it is in same node
     return a_node->path_pos[abs_pos];
 }
-
-
-/**
- *  Get previous position in the path list.
- */
-TPOSITION_3D TPATH_LIST::GetPrevPosition()
-{
-  int abs_pos;
-  TPOSITION_3D aux;
-
-  if ((a_step == -1) || !a_step)     //it is first step or before first step
-  {
-    aux.SetPosition(LAY_UNAVAILABLE_POSITION,LAY_UNAVAILABLE_POSITION,LAY_UNAVAILABLE_POSITION);
-    return f_node->path_pos[f_node->first];
-  }
-  
-  abs_pos = (f_node->first + a_step - 1) % WLK_NODES_NUM;   //where it is in actual node
-
-  if (abs_pos == WLK_NODES_NUM - 1)        //it is in previous node
-    return a_node->prev->path_pos[abs_pos];
-  else                        //it is in same node
-    return a_node->path_pos[abs_pos];
-}
-
-
-TPOSITION_3D TPATH_LIST::GetPostitionInPath(int steps_count)
-{
-   return f_node->path_pos[WLK_NODES_NUM - steps_count];
-}
-
 
 
 /**
@@ -1698,20 +1644,6 @@ void TPATH_LIST::IncreaseASteps()
   }
 }
 
-
-/**
- *  The method decreases actuall step. If during step is changed TPATH_NODE 
- *  then change pointer to a_node too.
- */
-void TPATH_LIST::DecreaseASteps()
-{
-  if ((f_node != NULL) && (((f_node->first + a_step) % WLK_NODES_NUM) == 0))
-  {
-    a_node = a_node->prev;
-  }
-
-  a_step--;
-}
 
 //=========================================================================
 // TPATH_INFO

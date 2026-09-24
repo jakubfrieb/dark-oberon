@@ -171,7 +171,6 @@ public:
   void RemoveNode(T* delete_node);                    //!< The method removes node from the list.
 
   TNODE<T> *GetFirst() { return first; };            //!< Returns pointer to the first node in the list.
-  TNODE<T> *GetLast() { return last; };              //!< Returns pointer to the last node in the list.
 
   void DestroyList();
   void ApplyFunction(void (T::*fcion)(void *), void *);    //!< Aplicate function given as parameter on the all nodes of the list with given parameter.

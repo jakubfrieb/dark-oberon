@@ -175,28 +175,6 @@ inline void DrawStatusQuad(GLfloat x, GLfloat y, GLfloat w, GLfloat p, GLfloat r
 //=========================================================================
 
 /**
- *  Constructor. Only zeroize the values.
- */
-TMAP_UNIT::TMAP_UNIT()
-{
-  life = 0;
-  is_in_map = selected = false;
-  group_id = -1;
-  hided_count = 0;
-  myself_units = 0;
-
-  shot = NULL;
-  target = last_target = NULL;
-  pointer_counter = 0;
-  burn_animation = sign_animation = NULL;
-  will_be_deleted = false;
-  ghost_owner = NULL;
-  aggressivity = AM_IGNORE;
-  auto_attack = false;
-}
-
-
-/**
  *  Constructor. Set position and pointer to unit kind.
  *
  *  @param ux The x coordinate.
@@ -1523,98 +1501,6 @@ void TPOOLED_LIST::AddNode(TMAP_UNIT * const new_item)
 
 
 /** 
- *  Adds new node at the beginning of the list only if it isn't in list. 
- *
- *  @new_item Pointer to item which will be boxed into node and placed 
- *  at the beginning of the list if there is not yet.
- *
- *  @return The method returns true if unit wasn't in the list yet.
- */
-bool TPOOLED_LIST::AddNonDupliciteNode(TMAP_UNIT * const new_item)
-{
-  TNODE *aux;
-  bool exists = false;
-
-  if (new_item == NULL)
-    return false;
-
-  for (aux = first; aux != NULL; aux = static_cast<TNODE*>(aux->GetNext()))
-  {
-    if (aux->IsSameUnit(new_item))
-    {
-      exists = true;
-      break;
-    }
-  }
-  
-  if (!(exists)) 
-    AddNode(new_item);
-
-  return (!exists);
-}
-
-/** 
- *  Adds new node at the end of the list. 
- *
- *  @new_item Pointer to item which will be boxed into node and placed 
- *  at the end of the list.
- */
-void TPOOLED_LIST::AddNodeToEnd(TMAP_UNIT * const new_item)
-{
-  TNODE *aux_node;
-  
-  if (new_item == NULL)
-    return;
-
-  aux_node = pool->GetFromPool();
-  aux_node->Clear(true);
-  aux_node->SetNext(NULL);
-  new_item->AcquirePointer();
-  aux_node->SetUnit(new_item);
-  if (length == 0)
-    first = last = aux_node;
-  else
-  {
-    last->SetNext(aux_node);
-    last = aux_node;
-  }
-  length++;
-}
-
-
-/** 
- *  Adds new node at the end of the list only if it isn't in list. 
- *
- *  @new_item Pointer to item which will be boxed into node and placed 
- *  at the end of the list if there is not yet.
- *
- *  @return The method returns true if unit wasn't in the list yet.
- */
-bool TPOOLED_LIST::AddNonDupliciteNodeToEnd(TMAP_UNIT * const new_item)
-{
-  TNODE *aux;
-  bool exists = false;
-
-  if (new_item == NULL)
-    return false;
-
-  for (aux = first; aux != NULL; aux = static_cast<TNODE*>(aux->GetNext()))
-  {
-    if (aux->IsSameUnit(new_item))
-    {
-      exists = true;
-      break;
-    }
-  }
-  
-  if (!(exists)) 
-    AddNodeToEnd(new_item);
-
-  return (!exists);
-}
-
-
-/** 
  *  The method removes node from the list. 
  *
  *  @delete_item Pointer to item which will is boxed into node and removed 
@@ -1670,17 +1556,6 @@ TPOOLED_LIST::~TPOOLED_LIST()
   last = NULL;
   length = 0;
   pool = NULL;
-}
-
-
-//=========================================================================
-// Class TITERATOR_POOLED_LIST - method definitions
-//=========================================================================
-
-
-TITERATOR_POOLED_LIST* TPOOLED_LIST::GetIterator() const
-{ 
-  return NEW TITERATOR_POOLED_LIST(this);
 }
 
 

@@ -200,24 +200,6 @@ bool TSOURCE_UNIT::SetMaterialBalance(int new_value)
 
 
 /**
- *  Fills flags into player_array when building from param is destroyed.
- *
- *  @param param  Pointer to destroyed building.
- */
-
-/*void TSOURCE_UNIT::BuildingDestroyed(void *param)
-{
-  TBUILDING_UNIT* building = static_cast<TBUILDING_UNIT*>(param);
-
-  TNEAREST_BUILDINGS *nearest = GetPositionInPlayerArray(building->GetPlayerID()-1);
-
-  for(int i = 0; i < building->GetPlayer()->race->workers_item_count[static_cast<TSOURCE_ITEM*>(pitem)->GetOfferMaterial()]; i++)
-    nearest[i].was_destroyed = true;
-}
-*/
-
-
-/**
  *  The method adds worker into the list of workers in the source according to which_list param.
  *  The method sets workers state to US_MINING (for mining workers).
  *

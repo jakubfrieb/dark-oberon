@@ -131,9 +131,6 @@ public:
 
   void Disconnect ();
 
-  bool Connected ()
-  { return connected; }
-
   bool IsEmpty ()
   { return empty; }
 
@@ -171,8 +168,6 @@ public:
   T_BYTE GetDest ()     { return dest; }
 
   void SetDest (T_BYTE dest)  { this->dest = dest; }
-
-  const T_BYTE *GetBuf () { return buf; }
 
   /** Puts @p size of bytes from memory at address @p data into the message. */
   void Pack (const void *data, int size)
@@ -383,7 +378,6 @@ public:
   T_BYTE AddEmptyAddress ();
 
   void DisconnectAddress (int id);
-  void DisconnectAddress (in_addr address, in_port_t port);
   void RemoveAddress (int id);
 
   /** Returns pointer to outgoing message queue. */

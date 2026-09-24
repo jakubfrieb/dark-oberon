@@ -578,7 +578,6 @@ void TMOUSE::FindOverUnit(int seg)
   // if we have some units, tests selection
   if (count) {
     GLfloat pixel[3] = { -1.0f, -1.0f, -1.0f };
-    GLfloat fwidth, fheight;
 
     // white quad under mouse cursor
     glLoadIdentity();
@@ -599,9 +598,6 @@ void TMOUSE::FindOverUnit(int seg)
       //!!! tuto nastava chyba ze units[i] == NULL napriek tomu, ze je to pocitany 
       // pointer. Ak sa to nevyriesi inak, moze sa tu dat test a aspon to nespadne.
       SetMapPosition(units[i]->GetRealPositionX(), units[i]->GetRealPositionY());
-
-      fwidth = (GLfloat)units[i]->GetAnimation()->GetFrameWidth();
-      fheight = (GLfloat)units[i]->GetAnimation()->GetFrameHeight();
 
       // draws black silhoulette of unit
       glColor3f(0.0f, 0.0f, 0.0f);

@@ -99,7 +99,6 @@ public:
   bool IsEmpty() { return (units_count == 0); }
   bool IsMy() { return is_my; }
   bool OnlyOne() { return (units_count == 1); }
-  int  GetUnitsCount() { return units_count; }
   TMAP_UNIT *GetFirstUnit() { if (units) return units->unit; else return NULL; }
   //! First selected worker that can build (list order = last clicked first); never use GetFirstUnit() for building.
   TWORKER_UNIT *GetBuildWorker();

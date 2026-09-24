@@ -187,21 +187,6 @@ TPLAYER_UNIT * THASHTABLE_UNITS::GetUnitPointer(int g_unit_id)
   return NULL;
 }
 
-/**
- *  Returns identificator of unit specifird in @param g_player_unit.
- *
- *  If unit does not exists, returns 0.
- *  @sa TPLAYER_UNIT
- */
-int THASHTABLE_UNITS::GetUnitID(TPLAYER_UNIT * g_player_unit)
-{
-  if (g_player_unit){
-    return g_player_unit->GetUnitID();
-  }
-  else return 0;
-}
-
-
 //=========================================================================
 // struct TPLAYER
 //=========================================================================
@@ -559,16 +544,6 @@ void TPLAYER::RemoveUnitEnergyFood(int e, int f)
 }
 
 /**
- *  Reset have_order on all units to false
- */
-void TPLAYER::ResetOrders()
-{
-  TPLAYER_UNIT * unit;
-  for (unit = units; unit; unit = unit->GetNext())
-    unit->ResetOrder();
-}
-
-/**
  *  Increment count of units of player.
  */
 void TPLAYER::IncPlayerUnitsCount()
@@ -594,13 +569,6 @@ void TPLAYER::DecPlayerUnitsCount()
       won_lose = true;
 
       // send to other computers that I'm disconnecting
-      /*
-      for (int i = 0; i < player_array.GetCount(); i++){
-        if (players[i]->active && !player_array.IsRemote(i)){
-          host->SendDisconnect (i);
-          players[i]->active = false;
-        }
-      }*/
       host->SendDisconnect(GetPlayerID());
     }
     else {
@@ -979,30 +947,6 @@ bool TLOC_MAP::GetAreaVisibility(const T_SIMPLE pos_x, const T_SIMPLE pos_y,
   return false;
 }
 
-
-/**
- *  If all mapels are unknow, returns true else return false.
- *
- *  @param x       X position.
- *  @param y       Y position.
- *  @param seg     Segment.
- *  @param width   Width of the area.
- *  @param height  Height of the area.
- */
-bool TLOC_MAP::IsAreaUnknown(const T_SIMPLE x, const T_SIMPLE y, const T_BYTE seg,
-                             const T_SIMPLE width, const T_SIMPLE height)
-{
-  T_BYTE fstate;
-
-  for (T_SIMPLE i = 0; i < width; i++)
-    for (T_SIMPLE j = 0; j < height; j++) {
-      fstate = map[seg][x + i][y + j].state;
-
-      if (fstate != WLK_UNKNOWN_AREA) return false;
-    } 
-
-  return true;
-}
 
 /**
  *  If any of mapels are unknow, returns true else return false.

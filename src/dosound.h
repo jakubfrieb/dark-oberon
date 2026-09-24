@@ -32,7 +32,6 @@
 // Definitions
 //=========================================================================
 
-#define SND_MAX_PLAYBACKS   2
 #define SND_MAX_CHANNELS    64
 #define SND_MIXRATE         32000
 

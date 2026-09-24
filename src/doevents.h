@@ -41,8 +41,6 @@ class TQUEUE_EVENTS;
 //========================================================================
 //event type
 #define ET_NONE                         3000  //initial state  
-#define ET_NEXTMINE_SOURCE_OK           3001  //unit is in state US_NEXT_MINE, new source found ,OK = 1
-#define ET_NEXTMINE_SOURCE_NOK          3002  //unit is in state US_NEXT_MINE, new source found ,NOK = 1
 #define ET_ATTACK_TOO_FAR_AWAY          3003  //unit is in state US_NEXT_ATTACK, but is too far away from attacking goal
 #define ET_TARGET_MOVING                3004  //unit has target, which is moving
 #define ET_HIDER_MOVING                 3005  //unit has hider, which is moving and change position
@@ -120,18 +118,12 @@ public:
   
   //!< Returns identificator of player.
   int GetPlayerID(void) {return player_id;};
-  //!< Sets player identificator. If new_player_id >= player_array.GetCount(), sets 0.
-  void SetPlayerID(int new_player_id);
   
   //!< Returns identificator of unit.
   int GetUnitID(void) {return unit_id;};
-  //!< Sets unit identificator.
-  void SetUnitID(int new_unit_id) {unit_id = new_unit_id;};
 
   //!< Returns priority of event.
   bool GetPriority(void) {return priority;};
-  //!< Sets priority of event.
-  void SetPriority(bool new_priority) {priority = new_priority;};
 
   //!< Returns time stamp of event.
   double GetTimeStamp(void) {return time_stamp;};
@@ -142,23 +134,14 @@ public:
   bool TestEvent(int n_event) {return n_event == event;};
   //!< Returns event.
   int GetEvent(void) {return event;};
-  //!< Sets event.
-  void SetEvent(int new_event) {event = new_event;};
 
   //!< Tests if event stored in last_event is equal to @param n_last_event.
   bool TestLastEvent(int n_last_event) {return n_last_event == last_event;};
   //!< Returns event.
   int GetLastEvent(void) {return last_event;};
-  //!< Sets last_event.
-  void SetLastEvent(int new_last_event) {last_event = new_last_event;};
 
   //!< Returns request_id.
   int GetRequestID(void) {return request_id;};
-  //!< Sets request_id.
-  void SetRequestID(int new_request_id, int player_id);
-
-  //!< Sets next pool event.
-  void SetNextPoolEvent(TEVENT * new_pool_next) { pool_next = new_pool_next;};
 
   //!< Sets next queue event.
   void SetNextQueueEvent(TEVENT *queue_event) { queue_right = queue_event;};

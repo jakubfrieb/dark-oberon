@@ -309,28 +309,6 @@ TPOSITION_3D TDRAW_UNIT::GetCenterPosition()
 }
 
 
-TPOSITION_3D TDRAW_UNIT::TranslateToCentralize(const TPOSITION_3D position)
-{
-  TPOSITION_3D pom;
-
-  int i;
-
-  i = position.x - pitem->GetWidth() / 2;
-  if (i < 0) i = 0;
-  if (i >= map.width) i = map.width - 1;
-  pom.x = i;
-
-  i = position.y - pitem->GetWidth() / 2;
-  if (i < 0) i = 0;
-  if (i >= map.height) i = map.height - 1;
-  pom.y = i;
-
-  pom.segment = position.segment;
-
-  return pom;
-}
-
-
 /**
  *  Constructor.
  *  Values are only zeroized.
@@ -427,29 +405,6 @@ TPLAYER_UNIT::TPLAYER_UNIT(int set_player, int p_x, int p_y, int p_z, TDRAW_ITEM
 
   player->hash_table_units.AddToHashTable(unit_id, this);
   player->AddUnit(this);
-  have_order = false;
-}
-
-
-/**
- *  Constructor.
- *  Values are only zeroized.
- */
-TPLAYER_UNIT::TPLAYER_UNIT()
-{ 
-  player = NULL;
-  PutState(US_NONE);
-
-  prev = NULL;
-  next = NULL;
-  
-  unit_id = 0;  // this is necessary for creaing units in segments
-
-  sound_request_id = waiting_request_id = 0;
-  pevent = NULL;
-  last_event_time_stamp = 0;
-
-  have_order = false;
 }
 
 
@@ -678,11 +633,6 @@ void TBASIC_UNIT::SetView(bool set)  //sets view to the unit
 
               if (local_map->map[k][i][j].state > 0) 
                 local_map->map[k][i][j].state -= 1;
-              /*  OFIK: Nesynchronizovane is_in_map
-              else {
-                Critical("!!!!!!!!!!!!!!!!!!!!!");
-              }
-              */
 
               if (!local_map->map[k][i][j].state) {
                 if (player == myself) {
@@ -775,21 +725,9 @@ bool TBASIC_UNIT::IsSeenByUnit(TPOSITION pos, int x_test, int y_test, int u_widt
 }
 
 
-void TBASIC_UNIT::ShowNeedFood()
-{
-  sign_animation = player->need_animation[0];
-}
-
-
 void TBASIC_UNIT::ShowNeedEnergy()
 {
   sign_animation = player->need_animation[1];
-}
-
-
-void TBASIC_UNIT::ShowNeedMaterial(T_BYTE mat)
-{
-  sign_animation = player->need_animation[2 + mat];
 }
 
 
@@ -1006,12 +944,10 @@ TPROJECTILE_UNIT::TPROJECTILE_UNIT(int playerID, double time, TPOSITION_3D spos,
  */
 double TPROJECTILE_UNIT::CalculateAngles()
 {
-  double angle, mangle;
+  double angle;
 
   angle = GetPosition().GetAngle(GetImpactPos());
   direction = static_cast<TPOSITION>(GetPosition()).GetDirection(angle);
-
-  mangle = angle + PI * 0.25;     //calculate moving angle
 
   //calculate sinus and cosinus of the moving
   msin = static_cast<float>(sin(angle));

@@ -42,14 +42,8 @@ struct TSND_TABLE;
 // Definitions
 //=========================================================================
 
-// textures
-/** Maximal count of textures. */
-#define TEX_MAX_COUNT       50
-
 /** Directory, where data file are located. */
 #define DAT_PATH            (app_path + DATA_DIR "dat/").c_str()
-/** Filename of common data in #DAT_PATH. */ 
-#define DAT_COMMON_NAME     (std::string(DAT_PATH) + "common.dat").c_str()
 /** Filename of fonts data in #DAT_PATH. */
 #define DAT_FONTS_NAME      (std::string(DAT_PATH) + "fonts.dat").c_str()
 /** Filename of mouse cursors data in #DAT_PATH. */
@@ -67,8 +61,6 @@ struct TSND_TABLE;
 #define DAT_MAX_TEX_MAPELS       (int)(256.0 / DAT_MAPEL_DIAGONAL_SIZE) //!< Count of diagonal mapels in maximal texture height.
 #define DAT_MAX_COLOR_TESTED     0.9f   //!< Maximal color value for testing.
 
-#define DAT_MAX_DISTANCE  100000
-
 #define DAT_MAX_FILENAME_LENGTH 256   //!< Maximal length of filename.
 
 /** File header of data file. Every data file must start with this. */
@@ -77,7 +69,6 @@ struct TSND_TABLE;
 #define DAT_MIN_VERSION     2       //!< Min. allowed file version.
 
 // texture
-#define DAT_TEX_NAME_LENGTH 30      //!< Length of texture name in data file.
 #define DAT_TEX_RANDOM      -1
 
 // IDs of integrated textures and sounds

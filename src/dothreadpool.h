@@ -565,19 +565,10 @@ private:
       SDL_Thread *GetThread()
         { return thread;};
 
-      /** No-op: pool destructor joins all threads after setting pool_dead. */
-      void KillThread()
-      { 
-      }
-
       ~TTHREAD<T>()
       { 
         threadpool = NULL;
       }
-
-      /** @return The method returns reference to the threads auxiliary data.*/
-      A& GetAuxiliaryData()
-        { return auxiliary_data;};
 
     private:
       SDL_Thread *thread;        //!< The thread from the pool.

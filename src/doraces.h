@@ -63,14 +63,6 @@ struct TRACE;
 #define RAC_HEAL_WHEN_STAY          2     //!< Feature of the moveable units. Heals/repairs themself if stayes at the place and is injured.
 #define RAC_HEAL_WHEN_ANCHOR        4     //!< Feature of the moveable units. Heals/repairs themself if anchors at the place and is injured.
 
-#define RAC_UNABLE_POSITION         0     //!< Result of a position test. The position is landable nor moveable for the unit.
-#define RAC_MOVEABLE_POSITION       1     //!< Result of a position test. The position is moveable for the unit.
-#define RAC_LANDABLE_POSITION       2     //!< Result of a position test. The position is landable for the unit.
-#define RAC_BOTHABLE_POSITION       3     //!< Result of a position test. The position is landable and moveable for the unit.
-
-#define RAC_MAX_CONDITION_RETURNED_UNITS  10  //!< Maximum count of units returned by FindUnits and FindBuildings functions.
-#define RAC_MAX_CONDITION_VALUE           10  //!< Max. value (necessary) of condition in FindUnits and FindBuildings functions.
-
 
 //=========================================================================
 // Included files
@@ -254,7 +246,6 @@ public:
     burning_x = burning_y = 0.0f;
     max_hided_units = 0;
     aggressivity = AM_IGNORE;
-    available_positions = 0.0f;
   };
   virtual ~TMAP_ITEM()          //!< Destructor.
   { 
@@ -275,8 +266,6 @@ public:
   int GetMaxLife() const {return max_life;};
   //! Sets value of TMAP_ITEM::max_life if parameter is greater than zero.
   void SetMaxLife(const int m_life) { if (m_life > 0) max_life = m_life;};
-  //! Sets can move flag of the unit.
-  void SetCanMove(bool cm) {can_move = cm;};
 
   //! Returns @c true if user can move with unit.
   bool CanMove(void) { return can_move; };
@@ -325,12 +314,6 @@ public:
   void SetAggressivity(TAGGRESSIVITY_MODE new_agg)
     { aggressivity = new_agg; }
 
-  /** @return The method returns percantage of available positions in the map.*/
-  float GetAvailablePositions() const
-    { return available_positions;}
-  /** The method counts percentage of available positions in the map. */
-  void CountAvailablePositions();
-
 protected:
   bool can_move;            //!< Player can move with this unit.
   bool can_mine;            //!< Unit can mine materials.
@@ -350,7 +333,6 @@ protected:
 
 private:
   TAGGRESSIVITY_MODE aggressivity;        //!< Aggressivity of the item (defined in conf file).
-  float available_positions;              //!< Percentage of available positions.
 };
 
 
@@ -369,11 +351,6 @@ public:
 
   //! Returns count of instances of the unit kind.
   int GetCountOfActiveInstances() { return count_of_active_instances; };
-  /** Sets count of instances of the unit kind if parameter is equal or greater
-   *  then zero.
-   *  @param new_count  New count of instances of the unit kind. */
-  void SetCountOfActiveInstances(int new_count) 
-    {if (new_count >= 0) count_of_active_instances = 0;};
   //! Increases count of instances of the unit kind and returns old count.
   int IncreaseActiveUnitCount()
   {return count_of_active_instances++;};
@@ -428,10 +405,6 @@ public:
   /** Adds special features of the unit kind.
    *  @param new_feats Features to set. */
   void AddFeatures(const char new_feats) { features |= new_feats;};
-  char GetFeatures() const { return features;};         //!< Returns flags array of the special features of the unit.
-  /** Tests whether unit has all features sended in the parameter. If hasn't return false.
-   *  @param tested Flags array of the tested features. */
-  bool TestAllFeatures(const char tested) const {if ((features & tested) == features) return true; else return false;};
   /** Test whether unit has some of the features sended in the parameter. If hasn't anyone returns false.
    *  @param tested Flags array of the tested features. */
   bool TestSomeFeatures(const char tested) const 
@@ -441,8 +414,6 @@ public:
   bool IsPositionAvailable(int pos_x, int pos_y, int pos_seg);
   /** Tests whether any position around holder unit  is available */
   bool IsPosAroundHolderAvailable(TFORCE_UNIT *unit, TMAP_UNIT* holder, T_BYTE seg, TPOSITION_3D *free_position);
-  /** The method tests whether a position is landable, moveable or both. */
-  unsigned char TestPositionFeatures(T_SIMPLE tx, T_SIMPLE ty, T_SIMPLE ts);
 
   /** Returns value that units needs to heal/repair one life point. If unit hasn't special feature 
    *  RAC_HEAL_WHEN_STAY or RAC_HEAL_WHEN_ANCHOR returns -1. */
@@ -617,14 +588,6 @@ public:
     else return false;
   };
     
-  /** Sets allowed material to value from parameter.
-   *  @param new_materials  New value of materials.
-   */
-  void SetAllowedMaterial(const T_BYTE material, bool value) {
-    if (material < SCH_MAX_MATERIALS_COUNT)
-      allowed_materials[material] = value;
-  };
-
   /** Adds allowed material from parameter. Its possible add more then one allowed material in the one time.
    *  @param added Added materials. 
    */ 
@@ -818,11 +781,6 @@ public:
   /** Returns time necessary to build the unit. */
   double GetProduceTime() const 
     { return produce_time;};
-  /** Sets time necessary to produce unit but only if new value is positive. If isn't doesn't change
-   *  old value. Returns true if the new value is positive otherwise returns false.
-   *  @param time New value of the time necessary to produce unit. */
-  bool SetProduceTime(const double time)
-    { if (time > 0.0) {produce_time = time; return true;} else return false;};
 
   /** Sets pointer to next node.
    *  @param node New next node. */
@@ -835,9 +793,6 @@ public:
   /** Retruns pointer to next node. */
   TPRODUCEABLE_NODE* GetNextNode() const
     { return next;};
-  /** Retruns pointer to previous node. */
-  TPRODUCEABLE_NODE* GetPrevNode() const
-    { return prev;};
 };
 
 
@@ -876,21 +831,10 @@ public:
   /** Returns first node of the list. */
   TPRODUCEABLE_NODE *GetFirstNode() const
     { return first;};
-  /** Sets first node of the list. Destroies old list before.
-   *  @param node New first node of the list.*/
-  void SetFirstNode(TPRODUCEABLE_NODE *node)
-    { if (first) DestroyList(); first = last = node; CountNodes();};
 
   /** Returns count of the nodes in the list.*/
   int GetCount() const
     { return count;};
-
-  /** Returns node that is n-th in the list. First node of the list is first.
-   *  Returns pointer to node if number is in the list. Otherwise return NULL.
-   *  @param n  Ordinal number of the node. */
-  TPRODUCEABLE_NODE* GetNthNode(int n) const
-    { if ((n > 0) && (n <= count)) {TPRODUCEABLE_NODE *aux = first; for (n--; n; n--) aux = aux->GetNextNode(); return aux;}
-      else return NULL;};
 
   /** Returns pointer to node of the list with pointer to item same as is in the parameter.
    *  If this node doesn't exist return NULL.
@@ -985,19 +929,6 @@ struct TRACE {
     }
   }
   ~TRACE();
-
-  //!< Function returns TBASIC_ITEM which is necessary to build target.
-  TBASIC_ITEM * FindProduct(TBASIC_ITEM * target);
-  //!< Function returns list of workers which can mine material given as parameter.
-  TLIST<TWORKER_ITEM> * FindWorker(T_BYTE material);
-  //!< Function returns list of units which can build unit given as parameter.
-  TLIST<TBASIC_ITEM> * FindBuilders(TBASIC_ITEM * unit);
-  //!< Function returns list of units which can repair unit given as parameter.
-  TLIST<TBASIC_ITEM> * FindRepairers(TBASIC_ITEM * unit);
-  //!< Function returns array and count of buildings according to input conditions.
-  int FindBuilding(int * result, int * mat, int * shot_seg, int need_food, int need_energy, TPOSITION start_pos, TPOSITION end_pos);
-  //!< Function returns array and count of units according to input conditions.
-  int FindUnit(int * result, int * mat, int * shot_seg, int need_food, int need_energy, TPOSITION start_pos, TPOSITION end_pos);
 };
 
 
@@ -1023,7 +954,6 @@ bool LoadRace(char *file_name, bool hyper_player);
 bool LoadRaces(void);
 void DeleteRaces(void);
 int GetItemPrgID(char * usr_id, TMAP_ITEM **table, int count);
-char GetSegmentID(int user_terrID, int to_where);
 bool IsValidForceItem(TFORCE_ITEM* item);           //!< Tests whether it is valid pointer to force item of any race.
 
 

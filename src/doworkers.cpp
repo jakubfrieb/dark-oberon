@@ -1485,13 +1485,12 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
     ) 
     {      
       TMAP_UNIT *destination = NULL;
-      int state = US_NONE;
       TEVENT * path_event;
 
-      if (proc_event->TestEvent(US_START_MINE)) {destination = source; state = US_START_MINE;}
-      else if (proc_event->TestEvent(US_START_UNLOAD)) {destination = acceptor; state = US_START_UNLOAD;}
-      else if (proc_event->TestEvent(US_START_REPAIR))  {destination = built_or_repaired_unit; state=US_START_REPAIR;}
-      else  { destination = hider; state = US_START_HIDING;};
+      if (proc_event->TestEvent(US_START_MINE)) destination = source;
+      else if (proc_event->TestEvent(US_START_UNLOAD)) destination = acceptor;
+      else if (proc_event->TestEvent(US_START_REPAIR)) destination = built_or_repaired_unit;
+      else destination = hider;
       
       path_event = SendEvent(false, proc_event->GetTimeStamp(),US_WAIT_FOR_PATH,0); //send also old state
       waiting_request_id = path_event->GetRequestID();     //save request id for later use

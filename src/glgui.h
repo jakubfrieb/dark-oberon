@@ -227,10 +227,8 @@ public:
   bool SetTexItem(TGUI_TEXTURE *titem);
 
   void SetSpeedRatio(double ratio) { speed_ratio = ratio; }
-  void ResetSpeedRatio() { speed_ratio = 1.0f; }
 
   void SetAnimTime(double atime) { frame_time = atime / tex_item->frames_count; }
-  void ResetAnimTime() { frame_time = tex_item->frame_time; }
 
   void SetReverse(bool rev, bool reset_frame)
     { reverse = rev; if (reset_frame) act_frame = tex_item->frames_count - 1; }
@@ -245,8 +243,6 @@ public:
   int    GetFrameWidth()  { return tex_item ? tex_item->frame_width : 0;  }
   //! Returns frame height.
   int    GetFrameHeight() { return tex_item ? tex_item->frame_height : 0; }
-  //! Returns texture ID.
-  GLenum GetTexId()       { return tex_item ? tex_item->gl_id : 0;        }
   
 
   TGUI_ANIMATION(void);
@@ -519,10 +515,8 @@ public:
 
   TGUI_COLOR GetFaceColor(void) { return face_color; };
   TGUI_COLOR GetHoverColor(void) { return hover_color; };
-  GLfloat GetAlpha(void) { return alpha; };
 
   // properties
-  void SetKey(intptr_t bkey) { key = bkey; }
   intptr_t GetKey(void) { return key; }
 
   TGUI_BOX *GetNext(void) { return next; };              //!<gets next item from the linked list
@@ -534,7 +528,6 @@ public:
 
   void SetEnabled(bool en);
   bool IsEnabled(void) { return enabled; };
-  void ToggleEnabled(void) { SetEnabled(!enabled); };
 
   virtual void SetVisible(bool vis);
   bool IsVisible(void) { return visible; };
@@ -560,14 +553,8 @@ public:
   { on_mouse_up = func; };
   void SetOnMouseClick(void (*func)(TGUI_BOX *))
   { on_mouse_click = func; };
-  void SetOnKeyDown(void (*func)(TGUI_BOX *, int))
-  { on_key_down = func; };
   void SetOnDraw(void (*func)(TGUI_BOX *))
   { on_draw = func; };
-  void SetOnGetFocus(void (*func)(TGUI_BOX *))
-  { on_get_focus = func; };
-  void SetOnLoseFocus(void (*func)(TGUI_BOX *))
-  { on_lose_focus = func; };
   void SetOnShowTooltip(void (*func)(TGUI_BOX *))
   { on_show_tooltip = func; };
 };
@@ -616,7 +603,6 @@ public:
   void SetFont(GLFfont *gui_font) { font = gui_font; };
   void SetFontColor(GLfloat r, GLfloat g, GLfloat b);
   void SetLineHeight(GLfloat lheight) { line_height = lheight; };
-  void SetAutoSize(bool autos) { autosize = autos; };
   void SetTransparent(bool trans) { transparent = trans; }
 
   GLFfont *GetFont(void) { return font; };
@@ -664,9 +650,6 @@ public:
   char *GetItem(int id) { return GetLine(id); };
   char *GetSelected() { return GetLine(item_index); };
   bool SetItem (const char *line);
-
-  void SetSelFontColor(GLfloat r, GLfloat g, GLfloat b);
-  void SetSelColor(GLfloat r, GLfloat g, GLfloat b);
   int GetItemIndex() { return item_index; };
 
   void SetOnChange(void (*func)(TGUI_BOX *, int)) { on_change = func; }
@@ -727,8 +710,6 @@ public:
 
   void SetChecked(bool ch);
   bool IsChecked(void) { return checked; };
-
-  void SetOnCheck(void (*func)(TGUI_BOX *, bool)) { on_check = func; }
 };
 
 
@@ -888,7 +869,6 @@ public:
 
   // children
   virtual TGUI_BOX  *AddChild(TGUI_BOX *box);
-  TGUI_BOX          *GetChild(intptr_t key);
   int               GetChildOrder(TGUI_BOX *child);
 
   TGUI_PANEL      *AddPanel(intptr_t pkey, GLfloat px, GLfloat py, GLfloat pwidth, GLfloat pheight);
@@ -964,9 +944,7 @@ public:
 
   // sliders
   void ResetSliders();
-  void ShowSlider(TGUI_SLIDER_TYPE type);
   void HideSlider(TGUI_SLIDER_TYPE type);
-  TGUI_SLIDER *GetSlider(TGUI_SLIDER_TYPE type) { return sliders[type]; };
   TGUI_SLIDER *GetHSlider() { return sliders[GUI_ST_HORIZONTAL]; };
   TGUI_SLIDER *GetVSlider() { return sliders[GUI_ST_VERTICAL]; };
 
@@ -1026,9 +1004,7 @@ public:
   }
 
   // sliders
-  void ResetSliders();
   void ShowSlider(TGUI_SLIDER_TYPE type);
-  void HideSlider(TGUI_SLIDER_TYPE type);
 
   // properties
   int GetItemIndex() { return items->GetItemIndex(); }
@@ -1040,8 +1016,6 @@ public:
   bool SetItem (const char *line) { return items->SetItem (line); }
 
   void SetFontColor(GLfloat r, GLfloat g, GLfloat b) { items->SetFontColor(r, g, b); };
-  void SetSelFontColor(GLfloat r, GLfloat g, GLfloat b) { items->SetSelFontColor(r, g, b); };
-  void SetSelColor(GLfloat r, GLfloat g, GLfloat b) { items->SetSelColor(r, g, b); };
 
   virtual GLfloat GetClientWidth();
   virtual GLfloat GetClientHeight();

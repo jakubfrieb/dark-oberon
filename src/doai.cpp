@@ -164,19 +164,9 @@ void TAI_SetPhaseTransitionLogging(bool enable)
   g_tai_phase_transition_log = enable;
 }
 
-bool TAI_GetPhaseTransitionLogging(void)
-{
-  return g_tai_phase_transition_log;
-}
-
 void TAI_SetThinkTraceLogging(bool enable)
 {
   g_tai_think_trace_log = enable;
-}
-
-bool TAI_GetThinkTraceLogging(void)
-{
-  return g_tai_think_trace_log;
 }
 
 static void tai_ai_trace(int player_id, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
@@ -2289,13 +2279,6 @@ void TAI_CONTROLLER::EmitDiagnosticLines(TAI_LineSink sink, void *user)
              "'interval' seconds (Easy=3s Medium=1.5s Hard=0.5s by default).");
 }
 
-void TAI_CONTROLLER::DumpDiagnostics(FILE *f)
-{
-  if (!f)
-    return;
-  EmitDiagnosticLines(tai_file_line_sink, f);
-}
-
 void TAI_CONTROLLER::Think(double dt)
 {
   if (!player || !level || !strategy || !player->active)
@@ -2559,13 +2542,6 @@ void TAI_PLAYER::UpdateAI(double time_shift)
   EnsureController();
   if (controller)
     controller->Think(time_shift);
-}
-
-void TAI_PLAYER::DumpAIDiagnostics(FILE *f)
-{
-  EnsureController();
-  if (controller)
-    controller->DumpDiagnostics(f);
 }
 
 void TAI_PLAYER::EmitAIDiagnosticLines(TAI_LineSink sink, void *user)

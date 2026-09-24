@@ -63,9 +63,3 @@ inline void AppSleepSeconds(double sec)
     ms = 1;
   SDL_Delay(ms);
 }
-
-/** Legacy name used during early migration. */
-inline double AppTimeSeconds()
-{
-  return AppGetTimeSeconds();
-}

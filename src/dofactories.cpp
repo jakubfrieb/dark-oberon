@@ -643,21 +643,6 @@ void TFACTORY_UNIT::SetRallyGoalFromLocal(const TPOSITION_3D &goal)
 }
 
 
-void TFACTORY_UNIT::ClearRallyPointFromLocal()
-{
-  rally_active = false;
-  if (!player_array.IsRemote(GetPlayerID()) && pool_events) {
-    TEVENT *hlp = pool_events->GetFromPool();
-    if (hlp) {
-      hlp->SetEventProps(GetPlayerID(), GetUnitID(), false, AppGetTimeSeconds(), RQ_SYNC_RALLY, US_NONE, -1,
-                         0, 0, 0, 0, 0, 0, 0, 0);
-      SendNetEvent(hlp, all_players);
-      pool_events->PutToPool(hlp);
-    }
-  }
-}
-
-
 //=========================================================================
 // END
 //=========================================================================

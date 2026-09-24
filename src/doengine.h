@@ -104,12 +104,6 @@ enum TGAME_ERROR {
 //=========================================================================
 
 
-// return values from functions working with menu players informations.
-#define MN_PL_OK 0
-#define MN_PL_ERROR 1
-#define MN_PL_FULL 2
-#define MN_PL_NOPLAYER 3
-
 // actions panels
 #define MNU_PANELS_COUNT       7
 #define MNU_PANEL_EMPTY        0

@@ -190,14 +190,8 @@ using std::string;
 #define MNU_ACTION_REPAIR     114
 #define MNU_ACTION_BUILD      115
 
-// build buttons
-#define MNU_BUILD_BUTTON      200     // other build buttons have incremental keys (+1, +2, ...)
-
 // guard
 #define MNU_GUARD_BUTTON      300     // other guard buttons have incremental keys (+1, +2, ...)
-
-// dialog keys
-#define MNU_OK                400
 
 
 #define MAX_VID_MODES         100
@@ -1712,13 +1706,6 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         host->AddEmptyAddress (); // computer_player
         player_array.SetRaceIdName(2, map_info_list.rac_list->next->id_name);
       }
-      /*
-      if (max_players >= 3) {
-        player_array.AddComputerPlayer ();
-        host->AddEmptyAddress (); // computer_player
-        player_array.SetRaceIdName(3, map_info_list.rac_list->next->next->id_name);
-      }
-      */
     }
 
     state = ST_GAME;
@@ -4149,49 +4136,6 @@ void CreateMenuGUI()
   button = panel->AddButton(MNU_QUIT, 0, 15, gui_table.GetTexture(DAT_TGID_MENU_BUTTONS, 4));
   SetMenuButton(true);
   
-  // test menu
-  /*{
-    TGUI_SCROLL_BOX *scroll;
-    TGUI_MESSAGE_BOX *message;
-
-    gui->SetFontColor(0, 0, 0);
-    panel = gui->AddPanel(0, 10, 10, 300, 500);
-    panel->SetPadding(10);
-
-    label = panel->AddLabel(0, 120, 400, "Label - Line 1\nLine 2");
-
-    panel->AddChild(NEW TGUI_LIST(panel, 0, 0, 390, "List - Item 1\nItem 2\nItem 3"));
-
-    button = panel->AddCheckButton(0, 0, 360, 100, 20, "Button");
-    button->SetTooltipText("Tooltip for Button\nNew line");
-
-    check = panel->AddCheckBox(0, 0, 330, 100, 20, "Check Box");
-
-    edit = panel->AddEditBox(0, 0, 300, 200, 20, 100);
-
-    slider = panel->AddSlider(0, 0, 270, 200, 20, GUI_ST_HORIZONTAL);
-    
-    combo = panel->AddComboBox(0, 0, 240, 200, 20);
-    combo->SetItems("Combo Box - Item 1\nItem 2\nItem 3\nItem 4\nItem 5\nItem 6");
-    
-    list = panel->AddListBox(0, 0, 150, 200, 80);
-    list->SetItems("List Box - Line 1\nLine 2\nLine 3");
-    list->ShowSlider(GUI_ST_HORIZONTAL);
-
-    scroll = panel->AddScrollBox(0, 0, 0, 200, 100);
-    scroll->SetTooltipText("This is a scroll box");
-    //scroll->HideSlider(GUI_ST_VERTICAL);
-    //scroll->HideSlider(GUI_ST_HORIZONTAL);
-
-    button = scroll->AddButton(0, -20, -20, 300, 40, "Inside Button");
-    button->SetTooltipText("Tooltip for Inside Button");
-    scroll->AddChild(NEW TGUI_LIST(scroll, 0, 20, 30, "Inside List - Item 1\nItem 2\nItem 3"));
-
-    //message = NEW TGUI_MESSAGE_BOX(gui);
-    //gui->AddChild(message);
-    //message->Show("Message Box - Line 1\nLine 2", GUI_MB_YES | GUI_MB_NO | GUI_MB_CANCEL);
-  }*/
-
   // play menu
   if (config.scr_height >= 600) y = GLfloat(config.scr_height / 2 - 128 + 40);
   else y = GLfloat(config.scr_height / 2 - 128 + 10);

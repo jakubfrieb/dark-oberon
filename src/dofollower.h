@@ -45,11 +45,6 @@
 // Constants.
 //=========================================================================
 
-/** Timeout for resolve to fail. */
-const double resolve_timeout = 30;
-/** Timeout for connect to fail. */
-const double connect_timeout = 10;
-
 /** Size of incoming message queue for follower. */
 const int follower_in_queue_size = 10024;
 /** Size of outgoing message queue for follower. */

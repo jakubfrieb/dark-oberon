@@ -92,33 +92,6 @@ bool StringToFloat(float *value, char *str)
 
 
 /**
- *  Converts string to double value.
- *
- *  @param value Pointer to double variable, result of covertation will be stored here.
- *  @param str   String that will be converted.
- *
- *  @note If conversion fails, parameter @p value will not be modified.
- *
- *  @return @c true on success, otherwise @c false.
- */
-bool StringToDouble(double *value, char *str)
-{
-  double v;
-  bool ok = true;
-
-  v = atof(str);  // simple convertation
-  if (!v) {       // if v = 0, check if str is zero indeed
-    ok = (str[0] == '0' || str[0] == '+' || str[0] == '-');
-    for (int i = 1; str[i] && ok; i++) ok = (str[i] == '0');
-  }
-
-  if (ok) *value = v;
-
-  return ok;
-}
-
-
-/**
  *  Removes empty chars (with ASCII code lower or equal to 32) from string
  *  begin and end.
  *
@@ -410,19 +383,6 @@ void TFE_ITEM::WriteValue(char *value)
 
 
 /**
- *  Clears all item values.
- */
-void TFE_ITEM::ClearValues(void)
-{
-  // delete values
-  if (values) delete values;
-  values = NULL;
-
-  modified = true;
-}
-
-
-/**
  *  Writes item into file.
  */
 void TFE_ITEM::Write(void)
@@ -584,48 +544,6 @@ TFE_SECTION *TFE_SECTION::SelectSection(char *s_name, bool mandatory)
 
 
 /**
- *  Deletes section with all entries.
- *
- *  @param section section name.
- */
-void TFE_SECTION::DeleteSection(char *section)
-{
-  TFE_SECTION *sect = GetSection(section);
-
-  if (sect) {
-    // remove section from list of entries
-    if (sect->next) sect->next->prev = sect->prev;
-    if (sect->prev) sect->prev->next = sect->next;
-
-    delete sect;
-  }
-}
-
-
-/**
- *  Deletes item.
- *
- *  @param item item name.
- */
-void TFE_SECTION::DeleteItem(char *item)
-{
-  TFE_ITEM *it = GetItem(item, false);
-
-  if (it) {
-    
-    if (it == this->fst_entry) fst_entry = it->next;
-    if (it == this->last_entry) last_entry = it->prev;
-    
-    // remove entry from list of entries
-    if (it->next) it->next->prev = it->prev;
-    if (it->prev) it->prev->next = it->next;
-
-    delete it;
-  }
-}
-
-
-/**
  *  Adds new entry to the end of entry list.
  *
  *  @param entry new entry.
@@ -667,25 +585,6 @@ void TFE_SECTION::WriteValue(char *item, char *value)
     fi = NEW TFE_ITEM(this, item, value, true);
     AddEntry(fi);
   }
-}
-
-
-/**
- *  Sets item value.
- *
- *  @param item   item name.
- *  @param value  new item value.
- */
-bool TFE_SECTION::SetValue(char *item, char *value)
-{
-  TFE_ITEM *fi;
-
-  if ((fi = GetItem(item, false))){
-    fi->SetValue(value);
-    return true;
-  }
-  else
-    return false;
 }
 
 
@@ -753,19 +652,6 @@ int TFE_SECTION::ResetValue(char *item)
   fi->ResetValue();
 
   return fi->line_num;
-}
-
-
-/**
- *  Clears the item's value.
- *
- *  @param item Name of the item.
- */
-void TFE_SECTION::ClearValues(char *item)
-{
-  TFE_ITEM *fi;
-
-  if ((fi = GetItem(item, false))) fi->ClearValues();
 }
 
 
@@ -1044,32 +930,6 @@ void TCONF_FILE::UnselectSection(void)
 
 
 /**
- *  Deletes section with all entries from actual section.
- *
- *  @param section section name.
- */
-void TCONF_FILE::DeleteSection(char *section)
-{
-  act_section->DeleteSection(section);
-
-  modified = true;
-}
-
-
-/**
- *  Deletes item from actual section.
- *
- *  @param item item name.
- */
-void TCONF_FILE::DeleteItem(char *item)
-{
-  act_section->DeleteItem(item);
-
-  modified = true;
-}
-
-
-/**
  *  Writes new line into actual section.
  *
  *  @param line Line content.
@@ -1110,86 +970,6 @@ void TCONF_FILE::WriteStr(char *item, char *value)
  *  @note Previous values will not be deleted.
  */
 void TCONF_FILE::WriteInt(char *item, int value)
-{
-  TFILE_LINE str;
-
-  snprintf(str, FILE_MAX_LINE_LENGTH, "%d", value);
-
-  act_section->WriteValue(item, str);
-
-  modified = true;
-}
-
-
-/**
- *  Writes new float value into item.
- *
- *  @param item   item name.
- *  @param value  new item value.
- *
- *  @note Previous values will not be deleted.
- */
-void TCONF_FILE::WriteFloat(char *item, float value)
-{
-  TFILE_LINE str;
-
-  snprintf(str, FILE_MAX_LINE_LENGTH, "%f", value);
-
-  act_section->WriteValue(item, str);
-
-  modified = true;
-}
-
-
-/**
- *  Writes new double value into item.
- *
- *  @param item   item name.
- *  @param value  new item value.
- *
- *  @note Previous values will not be deleted.
- */
-void TCONF_FILE::WriteDouble(char *item, double value)
-{
-  TFILE_LINE str;
-
-  snprintf(str, FILE_MAX_LINE_LENGTH, "%f", value);
-
-  act_section->WriteValue(item, str);
-
-  modified = true;
-}
-
-
-/**
- *  Writes new simple value into item.
- *
- *  @param item   item name.
- *  @param value  new item value.
- *
- *  @note Previous values will not be deleted.
- */
-void TCONF_FILE::WriteSimple(char *item, T_SIMPLE value)
-{
-  TFILE_LINE str;
-
-  snprintf(str, FILE_MAX_LINE_LENGTH, "%d", value);
-
-  act_section->WriteValue(item, str);
-
-  modified = true;
-}
-
-
-/**
- *  Writes new byte value into item.
- *
- *  @param item   item name.
- *  @param value  new item value.
- *
- *  @note Previous values will not be deleted.
- */
-void TCONF_FILE::WriteByte(char *item, T_BYTE value)
 {
   TFILE_LINE str;
 
@@ -1361,123 +1141,6 @@ bool TCONF_FILE::ReadFloatRange(float *value, char *item, float min, float max, 
 
 
 /**
- *  Reads double value from item. On failure @p def_value will be returned.
- *
- *  @param value      read value will be stored here.
- *  @param item       item name.
- *  @param def_value  default value.
- *
- *  @return @c true on success, @c false otherwise.
- */
-bool TCONF_FILE::ReadDouble(double *value, char *item, double def_value)
-{
-  TFILE_LINE str;
-  int line;
-  double v;
-
-  bool ok = true;
-
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
-
-  if (ok && !StringToDouble(&v, str)) {  // in str is not valid double number
-    Warning(LogMsg("Invalid double value '%s' on line %d", str, line));
-    ok = false;
-  }
-  
-  if (ok) *value = v;       // return result
-  else{
-    *value = def_value;  // return default value
-    Warning(LogMsg("Value of item '%s' was set to default value %f", item, def_value));
-  }
-  
-  return ok;
-}
-
-
-/**
- *  Reads double value from item with condition "greater or equal then". On failure @p def_value will be returned.
- *
- *  @param value      read value will be stored here.
- *  @param item       item name.
- *  @param min        min value.
- *  @param def_value  default value.
- *
- *  @return @c true on success, @c false otherwise.
- */
-bool TCONF_FILE::ReadDoubleGE(double *value, char *item, double min, double def_value)
-{
-  TFILE_LINE str;
-  int line;
-  double v;
-
-  bool ok = true;
-
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
-
-  if (ok && !StringToDouble(&v, str)) {  // in str is not valid float number
-    Warning(LogMsg("Invalid double value '%s' on line %d", str, line));
-    ok = false;
-  }
-
-  if (ok && v < min) {  // result does not fulfil condition
-    Warning(LogMsg("Invalid value range on line %d, value '%f' is less then min '%f'", line, v, min));
-    ok = false;
-  }
-  
-  if (ok) *value = v;       // return result
-  else {
-    *value = def_value;  // return default value
-    Warning(LogMsg("Value of item '%s' was set to default value %f", item, def_value));
-  }
-
-  return ok;
-}
-
-
-
-/**
- *  Reads double value from item. This value must be in asked range.
- *  On failure @p def_value will be returned.
- *
- *  @param value      read value will be stored here.
- *  @param item       item name.
- *  @param min        minimum range value.
- *  @param max        maximum range value.
- *  @param def_value  default value.
- *
- *  @return @c true on success, @c false otherwise.
- */
-bool TCONF_FILE::ReadDoubleRange(double *value, char *item, double min, double max, double def_value)
-{
-  TFILE_LINE str;
-  int line;
-  double v;
-
-  bool ok = true;
-
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
-
-  if (ok && !StringToDouble(&v, str)) {  // in str is not valid float number
-    Warning(LogMsg("Invalid double value '%s' on line %d", str, line));
-    ok = false;
-  }
-
-  if (ok && (v < min || v > max)) {   // result does not fulfil conditions
-    Warning(LogMsg("Invalid value range on line %d, value '%f' is not in range <%f, %f>", line, v, min, max));
-    ok = false;
-  }
-  
-  if (ok) *value = v;       // return result
-  else {
-    *value = def_value;  // return default value
-    Warning(LogMsg("Value of item '%s' was set to default value %f", item, def_value));
-  }
-
-  return ok;
-}
-
-
-/**
  *  Reads integer value from item. On failure @p def_value will be returned.
  *
  *  @param value      read value will be stored here.
@@ -1595,48 +1258,6 @@ bool TCONF_FILE::ReadIntRange(int *value, char *item, int min, int max, int def_
 }
 
 /**
- *  Reads T_SIMPLE value from item. On failure @p def_value will be returned.
- *
- *  @param value      read value will be stored here.
- *  @param item       item name.
- *  @param def_value  default value.
- *
- *  @return @c true on success, @c false otherwise.
- */
-bool TCONF_FILE::ReadSimple(T_SIMPLE *value, char *item, T_SIMPLE def_value)
-{
-  TFILE_LINE str;
-  int line;
-  int v;
-
-  bool ok = true;
-
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
-
-  if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
-    Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
-    ok = false;
-  }
-
-  // check for TSIMPLE type range
-  if (ok){
-    if ((v < 0) && (v > MAX_T_SIMPLE)){
-      Warning(LogMsg("Value of item '%s' is not in T_SIMPLE range", item));
-      ok = false;
-    }
-  }
-  
-  if (ok) *value = (T_SIMPLE)v;       // return result
-  else {
-    *value = def_value;            // return default value
-    Warning(LogMsg("Value of item '%s' was set to default value %d", item, def_value));
-  }
-
-  return ok;
-}
-
-
-/**
  *  Reads T_SIMPLE value with condition "greater or equal than" from item.
  *  On failure @p def_value will be returned.
  *
@@ -1727,48 +1348,6 @@ bool TCONF_FILE::ReadSimpleRange(T_SIMPLE *value, char *item, T_SIMPLE min, T_SI
   }
   
   if (ok) *value = (T_SIMPLE)v;       // return result
-  else {
-    *value = def_value;            // return default value
-    Warning(LogMsg("Value of item '%s' was set to default value %d", item, def_value));
-  }
-
-  return ok;
-}
-
-
-/**
- *  Reads T_BYTE value from item. On failure @p def_value will be returned.
- *
- *  @param value      read value will be stored here.
- *  @param item       item name.
- *  @param def_value  default value.
- *
- *  @return @c true on success, @c false otherwise.
- */
-bool TCONF_FILE::ReadByte(T_BYTE *value, char *item, T_BYTE def_value)
-{
-  TFILE_LINE str;
-  int line;
-  int v;
-
-  bool ok = true;
-
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
-
-  if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
-    Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
-    ok = false;
-  }
-  
-  // check for T_BYTE type range
-  if (ok){
-    if ((v < 0) && (v > MAX_T_BYTE)){
-      Warning(LogMsg("Value of item '%s' is not in T_BYTE range", item));
-      ok = false;
-    }
-  }
-  
-  if (ok) *value = (T_BYTE)v;          // return result
   else {
     *value = def_value;            // return default value
     Warning(LogMsg("Value of item '%s' was set to default value %d", item, def_value));
@@ -2045,17 +1624,6 @@ bool TCONF_FILE::ReadBool(bool *value, char *item, bool def_value)
 
   *value = v;
   return true;
-}
-
-
-/**
- *  Clears the item's value.
- *
- *  @param item Name of the item.
- */
-void TCONF_FILE::ClearValues(char *item)
-{
-  act_section->ClearValues(item);
 }
 
 

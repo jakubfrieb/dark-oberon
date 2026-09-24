@@ -169,7 +169,6 @@ class TAI_CONTROLLER {
 public:
   TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *level, TAI_STRATEGY *strategy,
                  const TAI_PERSONALITY &personality, TAI_LEVEL_ID level_id, uint64_t rng_seed);
-  const TAI_PERSONALITY &GetPersonality() const { return personality; }
   ~TAI_CONTROLLER();
 
   void Think(double dt);
@@ -178,7 +177,6 @@ public:
   static bool MatchesGoal(TBUILDING_ITEM *bi, TAI_BUILD_GOAL goal);
 
   //! Refreshes scanned state and prints phase, targets, deficit goal, timers (for dedicated-server `logs`).
-  void DumpDiagnostics(FILE *f);
   void EmitDiagnosticLines(TAI_LineSink sink, void *user);
 
 private:
@@ -268,7 +266,6 @@ public:
 
   void UpdateAI(double time_shift) override;
 
-  void DumpAIDiagnostics(FILE *f);
   void EmitAIDiagnosticLines(TAI_LineSink sink, void *user);
 
 private:
@@ -285,11 +282,9 @@ private:
 TAI_LEVEL *TAI_CreateLevel(TAI_LEVEL_ID lv);
 
 void TAI_SetPhaseTransitionLogging(bool enable);
-bool TAI_GetPhaseTransitionLogging(void);
 
 //! stderr: per-think-tick trace (deficit, build, mining attempts) when enabled.
 void TAI_SetThinkTraceLogging(bool enable);
-bool TAI_GetThinkTraceLogging(void);
 
 //! List CPU player slots (dedicated server / headless console).
 void TAI_LogListCpuPlayers(FILE *out);

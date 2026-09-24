@@ -383,13 +383,6 @@ TMAP_SURFACE::TMAP_SURFACE()        //!< Basic constructor.
   t_id = 0;
   unit = ghost = NULL;
 
-  // One activity slot per possible player. Sized to PL_MAX_PLAYERS so the
-  // array is safe against any in-game add/remove (the editor can mutate
-  // player_array.GetCount() after surfaces are constructed).
-  activity = NEW TNEURON_VALUE[PL_MAX_PLAYERS];
-  for (int j = 0; j < PL_MAX_PLAYERS; ++j)
-    activity[j] = 0;
-
   aimers = NEW TMAP_POOLED_LIST(reinterpret_cast<TPOOL<TPOOLED_LIST::TNODE>*>(map.GetAimersPool()));
   watchers = NEW TMAP_POOLED_LIST(reinterpret_cast<TPOOL<TPOOLED_LIST::TNODE>*>(map.GetWatchersPool()));
 }
@@ -397,48 +390,10 @@ TMAP_SURFACE::TMAP_SURFACE()        //!< Basic constructor.
 
 TMAP_SURFACE::~TMAP_SURFACE()
 {
-  if (activity) 
-    delete[] activity;
-
   delete aimers;
   delete watchers;
 };
 
-
-/**
- *  Returns activity of my and enemy units separately.
- *
- *  @param PlayerID        ID of player I want to know his actitivy (I've got his and enemy activity).
- *  @param my_activity     I will have here activity of player with @PlayerID.
- *  @param enemy_activity  Here will be sum of activity of other players.
- */
-void TMAP_SURFACE::GetActivity(const T_SIMPLE PlayerID,  TNEURON_VALUE *my_activity, TNEURON_VALUE *enemy_activity)
-{
-  T_SIMPLE i=0;
-  TNEURON_VALUE my = 0, enemy = 0;
-
-  for (i=1;i<player_array.GetCount();i++)     //<! For every player. (I don't care abour hyper player's activity)
-    if (i == PlayerID)                        //<! If it's me.
-      my = activity[i];                       //<! My activity is separately.
-    else
-      enemy += activity[i];                   //<! Enemy activity is sum.
-
-  *my_activity += my;                           //<! Just for consistence.
-  *enemy_activity += enemy;
-}
-
-/**
- *  Decrease activity counters of all players (so it will not grow to infinity)
- *
- *  @param factor     Factor of decreasing.
- */
-void TMAP_SURFACE::DecreaseActivity(T_SIMPLE factor)
-{
-  T_SIMPLE i=0;
-
-  for (i=0;i<player_array.GetCount();i++)         //<! For every player.
-    activity[i] = activity[i]/factor;             //<! Decrease by factor.
-}
 
 //=========================================================================
 // class TMAP_SEGMENT - methods definition
@@ -653,17 +608,6 @@ void TMAP_SEGMENT::Draw(void)
 
   // draw units
   map.segment_units[seg_id]->Draw();
-
-  /*
-  // draw surface in segment 2
-  if (seg_id == 2) {
-    if (view_segment == DRW_ALL_SEGMENTS) glEnable(GL_DEPTH_TEST);
-
-    DrawSurface();
-
-    if (view_segment == DRW_ALL_SEGMENTS) glDisable(GL_DEPTH_TEST);
-  }
-  */
 #endif
 }
 
@@ -1022,19 +966,7 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
 
   SDL_LockMutex(mutex);
 
-  // logging
-  /*
-  if (id == 1) {
-    Debug(LogMsg("*** AddUnit(%s) - before", unit->GetPointerToItem()->id));
-    for (mu = units->GetPrevInSegment(id); (mu != units); mu = mu->GetPrevInSegment(id))
-    {
-      Debug(LogMsg("%s", mu->GetPointerToItem()->id));
-    }
-  }
-  */
-
   if (unit->GetNextInSegment(id)) {
-    //if (id == 1) Debug(LogMsg("*** AddUnit(%s) - warning: DOUBLE!", unit->GetPointerToItem()->id));
     SDL_UnlockMutex(mutex);
     return;
   }
@@ -1050,18 +982,6 @@ void TSEG_UNITS::AddUnit(TDRAW_UNIT *unit)
   unit->GetPrevInSegment(id)->SetNextInSegment(id, unit);
   units_count++;
 
-  // logging
-  /*
-  if (id == 1) {
-    Debug("*** AddUnit - after");
-    for (mu = units->GetPrevInSegment(id); (mu != units); mu = mu->GetPrevInSegment(id))
-    {
-      Debug(LogMsg("%s", mu->GetPointerToItem()->id));
-    }
-    Debug("*** AddUnit - end");
-  }
-  */
-
   SDL_UnlockMutex(mutex);
 }
 
@@ -1075,19 +995,7 @@ void TSEG_UNITS::DeleteUnit(TDRAW_UNIT *unit)
 {
   SDL_LockMutex(mutex);
 
-  // logging
-  /*
-  if (id == 1) {
-    Debug(LogMsg("*** DeleteUnit(%s) - before", unit->GetPointerToItem()->id));
-    for (TDRAW_UNIT *mu = units->GetPrevInSegment(id); (mu != units); mu = mu->GetPrevInSegment(id))
-    {
-      Debug(LogMsg("%s", mu->GetPointerToItem()->id));
-    }
-  }
-  */
-
   if (!unit->GetNextInSegment(id) || !units_count) {
-    //if (id == 1) Debug(LogMsg("*** DeleteUnit(%s) - warning: DELETED", unit->GetPointerToItem()->id));
     SDL_UnlockMutex(mutex);
     return;
   }
@@ -1101,18 +1009,6 @@ void TSEG_UNITS::DeleteUnit(TDRAW_UNIT *unit)
   unit->SetPrevInSegment(id, NULL);
 
   units_count--;
-
-  // logging
-  /*
-  if (id == 1) {
-    Debug("*** DeleteUnit - after");
-    for (TDRAW_UNIT *mu = units->GetPrevInSegment(id); (mu != units); mu = mu->GetPrevInSegment(id))
-    {
-      Debug(LogMsg("%s", mu->GetPointerToItem()->id));
-    }
-    Debug("*** DeleteUnit - end");
-  }
-  */
 
   SDL_UnlockMutex(mutex);
 }
@@ -1511,13 +1407,7 @@ void TMAP::Clear()
      if (segment_units[i]) delete segment_units[i];
   }
 
-  /* pools are initialised in InitAll() function, deleted with application end
-  if (aimers_pool)
-    delete static_cast<TPOOL<TMAP_POOLED_LIST::TNODE> *> (aimers_pool);
-
-  if (watchers_pool)
-    delete static_cast<TPOOL<TMAP_POOLED_LIST::TNODE> *> (watchers_pool);
-  */
+  // aimers/watchers pools are initialised in InitAll() and deleted at application end.
   
   war_fog.Clear();
   
@@ -1969,23 +1859,6 @@ void TMAP::DrawToRadar()
     glVertex2d((map.width - map.height) * radar.zoom, (map.width + map.height) * radar.zoom);
     glVertex2d(-map.height * radar.zoom, map.height * radar.zoom);
   glEnd();
-
-  // active area - for testing
-  /*{
-    GLfloat px = active_area.GetX() * radar.zoom;
-    GLfloat py = active_area.GetY() * radar.zoom;
-    GLfloat pw = active_area.GetWidth() * radar.zoom;
-    GLfloat ph = active_area.GetHeight() * radar.zoom;
-
-    glColor3f(1.0f, 1.0f, 0.0f);
-
-    glBegin(GL_LINE_LOOP);
-      glVertex2d(px - py, px + py);
-      glVertex2d(px + pw - py, px + pw + py);
-      glVertex2d(px + pw - ph - py, px + pw + ph + py);
-      glVertex2d(px - py - ph, px + py + ph);
-    glEnd();
-  }*/
 
   glEnable(GL_TEXTURE_2D);
   glPopMatrix();
@@ -3176,9 +3049,6 @@ void DeleteMapSurface(TMAP_SURFACE **surface)
 
   for (int i = 0; i < map.width; i++)
     if (surface[i]) {
-      for (int j = 0; j < map.height; j++)
-        surface[i][j].Clear();
-      
       delete [] surface[i];
       surface[i] = NULL;
     }
