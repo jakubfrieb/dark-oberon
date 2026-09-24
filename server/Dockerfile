@@ -33,7 +33,7 @@ ENV SERVER_BINARY=/app/dark-oberon-server
 ENV WEB_PORT=8080
 ENV PORT_RANGE_START=17000
 ENV PORT_RANGE_END=17009
-# `-` = log access to stdout; `/dev/null` = quiet (bots still hit Traefik / public URL)
+# `-` = log access to stdout; `/dev/null` = quiet
 ENV GUNICORN_ACCESS_LOG=-
 
 EXPOSE 8080

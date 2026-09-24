@@ -9,6 +9,24 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+### Changed
+- `server/docker-compose.yml` is deployment-neutral: settings come from `server/.env` (project name, web/host
+  ports, game port range, public game host, gunicorn access log) with defaults, and the lobby web UI is
+  published directly on `WEB_HOST_PORT`. Hosting-specific config (reverse proxy labels, external networks,
+  hostnames) was removed from the repository and belongs in a local, gitignored
+  `server/docker-compose.override.yml`, which `server/up-server` loads automatically when present.
+- Credits screen (`dat/gui.dat`, `bg_credits`): "Powered by" now shows SDL2 (www.libsdl.org) instead of
+  GLFW, which the game no longer uses; "(digitalmind.cz)" added under the developers in the same
+  calligraphic face as the names.
+
+### Added
+- `server/.env.example` documenting all Docker variables.
+
+### Fixed
+- Opening the Map Editor while a game was running silently failed and bounced back to the main menu
+  (the click then fell through to Credits). The Map Editor button now asks to disconnect first, like
+  the other menu actions that end a session.
+
 ## [0.2.2] - 2026-09-24
 
 ### Changed

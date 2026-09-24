@@ -1,10 +1,15 @@
-# Lobby UI: Traefik → https://oberon.cloud.digitalmind.cz (HTTP/S on port 8080 inside the network).
-# Game TCP: clients connect to oberon-game.cloud.digitalmind.cz:<port> (17000–17009).
-# Point the A record at the same server IP as the lobby; Traefik does not proxy these ports (custom protocol).
+# Dark Oberon lobby (Flask web UI) + headless game server instances in one container.
+# Web UI:   http://<host>:${WEB_HOST_PORT}   (default 8080)
+# Game TCP: clients connect to ${GAME_PUBLIC_HOST}:<port> in PORT_RANGE_START..PORT_RANGE_END (custom protocol).
 #
-# Stable project name = same labels/Traefik whether compose lives in /server or in repo/server/.
-# (Without `name`, Compose would take the parent folder name → a different project than before from the repo root → orphan / duplicate containers.)
-name: dark-oberon
+# Settings come from server/.env (copy .env.example → .env; .env is gitignored). Every variable has a default,
+# so the stack also starts without .env.
+#
+# Deployment-specific settings (reverse proxy labels, external networks, hostnames) do not belong here:
+# put them into server/docker-compose.override.yml (gitignored). `up-server` picks it up automatically.
+#
+# Stable project name: without `name`, Compose would take the parent folder name.
+name: ${COMPOSE_PROJECT_NAME:-dark-oberon}
 
 services:
   lobby:
@@ -12,29 +17,16 @@ services:
       context: ..
       dockerfile: server/Dockerfile
     ports:
-      - "17000-17009:17000-17009/tcp"
+      - "${WEB_HOST_PORT:-8080}:${WEB_PORT:-8080}/tcp"
+      - "${PORT_RANGE_START:-17000}-${PORT_RANGE_END:-17009}:${PORT_RANGE_START:-17000}-${PORT_RANGE_END:-17009}/tcp"
     volumes:
       - ../maps:/app/maps:ro
     environment:
-      - PORT_RANGE_START=17000
-      - PORT_RANGE_END=17009
+      - PORT_RANGE_START=${PORT_RANGE_START:-17000}
+      - PORT_RANGE_END=${PORT_RANGE_END:-17009}
       - DATA_DIR=/app
-      - WEB_PORT=8080
-      - GAME_PUBLIC_HOST=oberon-game.cloud.digitalmind.cz
-      # Public domain = scanners; the access log in the container is just noise (Traefik has its own logs).
-      - GUNICORN_ACCESS_LOG=/dev/null
-    networks:
-      - public_proxy
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=public_proxy
-      - traefik.http.services.darkoberon-lobby.loadbalancer.server.port=8080
-      - traefik.http.routers.darkoberon-lobby.rule=Host(`oberon.cloud.digitalmind.cz`)
-      - traefik.http.routers.darkoberon-lobby.entrypoints=websecure
-      - traefik.http.routers.darkoberon-lobby.tls=true
-      - traefik.http.routers.darkoberon-lobby.tls.certresolver=lets-encr
-      - traefik.http.routers.darkoberon-lobby.service=darkoberon-lobby
-
-networks:
-  public_proxy:
-    external: true
+      - WEB_PORT=${WEB_PORT:-8080}
+      # Empty = the lobby does not print a connect address.
+      - GAME_PUBLIC_HOST=${GAME_PUBLIC_HOST:-}
+      # `-` = access log to stdout, `/dev/null` = quiet.
+      - GUNICORN_ACCESS_LOG=${GUNICORN_ACCESS_LOG:--}

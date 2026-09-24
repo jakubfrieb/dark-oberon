@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SERVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE="$SERVER_DIR/docker-compose.yml"
+COMPOSE_FILES=(-f "$SERVER_DIR/docker-compose.yml")
+# Optional local deployment override (gitignored), e.g. reverse proxy labels/networks.
+if [[ -f "$SERVER_DIR/docker-compose.override.yml" ]]; then
+  COMPOSE_FILES+=(-f "$SERVER_DIR/docker-compose.override.yml")
+fi
 # Compose Bake requires buildx; without it every build prints a WARN — the classic builder is enough.
 export COMPOSE_BAKE=false
 
@@ -34,13 +38,13 @@ done
 
 case "$MODE" in
   rebuild)
-    docker compose -f "$COMPOSE" build --no-cache
-    exec docker compose -f "$COMPOSE" up --remove-orphans
+    docker compose "${COMPOSE_FILES[@]}" build --no-cache
+    exec docker compose "${COMPOSE_FILES[@]}" up --remove-orphans
     ;;
   build)
-    exec docker compose -f "$COMPOSE" up --build --remove-orphans
+    exec docker compose "${COMPOSE_FILES[@]}" up --build --remove-orphans
     ;;
   *)
-    exec docker compose -f "$COMPOSE" up --remove-orphans
+    exec docker compose "${COMPOSE_FILES[@]}" up --remove-orphans
     ;;
 esac

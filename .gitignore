@@ -17,3 +17,6 @@ graphify-out/
 .superpowers/
 
 .env
+
+# local deployment override for server/docker-compose.yml
+server/docker-compose.override.yml
