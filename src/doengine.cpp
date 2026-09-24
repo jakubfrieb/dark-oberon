@@ -1715,7 +1715,16 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
 #if !HEADLESS
   case MNU_MAP_EDITOR:
-    SetActiveMenu(editor_menu);
+    /* The editor runs its own session (EditorBootstrap -> CreateGame), so a running
+       game has to be closed here, while the confirmation box can still be shown. */
+    action_key = MNU_MAP_EDITOR;
+
+    if (Disconnect()) {
+      resume_button->SetEnabled(false);
+      disconnect_button->SetEnabled(false);
+      map_info_list.ClearRacList();
+      SetActiveMenu(editor_menu);
+    }
     break;
 
   case MNU_EDITOR_BACK:
