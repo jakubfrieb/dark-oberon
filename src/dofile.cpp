@@ -130,7 +130,21 @@ void Chop(char *line)
  *
  *  @return @c true if non-empty word was separated, otherwise @c false.
  */
-bool GetWord(char *word, char **line)
+static void CopyBounded(char *dst, size_t size, const char *src)
+{
+  size_t len = strlen(src);
+
+  if (len >= size) {
+    Warning(LogMsg("Value '%.40s...' is %u chars long, truncated to %u", src,
+                   (unsigned)len, (unsigned)(size - 1)));
+    len = size - 1;
+  }
+  memcpy(dst, src, len);
+  dst[len] = 0;
+}
+
+
+bool GetWord(char *word, size_t size, char **line)
 {
   if (!*line) return false;
 
@@ -174,7 +188,7 @@ bool GetWord(char *word, char **line)
     // separate and copy found word to word
     c = *q;
     *q = 0;
-    strcpy(word, p);
+    CopyBounded(word, size, p);
     *q = c;
 
     if (out_dq || out_tag) q++;   // move behind double quote or '>'
@@ -318,7 +332,7 @@ TFE_ITEM::~TFE_ITEM(void)
 void TFE_ITEM::SetValue(char *value)
 {
   // delete old values
-  if (values) delete values;
+  if (values) delete[] values;
 
   // initialize new values
   values = NEW char[strlen(value) + 1];
@@ -349,11 +363,11 @@ void TFE_ITEM::AddValue(char *value)
     dv = act_value - values;
 
     // delete old values
-    delete values;
+    delete[] values;
   }
   else {
     // copy new value to newval
-    strcpy(newval, value);
+    CopyBounded(newval, sizeof(newval), value);
     dv = 0;
   }
 
@@ -613,7 +627,7 @@ void TFE_SECTION::AddLoadedValue(char *item, char *value)
  *
  *  @return Line number of item on success, 0 otherwise.
  */
-int TFE_SECTION::ReadValue(char *value, char *item, bool warning)
+int TFE_SECTION::ReadValue(char *value, size_t size, char *item, bool warning)
 {
   TFE_ITEM *fi;
   TFILE_LINE val = "";
@@ -622,7 +636,7 @@ int TFE_SECTION::ReadValue(char *value, char *item, bool warning)
 
   if (!(fi = GetItem(item, true))) return 0;
 
-  if (!GetWord(val, &fi->act_value)) {
+  if (!GetWord(val, sizeof(val), &fi->act_value)) {
     // there is no next value to read
     if (warning){
       Warning(LogMsg("Can not find value of item '%s' on line %d", item, fi->line_num));
@@ -630,7 +644,7 @@ int TFE_SECTION::ReadValue(char *value, char *item, bool warning)
     }
   }
 
-  strcpy(value, val);
+  CopyBounded(value, size, val);
 
   return fi->line_num;
 }
@@ -681,7 +695,7 @@ void TFE_SECTION::AddLine(char *text)
 TCONF_FILE::TCONF_FILE(const char *fname)
 {
   // initialize variables
-  strcpy(name, fname);
+  name = fname ? fname : "";
   modified = false;
   file_exists = false;
 
@@ -719,9 +733,9 @@ TCONF_FILE::~TCONF_FILE(void)
  */
 bool TCONF_FILE::Open(char *attr)
 {
-  if (!(fh = fopen(name, attr))) {
+  if (!(fh = fopen(name.c_str(), attr))) {
     // can not open file (probably file does not exist)
-    Error(LogMsg("Can not open configuration file '%s' with attributes '%s'", name, attr));
+    Error(LogMsg("Can not open configuration file '%s' with attributes '%s'", name.c_str(), attr));
     file_exists = false;
 
     return false;
@@ -792,7 +806,7 @@ int TCONF_FILE::Reload(void)
     if (!*line && feof(fh)){
       done = true;  // end of file is occured
       if (long_line){
-        GetWord(item, &buff);
+        GetWord(item, sizeof(item), &buff);
         act_section->AddLoadedValue(item, buff);
       
         long_line = false;
@@ -809,19 +823,19 @@ int TCONF_FILE::Reload(void)
       }
       else if (line[0] == '<' && line[1] != '/') {    // begin of the section
         if (long_line){
-          GetWord(item, &buff);
+          GetWord(item, sizeof(item), &buff);
           act_section->AddLoadedValue(item, buff);
         
           long_line = false;
           buff[0] = '\0';
         }
 
-        GetWord(item, &values);
+        GetWord(item, sizeof(item), &values);
         SelectSection(item, false);
       }
       else if (line[0] == '<') {                      // end of the section
         if (long_line){
-          GetWord(item, &buff);
+          GetWord(item, sizeof(item), &buff);
           act_section->AddLoadedValue(item, buff);
         
           long_line = false;
@@ -835,7 +849,7 @@ int TCONF_FILE::Reload(void)
           // Bound the long-line accumulator: 'buffer' is sized 10 * FILE_MAX_LINE_LENGTH,
           // so abort the continuation if appending 'values' would overflow.
           if (strlen(buff) + strlen(values) >= sizeof(buffer)) {
-            Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name, lines_count));
+            Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name.c_str(), lines_count));
             long_line = false;
             buff[0] = '\0';
           } else {
@@ -846,19 +860,19 @@ int TCONF_FILE::Reload(void)
         else{
           if (long_line){
             if (strlen(buff) + strlen(values) >= sizeof(buffer)) {
-              Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name, lines_count));
+              Warning(LogMsg("Multi-line item overflow at %s:%d (truncating)", name.c_str(), lines_count));
               buff[0] = '\0';
             } else {
               buff = strcat(buff, values);
             }
-            GetWord(item, &buff);
+            GetWord(item, sizeof(item), &buff);
             act_section->AddLoadedValue(item, buff);
           
             long_line = false;
             buff[0] = '\0';
           }
           else{
-            GetWord(item, &values);
+            GetWord(item, sizeof(item), &values);
             act_section->AddLoadedValue(item, values);
           }
         }
@@ -883,7 +897,7 @@ void TCONF_FILE::Save(void)
 
   // open file for writing
   if (!Open("wt")) {
-    Warning (LogMsg ("Could not save file '%s'.", name));
+    Warning (LogMsg ("Could not save file '%s'.", name.c_str()));
     return;
   }
 
@@ -1009,10 +1023,10 @@ void TCONF_FILE::WriteBool(char *item, bool value)
  *
  *  @return @c true on success, @c false otherwise.
  */
-bool TCONF_FILE::ReadStr(char *value, char *item, char *def_value, bool warning)
+bool TCONF_FILE::ReadStr(char *value, size_t size, char *item, char *def_value, bool warning)
 {
-  if (!act_section->ReadValue(value, item, warning)) {
-    strcpy(value, def_value);   // value was not found, return default value
+  if (!act_section->ReadValue(value, size, item, warning)) {
+    CopyBounded(value, size, def_value);   // value was not found, return default value
     Warning(LogMsg("Value of item '%s' was set to default value '%s'", item, def_value));
     return false;
   }
@@ -1039,7 +1053,7 @@ bool TCONF_FILE::ReadFloat(float *value, char *item, float def_value)
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToFloat(&v, str)) {  // in str is not valid float number
     Warning(LogMsg("Invalid float value '%s' on line %d", str, line));
@@ -1075,7 +1089,7 @@ bool TCONF_FILE::ReadFloatGE(float *value, char *item, float min, float def_valu
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToFloat(&v, str)) {  // in str is not valid float number
     Warning(LogMsg("Invalid float value '%s' on line %d", str, line));
@@ -1118,7 +1132,7 @@ bool TCONF_FILE::ReadFloatRange(float *value, char *item, float min, float max, 
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToFloat(&v, str)) {  // in str is not valid float number
     Warning(LogMsg("Invalid float value '%s' on line %d", str, line));
@@ -1157,7 +1171,7 @@ bool TCONF_FILE::ReadInt(int *value, char *item, int def_value)
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid integer value '%s' on line %d", str, line));
@@ -1194,7 +1208,7 @@ bool TCONF_FILE::ReadIntGE(int *value, char *item, int min, int def_value)
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid integer value '%s' on line %d", str, line));
@@ -1236,7 +1250,7 @@ bool TCONF_FILE::ReadIntRange(int *value, char *item, int min, int max, int def_
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid integer value '%s' on line %d", str, line));
@@ -1276,7 +1290,7 @@ bool TCONF_FILE::ReadSimpleGE(T_SIMPLE *value, char *item, T_SIMPLE min, T_SIMPL
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
@@ -1327,7 +1341,7 @@ bool TCONF_FILE::ReadSimpleRange(T_SIMPLE *value, char *item, T_SIMPLE min, T_SI
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
@@ -1376,7 +1390,7 @@ bool TCONF_FILE::ReadByteGE(T_BYTE *value, char *item, T_BYTE min, T_BYTE def_va
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
@@ -1426,7 +1440,7 @@ bool TCONF_FILE::ReadByteRange(T_BYTE *value, char *item, T_BYTE min, T_BYTE max
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
 
   if (ok && !StringToInt(&v, str)) {  // in str is not valid integer number
     Warning(LogMsg("Invalid numerical value '%s' on line %d", str, line));
@@ -1597,7 +1611,7 @@ bool TCONF_FILE::ReadBool(bool *value, char *item, bool def_value)
 
   bool ok = true;
 
-  ok = ((line = act_section->ReadValue(str, item, true)) > 0);
+  ok = ((line = act_section->ReadValue(str, sizeof(str), item, true)) > 0);
   if (!ok) {
     *value = def_value;
     Warning(LogMsg("Value of item '%s' was set to default value '%s'", item, (def_value?"true" : "false")));

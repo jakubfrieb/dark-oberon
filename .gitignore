@@ -1,5 +1,6 @@
 dark-oberon
 dark-oberon-server
+dark-oberon-haiku
 src/build_info.h
 src/tags
 src/.checking
@@ -26,3 +27,7 @@ server/docker-compose.override.yml
 third_party/
 dist/
 *.exe
+
+# C++ unit test binaries (tests/cpp/Makefile)
+tests/cpp/test_ai_logic
+tests/cpp/test_dofile

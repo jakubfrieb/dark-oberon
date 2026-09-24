@@ -153,7 +153,9 @@ nobody has been connected for 30 minutes, and after 8 hours at most.
 
 ## Build and run
 
-The game runs on **Linux**, **Windows** and **Haiku** (64-bit):
+The game runs on **Linux**, **Windows** and **Haiku** (64-bit). Ready-to-run zips for Windows and
+Haiku are on the [Releases](https://github.com/jakubfrieb/dark-oberon/releases) page, or you can
+build them yourself (see below).
 
 | | System | How to get it |
 |---|---|---|
@@ -164,15 +166,15 @@ The game runs on **Linux**, **Windows** and **Haiku** (64-bit):
 ### Linux
 
 ```bash
-# Debian/Ubuntu: sudo apt install build-essential libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
-# Arch/Manjaro:  sudo pacman -S base-devel sdl2 mesa glu
-make               # the binary ./dark-oberon ends up in the repository root
+# Debian/Ubuntu: sudo apt install build-essential libsdl2-dev libsdl2-mixer-dev libgl1-mesa-dev libglu1-mesa-dev
+# Arch/Manjaro:  sudo pacman -S base-devel sdl2 sdl2_mixer mesa glu
+make               # with sound; the binary ./dark-oberon ends up in the repository root
 ./dark-oberon
 ```
 
-- **Sound and music:** build with `make -C src SOUND=1` (needs SDL2_mixer).
+- **Without sound:** `make SOUND=0` (no SDL2_mixer needed).
 - **Dedicated server:** `make -C src server`.
-- **Tests:** `make test-ai` (C++ AI logic) and `python -m pytest tests/race_pipeline tests/mapgen tests/lobby`
+- **Tests:** `make test-ai` (C++ AI logic and config-file parser) and `python -m pytest tests/race_pipeline tests/mapgen tests/lobby`
   (the lobby tests need Flask: `pip install -r server/web/requirements.txt`).
 
 Requirements are modest: any OpenGL-capable graphics card and SDL2.

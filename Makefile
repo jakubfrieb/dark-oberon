@@ -1,4 +1,5 @@
-SOUND ?= 0
+# Sound (SDL2_mixer) is on by default; build without it with `make SOUND=0`.
+SOUND ?= 1
 # Graphical client must stay HEADLESS=0 so Editor() and menu code stay in doengine.o.
 HEADLESS ?= 0
 

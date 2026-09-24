@@ -9,6 +9,8 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
 ### Added
 - Windows (x86_64) build, cross-compiled with MinGW-w64: `make windows` produces
   `dist/dark-oberon-<version>-win64.zip` (exe, SDL2/SDL2_mixer DLLs, game data). The C/C++ runtime is
@@ -32,8 +34,15 @@ is the historical baseline and not tracked here.
   knights, the gold title, black panels, menu-style commands) and works on phones. The manual port
   field is gone; ports are assigned automatically.
 - README: internet play explains accounts, hosting vs. joining and when games stop by themselves.
-- README: the game is documented as running on Linux, Windows and Haiku, with OS badges, a platform table
-  and build steps for each.
+- README: the game is documented as running on Linux, Windows and Haiku, with OS badges, a platform table,
+  a link to the release zips and build steps for each. The Linux steps now build with sound by default.
+- The top-level `make` builds the Linux client with sound (SDL2_mixer) by default; `make SOUND=0` builds
+  without it.
+
+### Removed
+- `build-classic.sh`: it only ran `make -C src -j$(nproc)`, and nothing referred to it.
+- `docs/obvious_bugs.md`: all its bugs are fixed; the two design notes moved to
+  `ARCHITECTURE_REFACTOR_PLAN.md`.
 
 ### Fixed
 - Dedicated server: when its stdin closed (the lobby exited or restarted), the server spun at 100 % CPU
@@ -45,6 +54,13 @@ is the historical baseline and not tracked here.
 - Crash (double free) when leaving a network game, e.g. hosting and then connecting elsewhere: the
   dispatcher thread was joined twice, first by the listener that consumes its queue and then by the
   dispatcher itself. It showed up on Haiku, and on the other systems it was silent undefined behaviour.
+- Config-file parser (`dofile.cpp`): values from `config.cfg`, maps, races and schemes were copied into
+  fixed-size buffers without a length check. A player name over 20 characters or a map name over 30 could
+  overwrite memory. Values are now copied with the buffer size and truncated, with a warning in the log.
+  The config file path is no longer limited to 128 characters (deep Windows folders), and two `delete`
+  calls on arrays were corrected to `delete[]`. Covered by `tests/cpp/test_dofile.cpp` (built with
+  AddressSanitizer, part of `make test-ai`).
+- `tests/cpp/ai_smoke.sh` failed to build since 0.2.0 because it did not copy `VERSION`.
 - The map list no longer relies on `dirent::d_type` (missing on Haiku) and no longer crashes on a file
   without an extension in `maps/`.
 
@@ -190,7 +206,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...v0.2.2

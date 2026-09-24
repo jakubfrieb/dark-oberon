@@ -16,6 +16,7 @@ LEVELS=("$@")
 BUILD=${AI_SMOKE_BUILD:-$(mktemp -d)}
 mkdir -p "$BUILD/src"
 rsync -a --exclude '*.o' --exclude '.compile_flags' "$REPO/src/" "$BUILD/src/"
+cp "$REPO/VERSION" "$BUILD/VERSION"   # src/Makefile builds build_info.h from ../VERSION
 if ! make -C "$BUILD/src" server -j8 >"$BUILD/build.log" 2>&1; then
   tail -30 "$BUILD/build.log"
   exit 2

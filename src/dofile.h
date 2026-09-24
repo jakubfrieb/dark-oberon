@@ -68,6 +68,8 @@ class TCONF_FILE;
 // Included files
 //========================================================================
 
+#include <string>
+
 #include "cfg.h"
 #include "doalloc.h"
 
@@ -203,7 +205,10 @@ public:
   TFE_SECTION *SelectSection(char *name, bool mandatory);
 
   void WriteValue(char *item, char *value);
-  int  ReadValue(char *value, char *item, bool warning);
+  int  ReadValue(char *value, size_t size, char *item, bool warning);
+  /** Array overload: the buffer size is deduced, values longer than it are truncated. */
+  template <size_t N> int ReadValue(char (&value)[N], char *item, bool warning)
+  { return ReadValue(value, N, item, warning); }
   int ResetValue(char *item);
 
   void AddLoadedValue(char *item, char *value);
@@ -236,7 +241,7 @@ class TCONF_FILE {
 public:
   FILE *fh;                 //!< Handler of associated file.
 
-  TFILE_NAME name;          //!< Whole file name (path/name).
+  std::string name;         //!< Whole file name (path/name).
   bool file_exists;         //!< If file exists in filesystem.
 
   int lines_count;          //!< Count of all lines in file.
@@ -252,7 +257,10 @@ public:
   void WriteLine(char *line);
 
   void WriteStr(char *item, char *value);
-  bool ReadStr(char *value, char *item, char *def_value, bool warning);
+  bool ReadStr(char *value, size_t size, char *item, char *def_value, bool warning);
+  /** Array overload: the buffer size is deduced, values longer than it are truncated. */
+  template <size_t N> bool ReadStr(char (&value)[N], char *item, char *def_value, bool warning)
+  { return ReadStr(value, N, item, def_value, warning); }
   
   void WriteBool(char *item, bool value);
   bool ReadBool(bool *value, char *item, bool def_value);

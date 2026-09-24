@@ -2,8 +2,8 @@
 
 Tracking the multi-week refactors that won't fit in a single PR but matter for
 the fork's direction (especially: making `dark-oberon-server` a real headless
-binary and shrinking the maintenance surface). Companion to `obvious_bugs.md`
-(which lists drive-by fixes).
+binary and shrinking the maintenance surface). Small bugs and fixes are tracked
+in `CHANGELOG.md`; design notes worth knowing are at the end of this file.
 
 ## Status legend
 - ✅ done
@@ -132,12 +132,13 @@ make -C src clean -s
 
 ---
 
-## #3 — Replace `dofile.cpp` (2,123 lines) with a tiny INI parser 🚧
+## #3 — Replace `dofile.cpp` (2,123 lines) with a tiny INI parser 📋
 
 ### Goal
-`src/dofile.cpp` is a hand-rolled section/key/value parser with **16 unbounded
-`strcpy` / `sprintf` / `strcat` callsites** (bug #3 in `obvious_bugs.md`). It
-is the universal config reader (config files, `.rac` race files, `.dat` data
+`src/dofile.cpp` is a hand-rolled section/key/value parser. Its buffer overflows
+are fixed (values are copied with the caller's buffer size and truncated, see
+`tests/cpp/test_dofile.cpp`), so this refactor is about code size and clarity,
+not safety. It is the universal config reader (config files, `.rac` race files, `.dat` data
 files). Every typed `Read*` / `Write*` method duplicates string→type parsing.
 
 The cheap path: drop in [`inih`](https://github.com/benhoyt/inih) (~200-line
@@ -167,7 +168,7 @@ metadata). Drop-in replacing it requires:
 | 3.2 | Migrate `doconfig.cpp` to use `dofile2`; verify game settings round-trip | medium | smallest user-facing surface |
 | 3.3 | Migrate the read-only paths (`doraces.cpp`, `dodata.cpp`, `doschemes.cpp`) | medium | covers ~80% of file I/O |
 | 3.4 | Replace the writer (custom 50-line emitter or migrate to `mINI`) | low | covers the remaining 20% |
-| 3.5 | Delete `dofile.cpp`; bug #3 in `obvious_bugs.md` is closed | none | −2,000 lines, no more `strcpy` on caller buffers |
+| 3.5 | Delete `dofile.cpp` | none | −2,000 lines |
 
 ### Out of scope for #3
 
@@ -199,3 +200,15 @@ simulation tick counter.
 
 This is multi-month, conceptually elegant, and unlocks high-end multiplayer
 features. Do it after #2 has cleanly separated the simulation library.
+
+---
+
+## Design notes (not bugs)
+
+- **`AppGetTimeSeconds()` is the single global clock**, used both for frame pacing
+  and for network event timestamps. The companion `AppSetTimeSeconds()` exists so
+  a follower or the headless server can be slewed to the leader's clock. Any new
+  event emitter must stamp with `AppGetTimeSeconds()` (or go through `SendEvent()`,
+  which already does). See also #4.
+- **Switch fall-throughs** in `doforces.cpp`, `doworkers.cpp` and `domapunits.cpp`
+  are intentional case grouping, not missing `break`s.
