@@ -1,92 +1,92 @@
-# Generátor map pro 4 hráče — návrh
+# 4-Player Map Generator — Design
 
-Datum: 2026-09-24
-Stav: schváleno uživatelem („sepiš a pusť se do toho“)
+Date: 2026-09-24
+Status: approved by the user ("write it up and get going")
 
-## Cíl
+## Goal
 
-Skript `generate_map.py`, který ze `--seed` vygeneruje hratelnou mapu `.map` pro schéma
-`plastic`: **správně ukončená voda** (pobřeží), **správně ukončená vyvýšená místa** (skalní
-obrysy plošin s nájezdy), rozumně rozmístěné lesy, zlato a uhlí, 4 startovní pozice.
+A `generate_map.py` script that generates a playable `.map` for the `plastic` scheme from `--seed`:
+**properly bordered water** (coastline), **properly bordered elevated areas** (rocky plateau
+outlines with ramps), sensibly placed forests, gold and coal, and 4 starting positions.
 
-### Co řekl uživatel
-- 4 hráči, 4 spawn pointy; „funkční, smysluplně plné mapy“.
-- Velikost 160×160; krajina „jezera + hřebeny“; **vyvážená, ne symetrická**; rasy lidé + orci.
+### What the user said
+- 4 players, 4 spawn points; "functional, meaningfully filled maps".
+- Size 160×160; landscape "lakes + ridges"; **balanced, not symmetric**; races humans + orcs.
 
-### Předpoklady
-- Generujeme jen segment 1 (zem) s obsahem; segment 0 (podzemí) zrcadlí vodu díly `ug_*`,
-  segment 2 (vzduch) je celý fragment 0.
-- Okrajové díly mapy (`grass_border_*`) nejsou nutné — originální mapy mají na okrajích i obyčejnou trávu.
-- Skály nikdy nesousedí s vodou (mezi nimi vždy ≥ 1 buňka trávy) → nepotřebujeme díly `cliff_*`
-  a `rocks_*_coast_*`.
+### Assumptions
+- We only generate segment 1 (ground) with content; segment 0 (underground) mirrors the water with `ug_*` tiles,
+  segment 2 (air) is entirely fragment 0.
+- Map edge tiles (`grass_border_*`) are not required — the original maps also have plain grass on the edges.
+- Rocks never border water (always ≥ 1 cell of grass between them) → we do not need the `cliff_*`
+  and `rocks_*_coast_*` tiles.
 
-## Model fragmentů (ověřeno na `sunnybay`, `virgin_editor`, `trial`)
+## Fragment model (verified on `sunnybay`, `virgin_editor`, `trial`)
 
-Mapa = mřížka 32×32 buněk (fragment 5×5 polí). Souřadnice fragmentu = (x, y) v polích, násobky 5;
+The map = a 32×32 grid of cells (fragment = 5×5 fields). Fragment coordinates = (x, y) in fields, multiples of 5;
 E = x+5, S = y+5.
 
-**Voda** — oblast W (buňky vody). Okrajová buňka W (má souš mezi 8 sousedy) dostane díl podle
-toho, kde je souš:
+**Water** — region W (water cells). An edge cell of W (with land among its 8 neighbours) gets a tile depending on
+where the land is:
 
-| souš | díl | | souš | díl |
+| land | tile | | land | tile |
 |---|---|---|---|---|
 | N | `coast_n` | | N+E | `coast_wn` |
 | W | `coast_e` | | N+W | `coast_en` |
 | S | `coast_s` | | S+W | `coast_es` |
 | E | `coast_w` | | S+E | `coast_ws` |
-| jen diag NW | `coast_ne` | | jen diag NE | `coast_nw` |
-| jen diag SW | `coast_se` | | jen diag SE | `coast_sw` |
+| diag NW only | `coast_ne` | | diag NE only | `coast_nw` |
+| diag SW only | `coast_se` | | diag SE only | `coast_sw` |
 
-Vnitřek W = `sea`, souš = `grass`.
+Interior of W = `sea`, land = `grass`.
 
-**Plošina** — oblast P. Okrajová buňka P dostane skalní díl podle strany, kde je okolí:
+**Plateau** — region P. An edge cell of P gets a rock tile depending on the side where the surroundings are:
 
-| okolí | díl | | okolí | díl |
+| surroundings | tile | | surroundings | tile |
 |---|---|---|---|---|
 | N | `rocks_s` | | N+W | `rocks_sw` |
 | S | `rocks_n` | | N+E | `rocks_se` |
 | W | `rocks_w` | | S+W | `rocks_nw` |
 | E | `rocks_e` | | S+E | `rocks_ne` |
-| jen diag NW | `rocks_ws` | | jen diag NE | `rocks_es` |
-| jen diag SW | `rocks_wn` | | jen diag SE | `rocks_en` |
+| diag NW only | `rocks_ws` | | diag NE only | `rocks_es` |
+| diag SW only | `rocks_wn` | | diag SE only | `rocks_en` |
 
-Vnitřek P = `grass`. **Nájezd** = dvojice sousedních rovných okrajových buněk nahrazená koncovými díly:
-horní hrana `rocks_s_end_e` + `rocks_s_end_w` (zleva doprava), dolní `rocks_n_end_e` + `rocks_n_end_w`,
-levá `rocks_w_end_n` + `rocks_w_end_s` (shora dolů), pravá `rocks_e_end_n` + `rocks_e_end_s`.
+Interior of P = `grass`. **Ramp** = a pair of adjacent straight edge cells replaced by end tiles:
+top edge `rocks_s_end_e` + `rocks_s_end_w` (left to right), bottom `rocks_n_end_e` + `rocks_n_end_w`,
+left `rocks_w_end_n` + `rocks_w_end_s` (top to bottom), right `rocks_e_end_n` + `rocks_e_end_s`.
 
-**Omezení tvaru:** oblast nesmí mít buňku s okolím na dvou protilehlých stranách ani „sedlo“
-(diagonálně dotčené buňky) — oblasti se vyhladí morfologickým otevřením 3×3 a odstraní se
-diagonální sedla.
+**Shape constraints:** a region must not have a cell with surroundings on two opposite sides, nor a "saddle"
+(diagonally touching cells) — regions are smoothed with a 3×3 morphological opening and
+diagonal saddles are removed.
 
-## Architektura
+## Architecture
 
 `.cursor/skills/dark-oberon-map/scripts/`:
-- `mapgen_tiles.py` — tabulky výše, `outline_fragment(region, x, y) -> name|None`, převod názvů na
-  indexy fragmentů ze `.sch`, zrcadlení do `ug_*`.
-- `mapgen_layout.py` — rozvržení: starty (kvadranty + jitter, ≥ 90 polí od sebe), jezera (noise
-  blob + střední jezero), plošiny (obdélníková unie ≥ 3×3 buněk), volné zóny kolem startů,
-  nájezdy; zajištění souvislosti (BFS po průchozím terénu, případně prokopání průchodu).
-- `mapgen_resources.py` — zdroje: u každého startu zlato (10–15 polí), 2–3 lesní shluky, uhlí;
-  2–3 sporné zlaté doly; bez překryvů, jen na trávě; bilance ±10 %.
+- `mapgen_tiles.py` — the tables above, `outline_fragment(region, x, y) -> name|None`, conversion of names to
+  fragment indices from the `.sch`, mirroring into `ug_*`.
+- `mapgen_layout.py` — layout: starts (quadrants + jitter, ≥ 90 fields apart), lakes (noise
+  blob + central lake), plateaus (rectangle union ≥ 3×3 cells), free zones around starts,
+  ramps; ensuring connectivity (BFS over walkable terrain, digging a passage if needed).
+- `mapgen_resources.py` — resources: at each start gold (10–15 fields), 2–3 forest clusters, coal;
+  2–3 contested gold mines; no overlaps, only on grass; balance ±10 %.
 - `generate_map.py` — CLI `--seed --size 160 --players 4 -o maps/<name>.map [--preview out.png]`;
-  zapisuje hlavičku, `<Players>` (6 ras: human/orc × red/blue/yellow, sada: radnice, 4 dělníci,
-  2 vojáci, suroviny 1500 1000 1000), `<SchemeRace>` se zdroji, 3 segmenty.
-- `map_check.py` — kontroly: (1) každé sousedství fragmentů (E/S) je v množině dvojic z ručních map
-  nebo mezi „grass/sea“ základem; (2) starty na průchozím terénu a vzájemně dosažitelné;
-  (3) zdroje na trávě, bez překryvu, bilance; (4) `validate_map.py` projde.
-- `render_map.py` — náhled ze skutečných textur `schemes/plastic.dat` (izometricky), zdroje a starty jako značky.
+  writes the header, `<Players>` (6 races: human/orc × red/blue/yellow, set: town hall, 4 workers,
+  2 soldiers, resources 1500 1000 1000), `<SchemeRace>` with resources, 3 segments.
+- `map_check.py` — checks: (1) every fragment adjacency (E/S) is in the set of pairs from handmade maps
+  or between the "grass/sea" base; (2) starts on walkable terrain and mutually reachable;
+  (3) resources on grass, no overlap, balance; (4) `validate_map.py` passes.
+- `render_map.py` — preview from the actual textures in `schemes/plastic.dat` (isometric), resources and starts as markers.
 
-## Chyby a okrajové případy
-- Nepodaří se rozmístit starty/zdroje → nový pokus s odvozeným seedem (max 20), jinak chyba.
-- Oblast se po vyhlazení rozpadne na nic → vynechat.
-- Nesouvislá mapa → prokopat 3 buňky široký průchod (odebrat plošinu/vodu v cestě).
+## Errors and edge cases
+- Starts/resources cannot be placed → new attempt with a derived seed (max 20), otherwise an error.
+- A region collapses to nothing after smoothing → skip it.
+- Disconnected map → dig a 3-cell-wide passage (remove the plateau/water in the way).
 
-## Testování
-- pytest: tabulky obrysů (každý případ), vyhlazení (žádné protilehlé okolí, žádná sedla),
-  nájezdy, zrcadlení `ug_*`, souvislost, zdroje bez překryvu, deterministický výstup pro seed,
-  kontrola sousedství na ruční mapě `sunnybay` (musí projít = kalibrace kontroly).
-- Integrace: 3 seedy → `map_check` OK, render k vizuální kontrole, headless server s 4× `addcpu`
-  načte mapu a běží (AI těží/staví), nakonec test uživatele ve hře.
+## Testing
+- pytest: outline tables (every case), smoothing (no opposite surroundings, no saddles),
+  ramps, `ug_*` mirroring, connectivity, resources without overlap, deterministic output for a seed,
+  adjacency check on the handmade map `sunnybay` (must pass = calibration of the check).
+- Integration: 3 seeds → `map_check` OK, render for visual inspection, headless server with 4× `addcpu`
+  loads the map and runs (AI mines/builds), finally a user test in the game.
 
-## Mimo rozsah
-Útesy (skála u vody), řeky, ostrovy, dekorace (`Objects`), vrstvy (`Layers`), symetrické mapy.
+## Out of scope
+Cliffs (rock next to water), rivers, islands, decorations (`Objects`), layers (`Layers`), symmetric maps.

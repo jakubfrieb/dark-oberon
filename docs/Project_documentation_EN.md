@@ -1,264 +1,259 @@
-# Projektová dokumentácia
+# Project Documentation
 
-*Konverzia z PDF `Project_documentation_SK.pdf` (pdftotext + štruktúra nadpisov). Pôvodný jazyk: slovenčina. Obrázky a presné formátovanie z PDF tu nie sú.*
+*Translated from the original Slovak PDF `Project_documentation_SK.pdf` (pdftotext + heading structure). Images and exact formatting from the PDF are not included.*
 
 ---
 
 Valéria Šventová
 Martin Košalko
 
-### 1.1 Úvod
-Projekt Dark Oberon bol vypracovaný v rámci predmetu „PRG023 – Projekt“ na MFF UK
-pod vedením RNDr. Jakuba Yaghoba.
+### 1.1 Introduction
+The Dark Oberon project was developed as part of the course "PRG023 – Project" at MFF UK
+under the supervision of RNDr. Jakub Yaghob.
 
-### 1.2 Stručný popis projektu
-Cieľom projektu Dark Oberon bolo naprogramovať strategickú hru, ktorá sa svojim
-charakterom podobá hrám, ako sú napríklad Warcraft, či C&C RedAlert. Každý hráč môže,
-ako je to v takýchto hrách bežné, vyrábať rôzne typy jednotiek a budov, vysielať formácie
-svojich jednotiek proti nepriateľovi a pod. Víťazom sa stáva hráč, ktorý zničí všetky jednotky
-protihráča.
-Hra Dark Oberon má len multiplayer mód s komunikáciu cez lokálnu sieť. V rámci hry bol
-tiež implementovaný experimentálny počítačový hráč.
-Pre grafický výstup bolo použité rozhranie OpenGL.
-DarkOberon poskytuje užívateľovi široké možnosti tvorby úplne novej hry tohoto typu a to
-prostredníctvom konfiguračných súborov, v ktorých sa dajú nadefinovať mnohé vlastnosti
-jednotiek, či samotnej hry.
-Celá hra je prenostiteľná na platformy Windows, Unix (X11).
+### 1.2 Brief project description
+The goal of the Dark Oberon project was to program a strategy game similar in character
+to games such as Warcraft or C&C Red Alert. As is usual in such games, each player can
+produce various types of units and buildings, send formations of their units against the
+enemy, and so on. The winner is the player who destroys all of the opponent's
+units.
+Dark Oberon has only a multiplayer mode with communication over a local network. An
+experimental computer player was also implemented as part of the game.
+The OpenGL interface was used for graphical output.
+DarkOberon gives the user broad possibilities for creating an entirely new game of this type
+by means of configuration files, in which many properties of the units, or of the game
+itself, can be defined.
+The whole game is portable to the Windows and Unix (X11) platforms.
 
-### 1.3 Vývojový tím
-Už od začiatku bol projektový tím tvorený šiestimi členmi. Tento počet sa počas vývoja
-nezmenil. Nasleduje prehľad členov tímu s popisom ich práce na projekte:
+### 1.3 Development team
+From the very beginning the project team consisted of six members. This number did not
+change during development. What follows is an overview of the team members with a
+description of their work on the project:
 Marián Černý (jojo@matfyz.cz)
-Návrh a tvorba sieťovej komunikácie, zabezpečenie prenositeľnosti na
-systém Unix, správa CVS, projektové web stránky, fotografovanie
-modelov, dokumentácia.
+Design and implementation of network communication, portability to
+Unix, CVS administration, project web pages, photographing
+models, documentation.
 
 Peter Knut (peter.knut@matfyz.cz)
-Návrh a implementácia grafického rozhrania hry, Data a Map editory,
-design web stránok, modely rasy Human, spracovanie textúr, návrh
-a implementácia dátových súborov, návrh konfiguračných súborov,
-dokumentácia.
+Design and implementation of the game's graphical interface, the Data and Map editors,
+web page design, Human race models, texture processing, design
+and implementation of data files, design of configuration files,
+documentation.
 
 
 Martin Košalko (cauchy@matfyz.cz)
-Návrh a implementácia systému správ jednotlivým jednotkám hry,
-fronta správ, návrh interpretácie výsledkov neurónových sietí, modely
-schémy Plastic, Map editor, implementácia konfiguračných súborov,
-dokumentácia.
+Design and implementation of the messaging system for the individual game units,
+the message queue, design of the interpretation of neural network results, models
+of the Plastic scheme, Map editor, implementation of configuration files,
+documentation.
 
 Michal Král (index@matfyz.cz)
-Návrh a implementácia inteligentného počítačového hráča, tvorba
-neurónových sietí, dokumentácia.
+Design and implementation of the intelligent computer player, creation of
+neural networks, documentation.
 
 Jiří Krejsa (crazych@matfyz.cz)
-Návrh a implementácia algoritmov strieľania a chodenia, bazén vlákien,
-dokumentácia.
+Design and implementation of the shooting and walking algorithms, thread pool,
+documentation.
 
 Valéria Šventová (liberty@matfyz.cz)
-Návrh a implementácia algoritmov pre akcie jednotiek, testovanie,
-dokumentácia.
+Design and implementation of algorithms for unit actions, testing,
+documentation.
 
-Rozdelenie činností spočiatku nebolo presne stanovené, boli rozdelené len hlavné smery
-vývoja (grafika a užívateľský interface (1), sieťová podpora a prenositeľnosť (1), algoritmy
-týkajúce sa priamo samotnej hry (2-3), počítačový hráč (1-2)). Postupom času sa objavovali
-nové úlohy a tie už existujúce sa presnejšie kryštalizovali.
+The division of work was not precisely defined at first; only the main directions of
+development were assigned (graphics and user interface (1), network support and portability (1),
+algorithms directly concerning the game itself (2-3), computer player (1-2)). Over time
+new tasks appeared and the existing ones took clearer shape.
 
-### 1.4 Vývoj
-#### 1.4.1 Vývojové prostriedky
-Ako programovací jazyk sme si zvolili jazyk C++ a jeho objektových vlastností sme
-v projekte bohato využili. Grafický výstup je implementovaný použitím rozhrania OpenGL
+### 1.4 Development
+#### 1.4.1 Development tools
+We chose C++ as the programming language and made extensive use of its object-oriented
+features in the project. Graphical output is implemented using the OpenGL interface
 (www.opengl.org).
-Prenositeľnosť
-aplikácie
-zabezpečuje
-knižnica
-GLFW
-
-
-(glfw.sourceforge.net). Pre zvukový výstup je použitá knižnica FMOD (www.fmod.cz).
-Zdrojové súbory projektu sú uložené na CVS servri služby SourceForge.NET
+Portability of the application is ensured by the GLFW library
+(glfw.sourceforge.net). The FMOD library (www.fmod.cz) is used for sound output.
+The project's source files are stored on the CVS server of the SourceForge.NET service
 (www.sourceforge.net).
 
-#### 1.4.2 Chronológia vývoja
-Chronologický popis priebehu prác je približný, mnohé zmienené činnosti presahovali
-uvedený časový rozsah. Spočiatku bolo zamýšľané v rámci softwarového projektu vytvoriť
-len jedinú hru, neskôr sme prešli na tvorbu univerzálneho engine pre hry. Požiadavky boli
-maximálne: všeobecnosť, čo najmenšia obmedzenosť a konfigurovateľnosť. Postupom času
-sa však ukázalo, že príliš veľká všeobecnosť nesie so sebou nemalé problémy, napríklad
-náročnú implementáciu mnohých algoritmov. Preto bolo od týchto požiadaviek často
-upustené. V nasledujúcom popise vývoja projektu DarkOberon sú obsiahnuté aj veľké zmeny,
-ktorými projekt prešiel.
+#### 1.4.2 Development chronology
+The chronological description of the course of the work is approximate; many of the activities
+mentioned extended beyond the stated time range. Initially the intention was to create
+just a single game within the software project; later we moved on to creating a universal engine for games.
+The requirements were maximal: generality, as few limitations as possible, and configurability. Over time,
+however, it turned out that too much generality brings considerable problems, for example
+a demanding implementation of many algorithms. These requirements were therefore often
+dropped. The following description of the development of the DarkOberon project also covers the major
+changes the project went through.
 •
 
-10. október 2002 – prvá informačná schôdzka členov projektu (z ktorej vznikla
-myšlienka vytvoriť strategickú hru), voľba jazyka, prvé rozdelenie úloh,
-
-•
-
-koniec októbra 2002 – oficiálne vypísanie projektu komisiou,
+10 October 2002 – first informational meeting of the project members (from which the
+idea of creating a strategy game came), choice of language, first division of tasks,
 
 •
 
-november 2002 – január 2003 – návrh vnútornej koncepcie, rozhodovanie sa nad
-jednotlivými krokmi implementácie základných častí hry (mapy, počítačoví hráči,
-správa jednotiek hráčov, vlastnosti jednotlivých akcií jednotiek (chodenie, streľba,
-tvorba nových jednotiek, ťaženie materiálov a pod.)), registrácia projektu na
-SourceForge a začiatky používania CVS, vznik prvých súborov,
+end of October 2002 – official announcement of the project by the committee,
 
 •
 
-február – jún 2003 – implementácia vnútorných štruktúr hry, algoritmu chodenia,
-základných algoritmov pre jednotlivé činnosti jednotiek, grafického rozhrania hry.
-Projekt prekonáva prvú výraznejšiu zmenu: pôvodne bolo zamýšľané vytvoriť viacero
-segmentov (úrovní, v ktorých sa môžu jednotky pohybovať), ich počet by bol
-zadávaný prostredníctvom konfiguračných súborov. Z dôvodu príliš obtiažnej
-implementácie sa prešlo k naimplementovaniu presne troch segmentov
-predstavujúcich podzemie, povrch zeme a vzduch. Naviac sa predpokladá, že najvyšší
-segment (vzduch) obsahuje polopriehľadné alebo priehľadné textúry, zvyšné segmenty
-môžu používať ľubovoľné textúry,
+November 2002 – January 2003 – design of the internal concept, decisions on
+the individual implementation steps of the basic parts of the game (maps, computer players,
+management of players' units, properties of individual unit actions (walking, shooting,
+creating new units, mining materials, etc.)), registration of the project on
+SourceForge and first use of CVS, creation of the first files,
 
 •
 
-október 2003 – január 2004 – na začiatku tohto obdobia projekt prekonal ďalšiu
-zmenu: myšlienka všeobecných závislostí ustúpila do úzadia a nahradila ju závislosť
-na predkoch a množstve materiálov. U všeobecnej závislosti sa predpokladá, že
-vlastnosti jednotky (budovy) sú závislé na existencii iných jednotiek (budov).
-Závislosť na predkoch očakáva jedine existenciu samotnej jednotky, na ktorú bude
-upgrade postavený.
-Toto obdobie charakterizujú tiež počiatky návrhu inteligentného počítačového hráča.
-Uskutočnila sa schôdzka s Mgr. Romanom Nerudom, kde sa rozoberali možnosti
-a úskalia implementácie inteligentného počítačového hráča využitím viacvrstvových
-perceptronových sietí. Dokončovali sa tiež základné algoritmy pre jednotlivé jednotky.
+February – June 2003 – implementation of the game's internal structures, the walking algorithm,
+basic algorithms for the individual unit activities, and the game's graphical interface.
+The project underwent its first significant change: originally the intention was to create multiple
+segments (levels in which units can move), whose number would be
+specified through configuration files. Because the implementation was too difficult,
+we switched to implementing exactly three segments
+representing the underground, the ground surface and the air. In addition, it is assumed that the topmost
+segment (air) contains semi-transparent or transparent textures, while the remaining segments
+can use arbitrary textures,
 
 •
 
-február – jún 2004 – po dôkladnej analýze sme zmenili architektúru hry: od Update
-funkcií sa prešlo frontu správ. Update funkcia bola volaná pre každú jednotku v cykle
-až do ukončenia hry a prebiehali v nej všetky akcie spojené s touto jednotkou. Fronta
-správ má iný charakter – vkladajú sa do nej správy od všetkých jednotiek, každá
-správa má časovú značku a predstavuje nejakú akciu jednotky. Zároveň obsahuje
-informáciu, pre koho je určená. Správy sú z fronty vyberané podľa časovej značky a
-
-
-sú spracovávané. Bližší popis fungovania fronty správ je popísaný v samostatnej
-dokumentácii.
-Obdobie od apríla charakterizuje implementácia neurónových sietí (počítačový hráč),
-obnova grafického rozhrania – nové textúry vznikali fotením modelov jednotiek, ktoré
-boli vyrobené z plastelíny; testovanie už naprogramovaných častí,
-•
-
-október – december 2004 – zavedenie viacvláknovosti (multithreading, v „hlavnom“
-vlákne beží uživateľský vstup a grafický výstup, ostatné vlákna spracovávajú
-napríklad správy, chodenie, počítanie vzdialeností a pod.), štúdium problematiky sietí,
-návrh a implementácia, testovanie naprogramovaných neurónových sietí a prvé
-pokusy o interpretáciu ich výsledkov,
+October 2003 – January 2004 – at the beginning of this period the project underwent another
+change: the idea of general dependencies receded into the background and was replaced by dependency
+on ancestors and on the amount of materials. With a general dependency it is assumed that the
+properties of a unit (building) depend on the existence of other units (buildings).
+Dependency on ancestors only expects the existence of the unit itself on which the
+upgrade will be built.
+This period is also characterized by the beginnings of the design of the intelligent computer player.
+A meeting took place with Mgr. Roman Neruda, where the possibilities
+and pitfalls of implementing an intelligent computer player using multilayer
+perceptron networks were discussed. The basic algorithms for the individual units were also being completed.
 
 •
 
-január – máj 2005 – testovanie, dokumentácia, programovanie sieťovej podpory
-pretrváva, dolaďovanie detailov.
-
-Počas celej doby trvania projektu prebiehali takmer pravidelné projektové schôdzky,
-s výnimkou letných prázdnin. Frekvencia stretnutí bola ovplyvňovaná intenzitou vývoja
-projektu. V druhom roku vývoja schôdzky prebiehali pravidelne jeden krát týždenne vo
-večerných hodinách. Zároveň jeden krát za dva týždne prebehla schôdzka s vedúcim projektu.
-Ku koncu projektu sa intenzita posledne spomínaných schôdzok zvýšila na raz týždenne.
-
-#### 1.4.3 Pôvodné zámery projektu a výsledok – porovnanie
-##### 1.4.3.1 Konkrétna hra verzus výpočtový stoj na hry
-
-Pôvodným zámerom vývojového tímu bolo vytvoriť strategickú hru typu Warcraft 2, ktorá by
-bola modifikovateľná vstupnými dátami. Podľa špecifikácie malo byť umožnené meniť
-vlastnosti konkrétnych jednotiek (vdzucholoď mohla lietať rýchlejšie, bojovník mal dostať
-väčšiu silu...). Ukázalo sa, že pre užívateľa môže byť obmedzujúce mať iba obmedzený
-preddefinovaný počet typov jednotiek, a preto sme umožnili definovať ľubovoľný počet typov
-jednotiek s užívateľsky definovanými vlastnosťami. To však kládlo vyššie nároky na
-programovanie, pretože o typoch jednotiek, ktoré si užívateľ definuje nie je možné
-predpokladať takmer nič. Skĺzli sme teda k programovaniu všeobecného stroja na strategické
-hry. Niektoré algoritmy sme však nedokázali (prípadne to nebolo žiadúce a efektné)
-zovšeobecniť úplne, a tak sme z požiadaviek ubrali. Príkladom algoritmu, ktorý nebolo
-vhodné implementovať všeobecne je grafické zobrazenie neobmedzeného počtu segmentov
-(skĺzlo sa teda k pevnému počtu segmentov). Výsledkom je teda takmer všeobecná šablóna –
-výpočtový stroj na strategické hry bežiace v reálnom čase (takzvané RTS).
-
-##### 1.4.3.2 Inteligentný počítačový hráč
-
-V počiatkoch vývoja projektu sme chceli implementovať inteligentného počítačového hráča,
-ktorý by bol schopný „odpozorovať“ stratégiu hry od svojich protihráčov. Výsledky každej
-hry sa mali ukladať, následne spracovať a vyhodnocovať. Podľa dosiahnutých výsledkov sa
-potom mali modifikovať neurónové siete rozhodujúce o stratégii počítačového hráča a tým sa
-mal zabezpečiť jeho rozvoj.
-Ako prvý problém sa ukázalo vyhodnotenie odohranej hry, ktoré je celkom netriviálne. Je
-totiž problém rozhodnúť, či daná akcia vykonaná hráčom (prípadne neurónovou sieťou)
-v nejaký okamih hry bola vo výsledku pozitívna a nájsť (a vyčísliť) mieru pozitívnosti danej
-akcie. Od idey ukladania hry a jej vyhodnocovania sa teda upustilo a nie je implementované.
-Už na schôdzke s Mgr. Romanom Nerudom sme boli upozornení na to, že siete, ktoré
-prichádzali do úvahy pre rozhodovanie o činnosti hráča môžu byť vzhľadom na vstupné
+February – June 2004 – after a thorough analysis we changed the game's architecture: we moved from Update
+functions to a message queue. The Update function was called for every unit in a loop
+until the game ended, and all actions associated with that unit took place in it. The message
+queue has a different character – messages from all units are inserted into it; each
+message has a timestamp and represents some action of a unit. It also contains
+information about whom it is intended for. Messages are taken from the queue according to their timestamp and
 
 
-parametre (ich počet) a počet naučených príkladov netriviálne mohutné. Z netriviálnej
-mohutnosti sietí okamžite vyplýva aj nezanedbateľná dĺžka učenia sietí. V praxi sa ukázalo,
-že na to, aby sme sieť dokázali naučiť všetkým požadovaným prípadom je ozaj nutná
-obrovská sieť (čo ešte nebol až taký veľký problém) a veľký počet vzorových príkladov, ktoré
-sa vzájomne prelínajú. Najväčší problém bolo nájsť ohodnotenie vzorových príkladov
-(potrebných pre algoritmus spätnej propagácie – back propagation) tak, aby sa ich sieť bola
-schopná naučiť.
-Výsledok nášho snaženia je teda implementácia alebo skôr pokus o implementáciu
-inteligentného počítačového hráča pomocou systému viacvrstvových počítačových sietí.
-Niektoré akcie hráča sa nám podarilo zvládnuť lepšie (ťaženie materiálov, stavanie bojových
-jednotiek a potrebných budov), iné menej (útočenie). Naše pôvodné predstavy boli však
-vysoko nadhodnotené a neboli sme ich schopní úplne naplniť. Implementácia inteligencie je
-svojou zložitosťou a komplexnosťou pravdepodobne hodná samotného softwarového
-projektu, ktorý by sa dal založiť na už existujúcej hre.
+processed. A more detailed description of how the message queue works is given in separate
+documentation.
+The period from April is characterized by the implementation of neural networks (computer player),
+a renewal of the graphical interface – new textures were created by photographing unit models that
+were made of plasticine; testing of the already programmed parts,
+•
 
-##### 1.4.3.3 Grafika
+October – December 2004 – introduction of multithreading (the "main"
+thread runs user input and graphical output, the other threads process
+e.g. messages, walking, distance calculations, etc.), study of networking issues,
+design and implementation, testing of the programmed neural networks and first
+attempts at interpreting their results,
 
-Grafická stránka projektu naplnila naše pôvodné zámery. Rozhranie OpenGL spoľahlivo
-fungovalo na všetkých testovaných systémoch. V súlade so špecifikáciou projekt podporuje
-viacvrstvovú grafiku. V plnej kráse je to viditeľné v „multiview“ pohľade na mapu, kde sú
-jednotky zo spodného segmentu zobrazované polopriehľadne (využitie alfa-kanálu).
-Všetky elementy prostredia a jednotky hráčov sú zobrazované ako 2D obrázky – textúry. Pre
-vytvorenie ukážkovej hry sme teda potrebovali veľké množstvo textúr (obrázky budov,
-panáčikov, stromov). Prvým nápadom bolo vytváranie 3D modelov v programe 3DStudio
-Max a ich následná konverzia do potrebného formátu. To sa ukázalo ako neefektívne a časovo
-náročné. Hľadali sme teda časovo menej náročný spôsob, ktorým mohlo byť fotografovanie
-reálnych modelov. Prešli sme mnoho nápadov (lego, hračky „igraček“, reálne ľudské
-postavy...) až prišiel nápad vymodelovať celé prostredie z plastelíny. Tento nápad sme (aj
-vďaka externým „členom projektu“ a trpezlivej práci grafika) v plnej miere zrealizovali.
-Modely bolo nutné vymodelovať (čo bolo príjemným spestrením práce), vyfotiť ich
-zo všetkých strán pri každej činnosti a následne fotografie spracovať do požadovaného
-formátu. Výsledkom je teda plastický svet, ktorý je originálny a oku lahodiaci.
+•
 
-Obrázok 1: Počas fotenia prasiatka
+January – May 2005 – testing, documentation, programming of network support
+continues, fine-tuning of details.
+
+Throughout the whole duration of the project, project meetings took place almost regularly,
+with the exception of the summer holidays. The frequency of meetings was influenced by the intensity of the project's
+development. In the second year of development, meetings took place regularly once a week in the
+evening. In addition, a meeting with the project supervisor took place once every two weeks.
+Towards the end of the project the frequency of the latter meetings increased to once a week.
+
+#### 1.4.3 Original project intentions and the result – a comparison
+##### 1.4.3.1 A specific game versus a game engine
+
+The development team's original intention was to create a Warcraft 2-style strategy game that
+would be modifiable through input data. According to the specification, it was to be possible to change
+the properties of specific units (the airship could fly faster, the warrior could get
+more strength...). It turned out that having only a limited, predefined number of unit types
+could be restrictive for the user, so we made it possible to define any number of unit
+types with user-defined properties. This, however, placed higher demands on
+programming, because almost nothing can be assumed about the unit types the user defines.
+We thus drifted toward programming a general engine for strategy
+games. Some algorithms, however, we were unable (or it was not desirable and effective)
+to generalize completely, so we cut back on the requirements. An example of an algorithm that was not
+suitable to implement generally is the graphical display of an unlimited number of segments
+(so we settled on a fixed number of segments). The result is therefore an almost general template –
+an engine for real-time strategy games (so-called RTS).
+
+##### 1.4.3.2 Intelligent computer player
+
+In the early stages of the project we wanted to implement an intelligent computer player
+that would be able to "learn by observation" the game strategy of its opponents. The results of every
+game were to be saved, then processed and evaluated. Based on the results achieved,
+the neural networks deciding the computer player's strategy were then to be modified, thereby
+ensuring its development.
+The first problem turned out to be the evaluation of a played game, which is quite non-trivial. It is
+namely difficult to decide whether a given action performed by the player (or by a neural network)
+at some moment of the game was ultimately positive, and to find (and quantify) the degree of positivity of that
+action. The idea of saving and evaluating games was therefore abandoned and is not implemented.
+Already at the meeting with Mgr. Roman Neruda we were warned that the networks that
+came into consideration for deciding the player's activity could be, given the input
 
 
-Vzhľadom na veľké množstvo textúr, ktoré je potrebné pre animácie všetkých činností
-jednotiek, nie sú všetky jednotky úplne animované. Snažili sme sa však, aby bolo možné
-každú akciu ukázať aspoň na jednej jednotke.
+parameters (their number) and the number of learned examples, non-trivially large. The non-trivial
+size of the networks immediately implies a considerable training time as well. In practice it turned out
+that in order to teach the network all the required cases, a truly
+huge network is necessary (which was not yet that big a problem) as well as a large number of sample examples that
+overlap each other. The biggest problem was finding a scoring of the sample examples
+(needed for the back propagation algorithm) such that the network would be
+able to learn them.
+The result of our efforts is therefore an implementation, or rather an attempt at implementing,
+an intelligent computer player using a system of multilayer neural networks.
+Some player actions we managed to handle better (mining materials, building combat
+units and the necessary buildings), others less so (attacking). Our original ideas were, however,
+greatly overestimated and we were not able to fulfil them completely. By its
+intricacy and complexity, the implementation of the intelligence is probably worthy of a software
+project of its own, which could be based on the already existing game.
 
-##### 1.4.3.4 Prenositeľnosť
+##### 1.4.3.3 Graphics
 
-V špecifikácii projektu sme uviedli, že program by mal byť prenositeľný na platformy
-Windows a Unix/X11. Zdalo sa nám totiž, že tento typ programov na unixových systémoch
-chýba. Cieľ sa nám podarilo v plnej miere splniť vďaka použitým knižniciam, ktoré
-zabezpečujú vstupy a výstupy (GLFW, FMOD) a aj vďaka používaniu štandardných C/C++
-funkcií.
-Program boli vyvíjané na platforme Win32 (v MS Visual Studio 6.0, neskôr MS Visual
-Studio.NET 2003), na Unixových platformách FreeBSD a Mandrake Linux (vim, gcc). Na
-týchto platformách program funguje (FreeBSD bez zvuku). Program by mal byť prenositeľný
-aj na všetky platformy uvedené v špecifikácii GLFW a FMOD.
+The graphical side of the project met our original intentions. The OpenGL interface worked reliably
+on all tested systems. In accordance with the specification, the project supports
+multilayer graphics. This is visible in full glory in the "multiview" view of the map, where
+units from the lower segment are displayed semi-transparently (using the alpha channel).
+All environment elements and players' units are displayed as 2D images – textures. To
+create a sample game we therefore needed a large number of textures (images of buildings,
+little figures, trees). The first idea was to create 3D models in 3D Studio
+Max and then convert them into the required format. This proved to be inefficient and time
+consuming. We therefore looked for a less time-consuming method, which could be photographing
+real models. We went through many ideas (Lego, "igraček" toys, real human
+figures...) until the idea came to model the whole environment out of plasticine. We (also
+thanks to external "project members" and the patient work of our graphic artist) fully realized this idea.
+The models had to be sculpted (which was a pleasant diversion from the work), photographed
+from all sides for every activity, and the photographs then processed into the required
+format. The result is thus a plastic world that is original and pleasing to the eye.
 
-##### 1.4.3.5 Sieťovanie
+Figure 1: Photographing the piglet
 
-Pri tvorbe špecifikácie projektu sme sa zhodli len na tom, že hra by mala mať multiplayer
-mód a mala by bežať po lokálnej sieti. Tento zámer sa podarilo naplniť s čím môžeme byť
-spokojní.
-V priebehu vývoja projektu však vzniklo niekoľko výborných nápadov týkajúcich sa sietí, no
-nepodarilo sa ich implementovať. Chceli sme počítače v sieti (dynamicky) prepájať tak, aby
-bolo zaťaženie počítačov a liniek optimálne. S tým súvisí aj umiestnenie počítačových
-hráčov, ktorí mali byť distribuovaní medzi všetky počítače podľa výpočtového výkonu –
-v súčasnosti bežia všetci na počítači tvorcu hry. Podobne existoval zámer, že po odpojení sa
-niektorého z hráčov jeho funkciu preberie počítačový hráč bežiaci na inom (ešte pripojenom)
-počítači – v súčasnosti sa po odpojení hráča všetkým vzdialeným počítačom zašle správa
-o odpojení, čím sa hráč všade deaktivuje (jeho jednotky korektne umrú).
-Je možné povedať, že v prípade dostatku času by sa dalo mnoho vecí vylepšiť.
+
+Given the large number of textures needed for the animations of all unit
+activities, not all units are fully animated. We did, however, try to make it possible
+to show every action on at least one unit.
+
+##### 1.4.3.4 Portability
+
+In the project specification we stated that the program should be portable to the
+Windows and Unix/X11 platforms. It seemed to us that this type of program was lacking on Unix
+systems. We managed to fully achieve this goal thanks to the libraries used, which
+handle input and output (GLFW, FMOD), and also thanks to the use of standard C/C++
+functions.
+The program was developed on the Win32 platform (in MS Visual Studio 6.0, later MS Visual
+Studio .NET 2003), and on the Unix platforms FreeBSD and Mandrake Linux (vim, gcc). The program works on
+these platforms (FreeBSD without sound). The program should also be portable
+to all platforms listed in the GLFW and FMOD specifications.
+
+##### 1.4.3.5 Networking
+
+When creating the project specification we only agreed that the game should have a multiplayer
+mode and should run over a local network. This intention was achieved, which we can be
+satisfied with.
+During the development of the project, however, several excellent ideas concerning networking came up, but
+we did not manage to implement them. We wanted to connect the computers in the network (dynamically) so that
+the load on the computers and links would be optimal. Related to this is the placement of the computer
+players, who were to be distributed among all computers according to computing power –
+currently they all run on the game creator's computer. Similarly, there was an intention that after
+one of the players disconnects, their role would be taken over by a computer player running on another (still connected)
+computer – currently, after a player disconnects, a disconnect message is sent to all remote computers,
+whereby the player is deactivated everywhere (their units die properly).
+It is fair to say that, given enough time, many things could be improved.

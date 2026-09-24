@@ -1,57 +1,57 @@
-# CPU AI — variabilita a vojsko — implementační plán
+# CPU AI — Variability and Military — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** CPU hráči s náhodnou osobností, obtížností z configu a vojenským automatem (shromáždění → útok s převahou → ústup, přiměřená obrana, skórování cílů, vypršení odvety, rozumný průzkum).
+**Goal:** CPU players with a random personality, difficulty from config and a military state machine (gather → attack with superiority → retreat, proportionate defence, target scoring, retaliation expiry, sensible scouting).
 
-**Architecture:** Čistá rozhodovací logika v novém `src/doai_logic.{h,cpp}` (bez enginu, testovaná `make test-ai`); `src/doai.{h,cpp}` ji volá a převádí herní stav na `TAI_UNIT_SAMPLE`. Config `ai_level` a per-slot override přes `player_array`.
+**Architecture:** Pure decision logic in the new `src/doai_logic.{h,cpp}` (no engine, tested by `make test-ai`); `src/doai.{h,cpp}` calls it and converts game state into `TAI_UNIT_SAMPLE`. Config `ai_level` and a per-slot override via `player_array`.
 
-**Tech Stack:** C++ (gnu++17, g++), make, headless `dark-oberon-server` pro integraci.
+**Tech Stack:** C++ (gnu++17, g++), make, headless `dark-oberon-server` for integration.
 
 **Spec:** `docs/superpowers/specs/2026-09-23-ai-variability-military-design.md`
 
 ## Global Constraints
 
-- AI nesmí volat `rand()`/`srand()`; veškerá náhoda přes `TAI_RNG`.
-- `src/doai_logic.{h,cpp}` nesmí includovat žádný engine header (jen `<cstdint>`, `<cmath>`, `<cstring>`, `<algorithm>`).
-- `ai_level` hodnoty `easy|medium|hard`, výchozí `medium`; neznámá hodnota → warning + medium.
-- Presety osobností: `aggressive`, `commercial`, `calm`, `rusher`, `turtle`; šum ±10 %.
-- Odveta vyprší po 90 s bez zásahu; obrana v okruhu 12 polí od našich staveb; shromaždiště 8 polí od základny směrem k nepříteli.
-- Změny v `doai.cpp`/`doai.h` → aktualizovat `docs/AI_SYSTEM.md` ve stejné větvi (pravidlo dokumentu).
-- Commity končí `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`; commitovat jen soubory tasku (necommitnuté cizí změny v pracovním stromu — `src/dowalk.h`, `.gitignore`, `logs/full.log`, skill soubory — nepřidávat).
-- Klient se po změnách staví `make` v kořeni; server v kopii (`git archive HEAD src` do scratchpadu + `make server`), aby se nepřepsaly `.o` klienta.
+- The AI must not call `rand()`/`srand()`; all randomness goes through `TAI_RNG`.
+- `src/doai_logic.{h,cpp}` must not include any engine header (only `<cstdint>`, `<cmath>`, `<cstring>`, `<algorithm>`).
+- `ai_level` values `easy|medium|hard`, default `medium`; unknown value → warning + medium.
+- Personality presets: `aggressive`, `commercial`, `calm`, `rusher`, `turtle`; noise ±10 %.
+- Retaliation expires after 90 s without a hit; defence within 12 fields of our buildings; rally point 8 fields from the base towards the enemy.
+- Changes in `doai.cpp`/`doai.h` → update `docs/AI_SYSTEM.md` in the same branch (document rule).
+- Commits end with `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`; commit only the task's files (do not add uncommitted foreign changes in the working tree — `src/dowalk.h`, `.gitignore`, `logs/full.log`, skill files).
+- After changes the client is built with `make` in the root; the server in a copy (`git archive HEAD src` into the scratchpad + `make server`) so that the client's `.o` files are not overwritten.
 
 ## Review Focus
 
-1. **Žádný viditelný ani živý nepřítel** (všichni poraženi, nebo mlha) → automat nesmí padat ani spamovat příkazy; zůstává GATHER/útočí na známou základnu jen s 1,5× `rally_size`. Test: `test_should_attack_unknown_enemy_needs_more_units` (Task 2) + integrace (Task 6).
-2. **Dělení nulou** v poměrech síly (nulová armáda, neozbrojení nepřátelé) → definované chování. Test: `test_ratio_zero_cases` (Task 2).
-3. **Mapa bez startovních pozic (`initial_x < 0`)** → shromaždiště z první vlastní stavby. Test: `test_rally_point_without_enemy_base` (Task 2) + fallback v Task 4.
-4. **Neznámé `ai_level`** v configu nebo u `addcpu` → medium + warning. Test: `test_level_from_name` (Task 1).
-5. **Opakované příkazy každý think tick** (skupinový přesun znovu a znovu ke stejnému cíli) → přesun se posílá jen při změně cíle/stavu. Test: `test_military_order_dedup` (Task 2 — funkce `TAI_ORDER_MEMO`).
+1. **No visible or living enemy** (all defeated, or fog) → the state machine must not crash or spam orders; it stays in GATHER / attacks the known base only with 1.5× `rally_size`. Test: `test_should_attack_unknown_enemy_needs_more_units` (Task 2) + integration (Task 6).
+2. **Division by zero** in strength ratios (zero army, unarmed enemies) → defined behaviour. Test: `test_ratio_zero_cases` (Task 2).
+3. **Map without starting positions (`initial_x < 0`)** → rally point from the first own building. Test: `test_rally_point_without_enemy_base` (Task 2) + fallback in Task 4.
+4. **Unknown `ai_level`** in config or with `addcpu` → medium + warning. Test: `test_level_from_name` (Task 1).
+5. **Repeated orders every think tick** (group move to the same target over and over) → a move is sent only when the target/state changes. Test: `test_military_order_dedup` (Task 2 — function `TAI_ORDER_MEMO`).
 
 ---
 
-## Struktura souborů
+## File structure
 
-| Soubor | Odpovědnost |
+| File | Responsibility |
 |--------|-------------|
-| `src/doai_logic.h`, `src/doai_logic.cpp` (nové) | RNG, osobnosti, level z názvu, síla, rozhodovací funkce, odveta, paměť příkazů |
-| `tests/cpp/test_ai_logic.cpp`, `tests/cpp/Makefile` (nové) | unit testy čisté logiky |
-| `Makefile` (kořen) | cíl `test-ai` |
-| `src/Makefile` | `doai_logic.o` v `OBJECTS` + pravidlo |
-| `src/doconfig.h`, `src/doconfig.cpp` | `config.ai_level` čtení/zápis |
-| `src/doplayers.h`, `src/doplayers.cpp` | `ai_level` na slot (`SetAiLevel`/`GetAiLevel`) |
-| `src/doengine.cpp` | `addcpu [level]` na serveru |
-| `src/doai.h`, `src/doai.cpp` | napojení: level/osobnost, vojenský automat, průzkum, stavby, výroba, diagnostika |
-| `docs/AI_SYSTEM.md` | dokumentace |
+| `src/doai_logic.h`, `src/doai_logic.cpp` (new) | RNG, personalities, level from name, strength, decision functions, retaliation, order memory |
+| `tests/cpp/test_ai_logic.cpp`, `tests/cpp/Makefile` (new) | unit tests of the pure logic |
+| `Makefile` (root) | `test-ai` target |
+| `src/Makefile` | `doai_logic.o` in `OBJECTS` + rule |
+| `src/doconfig.h`, `src/doconfig.cpp` | `config.ai_level` read/write |
+| `src/doplayers.h`, `src/doplayers.cpp` | `ai_level` per slot (`SetAiLevel`/`GetAiLevel`) |
+| `src/doengine.cpp` | `addcpu [level]` on the server |
+| `src/doai.h`, `src/doai.cpp` | wiring: level/personality, military state machine, scouting, buildings, production, diagnostics |
+| `docs/AI_SYSTEM.md` | documentation |
 
 ---
 
-### Task 1: `doai_logic` — RNG, osobnosti, levely + testovací infrastruktura
+### Task 1: `doai_logic` — RNG, personalities, levels + test infrastructure
 
 **Files:**
 - Create: `src/doai_logic.h`, `src/doai_logic.cpp`, `tests/cpp/test_ai_logic.cpp`, `tests/cpp/Makefile`
-- Modify: `Makefile` (kořen), `src/Makefile`
+- Modify: `Makefile` (root), `src/Makefile`
 
 **Interfaces — Produces:**
 ```cpp
@@ -158,15 +158,15 @@ clean:
 	rm -f test_ai_logic
 .PHONY: test clean
 ```
-Kořenový `Makefile`: přidat
+Root `Makefile`: add
 ```make
 test-ai:
 	$(MAKE) -C tests/cpp
 ```
 
-- [ ] **Step 2: Run — expect FAIL** — `make test-ai` → chyba kompilace (`doai_logic.h` neexistuje).
+- [ ] **Step 2: Run — expect FAIL** — `make test-ai` → compilation error (`doai_logic.h` does not exist).
 
-- [ ] **Step 3: Implement** `src/doai_logic.h` (s `TAI_FLAVOR_PARAMS` přesunutým z `doai.h` — v `doai.h` nahradit definici `#include "doai_logic.h"`) a `src/doai_logic.cpp`:
+- [ ] **Step 3: Implement** `src/doai_logic.h` (with `TAI_FLAVOR_PARAMS` moved from `doai.h` — in `doai.h` replace the definition with `#include "doai_logic.h"`) and `src/doai_logic.cpp`:
 
 ```cpp
 // PCG32 (O'Neill), inc fixed odd constant
@@ -188,7 +188,7 @@ int TAI_RNG::PickWeighted(const float *w, int n) {
   return 0;
 }
 ```
-Presety (`name, {agg, def, eco}, attack_ratio, retreat_ratio, rally_size, defense_commit, scout_count`):
+Presets (`name, {agg, def, eco}, attack_ratio, retreat_ratio, rally_size, defense_commit, scout_count`):
 ```cpp
 const TAI_PERSONALITY TAI_PERSONALITY_PRESETS[5] = {
   {"aggressive", {0.90f, 0.20f, 0.30f}, 1.15f, 0.60f, 6, 1.3f, 1.5f},
@@ -198,22 +198,22 @@ const TAI_PERSONALITY TAI_PERSONALITY_PRESETS[5] = {
   {"turtle",     {0.40f, 0.95f, 0.60f}, 2.00f, 1.00f, 14, 2.0f, 1.0f},
 };
 ```
-`TAI_RollPersonality`: `p = PRESETS[rng.Index(5)]`; každý flavor float `*= Uniform(0.9,1.1)` a clamp 0..1; `attack_ratio *= Uniform(0.9,1.1)`; `retreat_ratio *= Uniform(0.9,1.1)` a pak `retreat_ratio = min(retreat_ratio, attack_ratio*0.9f)`; `rally_size += Index(3)-1`, min 2; `defense_commit *= Uniform(0.9,1.1)`.
-`TAI_LevelFromName`: case-insensitive `easy|medium|hard` (vlastní `tolower` smyčka), jinak MEDIUM + `*ok=false` (ok může být NULL).
+`TAI_RollPersonality`: `p = PRESETS[rng.Index(5)]`; each flavor float `*= Uniform(0.9,1.1)` and clamp 0..1; `attack_ratio *= Uniform(0.9,1.1)`; `retreat_ratio *= Uniform(0.9,1.1)` and then `retreat_ratio = min(retreat_ratio, attack_ratio*0.9f)`; `rally_size += Index(3)-1`, min 2; `defense_commit *= Uniform(0.9,1.1)`.
+`TAI_LevelFromName`: case-insensitive `easy|medium|hard` (own `tolower` loop), otherwise MEDIUM + `*ok=false` (ok may be NULL).
 
-Do `src/Makefile`: `doai_logic.o` do `OBJECTS` a pravidlo
+In `src/Makefile`: `doai_logic.o` into `OBJECTS` and the rule
 ```make
 doai_logic.o: doai_logic.cpp doai_logic.h
 	$(CPP) -c doai_logic.cpp
 ```
-a `doai_logic.h` do závislostí `doai.o`, `doengine.o`, `doplayers.o`.
+and `doai_logic.h` into the dependencies of `doai.o`, `doengine.o`, `doplayers.o`.
 
-- [ ] **Step 4: Run — expect PASS** — `make test-ai` → `6 tests, 0 failures`; `make` (klient) projde.
+- [ ] **Step 4: Run — expect PASS** — `make test-ai` → `6 tests, 0 failures`; `make` (client) succeeds.
 - [ ] **Step 5: Commit** `feat(ai): pure decision module with RNG, personalities and levels`
 
 ---
 
-### Task 2: `doai_logic` — síla, rozhodnutí, cíle, odveta, paměť příkazů
+### Task 2: `doai_logic` — strength, decisions, targets, retaliation, order memory
 
 **Files:** Modify `src/doai_logic.{h,cpp}`, `tests/cpp/test_ai_logic.cpp`
 
@@ -233,7 +233,7 @@ class TAI_RETALIATION { public: void Hit(int pid, double now); bool Active(doubl
 struct TAI_ORDER_MEMO { int kind, target, x, y; bool Changed(int kind, int target, int x, int y); void Reset(); };
 ```
 
-- [ ] **Step 1: Failing tests** (přidat do `test_ai_logic.cpp`):
+- [ ] **Step 1: Failing tests** (add to `test_ai_logic.cpp`):
 ```cpp
 static TAI_UNIT_SAMPLE S(float life, float dps, int x = 0, int y = 0, bool st = false, bool mil = true, bool atk = false) {
   TAI_UNIT_SAMPLE s; s.life = life; s.max_life = life; s.dps = dps; s.x = x; s.y = y; s.structure = st; s.military = mil; s.attacking_us = atk; return s;
@@ -319,81 +319,81 @@ TEST(test_military_order_dedup) {
 - [ ] **Step 2: Run — expect FAIL** (`make test-ai`: undefined symbols).
 - [ ] **Step 3: Implement**:
   - `TAI_ArmyPower`: `sdps += max(0,dps)`, `slife += max(0,life)`; return `sdps*slife`.
-  - `TAI_PowerRatio`: jak v interfaci.
+  - `TAI_PowerRatio`: as in the interface.
   - `TAI_ShouldAttack`: `if (my_count < p.rally_size) return false; if (!enemy_known) return my_count >= (p.rally_size*3+1)/2; return TAI_PowerRatio(my_power, enemy_est) >= p.attack_ratio;`
   - `TAI_ShouldRetreat`: `enemy_local > 0 && TAI_PowerRatio(my_power, enemy_local) < p.retreat_ratio`.
-  - `TAI_DefenseCommitCount`: `if n<=0 return 0; need = commit_factor*threat_power; sum=0; for i: sum+=pw[i]; if (sum>=need) return max(1,i+1); return n;` (s `threat_power<=0` → 1).
-  - `TAI_TargetScore`: `s = 0; if attacking_us s+=100; if military s+=40; else if structure && dps>0 s+=30; else if structure s+=10; s -= 2*dist; if max_life>0 s += (1 - life/max_life)*20; return s;` (s „soldier“ bez structure: military=true).
+  - `TAI_DefenseCommitCount`: `if n<=0 return 0; need = commit_factor*threat_power; sum=0; for i: sum+=pw[i]; if (sum>=need) return max(1,i+1); return n;` (with `threat_power<=0` → 1).
+  - `TAI_TargetScore`: `s = 0; if attacking_us s+=100; if military s+=40; else if structure && dps>0 s+=30; else if structure s+=10; s -= 2*dist; if max_life>0 s += (1 - life/max_life)*20; return s;` (with "soldier" without structure: military=true).
   - `TAI_EnemyPowerEstimate`: `max(visible, remembered*pow(0.5, t/60))`.
-  - `TAI_RallyPoint`: pokud `ex<0||ey<0` → `(bx,by)`; jinak vektor `(ex-bx, ey-by)`, délka L; pokud L<1 → base; `x = bx + round(dx/L*dist)`, totéž y; clamp `[1, map_w-2]`, `[1, map_h-2]`.
+  - `TAI_RallyPoint`: if `ex<0||ey<0` → `(bx,by)`; otherwise vector `(ex-bx, ey-by)`, length L; if L<1 → base; `x = bx + round(dx/L*dist)`, same for y; clamp `[1, map_w-2]`, `[1, map_h-2]`.
   - `TAI_RETALIATION`: `pid=-1, last=-1e9`; `Hit`: `pid=p,last=now`; `Active`: `pid>=0 && now-last <= kExpire`; `kExpire=90.0`.
-  - `TAI_ORDER_MEMO::Changed`: porovná 4 hodnoty, uloží nové, vrátí zda se lišily; `Reset` nastaví `kind=-1`.
+  - `TAI_ORDER_MEMO::Changed`: compares the 4 values, stores the new ones, returns whether they differed; `Reset` sets `kind=-1`.
 - [ ] **Step 4: Run — expect PASS** (`make test-ai` → 17 tests, 0 failures).
 - [ ] **Step 5: Commit** `feat(ai): power estimate, attack/retreat/defense decisions, target scoring`
 
 ---
 
-### Task 3: Obtížnost z configu + `addcpu <level>` + osobnost pro každého CPU
+### Task 3: Difficulty from config + `addcpu <level>` + personality for each CPU
 
 **Files:** Modify `src/doconfig.{h,cpp}`, `src/doplayers.{h,cpp}`, `src/doengine.cpp`, `src/doai.{h,cpp}`
 
 **Interfaces:**
 - Consumes: `TAI_LevelFromName`, `TAI_RollPersonality`, `TAI_RNG` (Task 1).
-- Produces: `config.ai_level` (`int`, `TAI_LEVEL_ID`); `TPLAYER_ARRAY::SetAiLevel(int idx, int lv)`, `int GetAiLevel(int idx)` (−1 = výchozí); `TAI_PLAYER` s lazy init v prvním `UpdateAI` (`player_id` je známé až po `SetPlayerID`): `TAI_LEVEL *TAI_CreateLevel(TAI_LEVEL_ID)`; `TAI_CONTROLLER` drží `TAI_PERSONALITY personality; TAI_RNG rng;` a getter `const TAI_PERSONALITY &GetPersonality() const`.
+- Produces: `config.ai_level` (`int`, `TAI_LEVEL_ID`); `TPLAYER_ARRAY::SetAiLevel(int idx, int lv)`, `int GetAiLevel(int idx)` (−1 = default); `TAI_PLAYER` with lazy init in the first `UpdateAI` (`player_id` is only known after `SetPlayerID`): `TAI_LEVEL *TAI_CreateLevel(TAI_LEVEL_ID)`; `TAI_CONTROLLER` holds `TAI_PERSONALITY personality; TAI_RNG rng;` and a getter `const TAI_PERSONALITY &GetPersonality() const`.
 
-Kroky:
-- [ ] **Step 1: Test** — rozšíření logiky testovatelné bez enginu je hotové v Task 1 (`test_level_from_name`); tady ověření integrací: napiš skript `tests/cpp/ai_smoke.sh` (headless: build serveru v kopii, `addcpu hard`, `addcpu easy`, `start`, `logs 1`, `logs 2`, `quit`) a očekávej ve výstupu `level=hard`, `level=easy` a `personality=` u obou slotů. Spusť — FAIL (text v `logs` zatím není).
-- [ ] **Step 2: Implement config** — `doconfig.h`: `int ai_level;` + `#define CFG_DEF_AI_LEVEL "medium"`; `doconfig.cpp` default `ai_level = TAI_LV_MEDIUM`; čtení `TFILE_LINE v; config.file->ReadStr(v, "ai_level", CFG_DEF_AI_LEVEL, true); bool ok; config.ai_level = TAI_LevelFromName(v, &ok); if (!ok) Warning(LogMsg("Unknown ai_level '%s', using medium", v));`; zápis `config.file->WriteLine("# *** Computer players ***"); config.file->WriteStr("ai_level", CFG_DEF_AI_LEVEL);`.
-- [ ] **Step 3: Implement per-slot level** — `TPLAYER_ARRAY::TPLAYER` + `int ai_level;` (v `AddPlayer` `= -1`), `SetAiLevel/GetAiLevel` (range check). `doengine.cpp` `addcpu`: po `AddComputerPlayer()` parsuj volitelný argument `buf+6` (přeskoč mezery), `if (*arg) { bool ok; TAI_LEVEL_ID lv = TAI_LevelFromName(arg,&ok); if (!ok) Warning(...); player_array.SetAiLevel(idx, lv); }`; výpis `addcpu: players=%d level=%s`. Nápověda `Commands:` doplnit `addcpu [easy|medium|hard]`.
-- [ ] **Step 4: Implement TAI_PLAYER** — konstruktor jen `SetPlayerType(PT_COMPUTER)`; `UpdateAI`: pokud `!controller` → `EnsureController()`: `int slot = GetPlayerID(); int lv = player_array.GetAiLevel(slot); if (lv < 0) lv = config.ai_level; owned_level = TAI_CreateLevel((TAI_LEVEL_ID)lv); TAI_RNG rng((uint64_t)time(NULL) ^ ((uint64_t)slot * 0x9E3779B97F4A7C15ULL) ^ (uint64_t)(uintptr_t)this); TAI_PERSONALITY pers = TAI_RollPersonality(rng); owned_strategy = NEW TAI_STRATEGY(pers.flavor); controller = NEW TAI_CONTROLLER(this, owned_level, owned_strategy, pers, rng.NextU32());`. `DumpAIDiagnostics`/`EmitAIDiagnosticLines` zavolají `EnsureController()` taky. `TAI_STRATEGY::GeneratePhases`: `phases[3].targets.attack_when_ready = params.aggressivity > 0.3f` zůstává, ale přidej pro `rusher` (aggressivity ≥ 0.95): `phases[2].targets.attack_when_ready = true` a `combat_phase = 2`. Info log při vzniku: `Info(LogMsg("CPU %d: level=%s personality=%s", slot, TAI_LevelName(lv), pers.name));`.
-- [ ] **Step 5: Diagnostika** — `EmitDiagnosticLines`: řádek `AI: level=%s personality=%s attack_ratio=%.2f retreat_ratio=%.2f rally=%d` (level jméno drž v controlleru).
-- [ ] **Step 6: Run** `bash tests/cpp/ai_smoke.sh` → PASS; `make test-ai` PASS; `make` klient PASS.
+Steps:
+- [ ] **Step 1: Test** — the engine-free testable logic extension is done in Task 1 (`test_level_from_name`); here verify by integration: write a script `tests/cpp/ai_smoke.sh` (headless: build the server in a copy, `addcpu hard`, `addcpu easy`, `start`, `logs 1`, `logs 2`, `quit`) and expect `level=hard`, `level=easy` and `personality=` for both slots in the output. Run it — FAIL (the text is not in `logs` yet).
+- [ ] **Step 2: Implement config** — `doconfig.h`: `int ai_level;` + `#define CFG_DEF_AI_LEVEL "medium"`; `doconfig.cpp` default `ai_level = TAI_LV_MEDIUM`; reading `TFILE_LINE v; config.file->ReadStr(v, "ai_level", CFG_DEF_AI_LEVEL, true); bool ok; config.ai_level = TAI_LevelFromName(v, &ok); if (!ok) Warning(LogMsg("Unknown ai_level '%s', using medium", v));`; writing `config.file->WriteLine("# *** Computer players ***"); config.file->WriteStr("ai_level", CFG_DEF_AI_LEVEL);`.
+- [ ] **Step 3: Implement per-slot level** — `TPLAYER_ARRAY::TPLAYER` + `int ai_level;` (`= -1` in `AddPlayer`), `SetAiLevel/GetAiLevel` (range check). `doengine.cpp` `addcpu`: after `AddComputerPlayer()` parse the optional argument `buf+6` (skip spaces), `if (*arg) { bool ok; TAI_LEVEL_ID lv = TAI_LevelFromName(arg,&ok); if (!ok) Warning(...); player_array.SetAiLevel(idx, lv); }`; output `addcpu: players=%d level=%s`. Add `addcpu [easy|medium|hard]` to the `Commands:` help.
+- [ ] **Step 4: Implement TAI_PLAYER** — the constructor only does `SetPlayerType(PT_COMPUTER)`; `UpdateAI`: if `!controller` → `EnsureController()`: `int slot = GetPlayerID(); int lv = player_array.GetAiLevel(slot); if (lv < 0) lv = config.ai_level; owned_level = TAI_CreateLevel((TAI_LEVEL_ID)lv); TAI_RNG rng((uint64_t)time(NULL) ^ ((uint64_t)slot * 0x9E3779B97F4A7C15ULL) ^ (uint64_t)(uintptr_t)this); TAI_PERSONALITY pers = TAI_RollPersonality(rng); owned_strategy = NEW TAI_STRATEGY(pers.flavor); controller = NEW TAI_CONTROLLER(this, owned_level, owned_strategy, pers, rng.NextU32());`. `DumpAIDiagnostics`/`EmitAIDiagnosticLines` also call `EnsureController()`. `TAI_STRATEGY::GeneratePhases`: `phases[3].targets.attack_when_ready = params.aggressivity > 0.3f` stays, but add for `rusher` (aggressivity ≥ 0.95): `phases[2].targets.attack_when_ready = true` and `combat_phase = 2`. Info log on creation: `Info(LogMsg("CPU %d: level=%s personality=%s", slot, TAI_LevelName(lv), pers.name));`.
+- [ ] **Step 5: Diagnostics** — `EmitDiagnosticLines`: line `AI: level=%s personality=%s attack_ratio=%.2f retreat_ratio=%.2f rally=%d` (keep the level name in the controller).
+- [ ] **Step 6: Run** `bash tests/cpp/ai_smoke.sh` → PASS; `make test-ai` PASS; `make` client PASS.
 - [ ] **Step 7: Commit** `feat(ai): per-CPU random personality, ai_level config and addcpu <level>`
 
 ---
 
-### Task 4: Vojenský automat, obrana, odveta, cíle
+### Task 4: Military state machine, defence, retaliation, targets
 
 **Files:** Modify `src/doai.{h,cpp}`
 
-**Interfaces — Consumes:** Task 2 funkce. **Produces:** `enum TAI_MIL_STATE { MIL_GATHER, MIL_ATTACK, MIL_RETREAT };` v controlleru: `TAI_MIL_STATE mil_state; double game_time; double mil_state_since; TAI_RETALIATION retaliation; TAI_ORDER_MEMO army_order; float remembered_enemy_power; double enemy_seen_at; int scout_ids[2]; int n_scouts;`; metody `void ManageArmy()`, `bool ManageDefense(int *committed_ids, int *n_committed)`, `TAI_UNIT_SAMPLE SampleUnit(TMAP_UNIT *u)`, `int ChooseEnemyPlayer()`, `void OrderGroup(TFORCE_UNIT **f, int n, int x, int y, TMAP_UNIT *attack_target)`.
+**Interfaces — Consumes:** Task 2 functions. **Produces:** `enum TAI_MIL_STATE { MIL_GATHER, MIL_ATTACK, MIL_RETREAT };` in the controller: `TAI_MIL_STATE mil_state; double game_time; double mil_state_since; TAI_RETALIATION retaliation; TAI_ORDER_MEMO army_order; float remembered_enemy_power; double enemy_seen_at; int scout_ids[2]; int n_scouts;`; methods `void ManageArmy()`, `bool ManageDefense(int *committed_ids, int *n_committed)`, `TAI_UNIT_SAMPLE SampleUnit(TMAP_UNIT *u)`, `int ChooseEnemyPlayer()`, `void OrderGroup(TFORCE_UNIT **f, int n, int x, int y, TMAP_UNIT *attack_target)`.
 
-Kroky:
+Steps:
 - [ ] **Step 1: Sampling** — `SampleUnit`: `TMAP_ITEM *it = (TMAP_ITEM*)u->GetPointerToItem(); life = ((TBASIC_UNIT*)u)->GetLife(); max_life = it->GetMaxLife(); dps = 0; TARMAMENT *ar = it->GetArmament(); if (ar && ar->GetOffensive()) { TGUN_POWER pw = ar->GetOffensive()->GetPower(); dps = 0.5f*(pw.min+pw.max); }`; `structure = IT_BUILDING||IT_FACTORY`; `military = IT_FORCE && !IT_WORKER`; `attacking_us = target && target->GetPlayerID()==my_id`.
-- [ ] **Step 2: Jeden průchod mapou za tick** — nahraď opakované `Find*` skeny funkcí `ScanEnemies()` naplňující pole (max 256) viditelných nepřátelských `TMAP_UNIT*` + jejich `TAI_UNIT_SAMPLE`; z nich: hrozby u základny (Chebyshev ≤ 12 od libovolné naší stavby), `visible_enemy_power`, útočníci (`attacking_us`) → `retaliation.Hit(pid, game_time)`.
-- [ ] **Step 3: Obrana** (`ManageDefense`) — pokud existují hrozby: `threat_power = TAI_ArmyPower(hrozby)`; naše bojové jednotky (mimo průzkumníky) seřaď dle vzdálenosti k nejlépe skórované hrozbě (`TAI_TargetScore`), `k = TAI_DefenseCommitCount(threat_power, powers, n, personality.defense_commit)`, prvních `k` dostane `StartAttacking(target)`; ID si ulož (nepoužijí se v `ManageArmy` tento tick).
-- [ ] **Step 4: Automat** (`ManageArmy`, zbylé jednotky):
-  - `enemy_pid = retaliation.Active(game_time) ? retaliation.Target() : ChooseEnemyPlayer()` (nejbližší aktivní hráč ≠ my, ≠ 0 podle `initial_x/y`); pokud žádný → nic.
-  - rally = `TAI_RallyPoint(base, enemy_start, 8, map.width, map.height)`; base = `initial_x/y`, nebo první vlastní stavba.
-  - `est = TAI_EnemyPowerEstimate(visible_enemy_power, remembered_enemy_power, game_time - enemy_seen_at)`; pokud `visible_enemy_power > 0` → `remembered = max(remembered*0.9, visible)`, `enemy_seen_at = game_time`.
-  - GATHER: jednotky dál než 4 pole od rally → `OrderGroup(... rally ...)` (dedup přes `army_order.Changed(MIL_GATHER, -1, rx, ry)`); přechod do ATTACK, když `(phase.attack_when_ready || retaliation.Active(game_time)) && TAI_ShouldAttack(my_power, est, n, personality, est > 0)`.
-  - ATTACK: cíl = nejlépe skórovaný viditelný nepřítel ve vzdálenosti ≤ 20 od těžiště armády, jinak nepřátelský start; `OrderGroup(..., target)` (dedup podle ID cíle / pozice); `local = TAI_ArmyPower(nepřátelé do 10 polí od těžiště)`; `TAI_ShouldRetreat(my_power, local, personality)` → RETREAT; `n < max(2, rally_size/2)` → GATHER.
-  - RETREAT: `OrderGroup(rally)`; po 20 s nebo když ≥ 70 % armády je do 5 polí od rally → GATHER.
-  - Přechody logovat na stderr při `logs on`: `Player %d military %s -> %s (my=%.0f enemy=%.0f n=%d)`.
-- [ ] **Step 5: `OrderGroup`** — oprava #9: pokud `n >= 2` a `tai_request_group_move_forces` uspěje, **nevolat** individuální `StartMoving`; jinak (n==1 nebo selhání) individuální `StartMoving`/`StartAttacking`. Pokud `attack_target` a jednotka ≤ `kTaiAssaultReleaseAttackDist` od cíle → `StartAttacking`. `TaiSendArmyTowardPosition` smazat (nahrazeno).
-- [ ] **Step 6: Napojení v `Think()`** — celý blok od „Assault: any visible enemy…“ (dnešní ř. ~2051–2101) nahradit: `game_time += interval` (akumulovaný čas), `ScanEnemies(); ManageDefense(...); ManageArmy();`. Odstranit `retaliate_enemy_pid`, `retaliate_last_path_*`, `assault_group_path_target_id` a `FindThreateningVisibleEnemyForPlayer`/`FindVisibleEnemyStructureNearestTheirStart`/`FindVisibleEnemyCombatUnitOfPlayer` pokud nepoužité. `enemy_contacted` bump fáze zůstává (používá sken).
-- [ ] **Step 7: Diagnostika** — `Military: state=%s since=%.0fs my=%.0f enemy_est=%.0f retaliation=%s(pid %d)`.
-- [ ] **Step 8: Build + integrace** — `make` klient; server v kopii; `tests/cpp/ai_smoke.sh` rozšířit o `logs on` a běh 300 s (`sleep 300` před `quit`) na `trial` se 2 CPU: očekávat v logu `military GATHER -> ATTACK` aspoň jednou a žádný `Err:`/pád. Pokud za 300 s nikdo nezaútočí, zvyš čas na 600 s a zkontroluj `logs <slot>` (ruling do ledgeru).
+- [ ] **Step 2: One map pass per tick** — replace the repeated `Find*` scans with a `ScanEnemies()` function filling an array (max 256) of visible enemy `TMAP_UNIT*` + their `TAI_UNIT_SAMPLE`; from these: threats near the base (Chebyshev ≤ 12 from any of our buildings), `visible_enemy_power`, attackers (`attacking_us`) → `retaliation.Hit(pid, game_time)`.
+- [ ] **Step 3: Defence** (`ManageDefense`) — if threats exist: `threat_power = TAI_ArmyPower(threats)`; sort our combat units (excluding scouts) by distance to the best-scored threat (`TAI_TargetScore`), `k = TAI_DefenseCommitCount(threat_power, powers, n, personality.defense_commit)`, the first `k` get `StartAttacking(target)`; store their IDs (they are not used in `ManageArmy` this tick).
+- [ ] **Step 4: State machine** (`ManageArmy`, remaining units):
+  - `enemy_pid = retaliation.Active(game_time) ? retaliation.Target() : ChooseEnemyPlayer()` (nearest active player ≠ us, ≠ 0 by `initial_x/y`); if none → nothing.
+  - rally = `TAI_RallyPoint(base, enemy_start, 8, map.width, map.height)`; base = `initial_x/y`, or the first own building.
+  - `est = TAI_EnemyPowerEstimate(visible_enemy_power, remembered_enemy_power, game_time - enemy_seen_at)`; if `visible_enemy_power > 0` → `remembered = max(remembered*0.9, visible)`, `enemy_seen_at = game_time`.
+  - GATHER: units farther than 4 fields from the rally point → `OrderGroup(... rally ...)` (dedup via `army_order.Changed(MIL_GATHER, -1, rx, ry)`); transition to ATTACK when `(phase.attack_when_ready || retaliation.Active(game_time)) && TAI_ShouldAttack(my_power, est, n, personality, est > 0)`.
+  - ATTACK: target = best-scored visible enemy within ≤ 20 of the army's centroid, otherwise the enemy start; `OrderGroup(..., target)` (dedup by target ID / position); `local = TAI_ArmyPower(enemies within 10 fields of the centroid)`; `TAI_ShouldRetreat(my_power, local, personality)` → RETREAT; `n < max(2, rally_size/2)` → GATHER.
+  - RETREAT: `OrderGroup(rally)`; after 20 s or when ≥ 70 % of the army is within 5 fields of the rally point → GATHER.
+  - Log transitions to stderr with `logs on`: `Player %d military %s -> %s (my=%.0f enemy=%.0f n=%d)`.
+- [ ] **Step 5: `OrderGroup`** — fix #9: if `n >= 2` and `tai_request_group_move_forces` succeeds, **do not call** individual `StartMoving`; otherwise (n==1 or failure) individual `StartMoving`/`StartAttacking`. If `attack_target` and the unit is ≤ `kTaiAssaultReleaseAttackDist` from the target → `StartAttacking`. Delete `TaiSendArmyTowardPosition` (replaced).
+- [ ] **Step 6: Wiring in `Think()`** — replace the whole block from "Assault: any visible enemy…" (currently lines ~2051–2101) with: `game_time += interval` (accumulated time), `ScanEnemies(); ManageDefense(...); ManageArmy();`. Remove `retaliate_enemy_pid`, `retaliate_last_path_*`, `assault_group_path_target_id` and `FindThreateningVisibleEnemyForPlayer`/`FindVisibleEnemyStructureNearestTheirStart`/`FindVisibleEnemyCombatUnitOfPlayer` if unused. The `enemy_contacted` phase bump stays (uses the scan).
+- [ ] **Step 7: Diagnostics** — `Military: state=%s since=%.0fs my=%.0f enemy_est=%.0f retaliation=%s(pid %d)`.
+- [ ] **Step 8: Build + integration** — `make` client; server in a copy; extend `tests/cpp/ai_smoke.sh` with `logs on` and a 300 s run (`sleep 300` before `quit`) on `trial` with 2 CPUs: expect `military GATHER -> ATTACK` in the log at least once and no `Err:`/crash. If nobody attacks within 300 s, increase the time to 600 s and check `logs <slot>` (ruling into the ledger).
 - [ ] **Step 9: Commit** `feat(ai): military state machine with rally, power-based attack/retreat and proportional defense`
 
 ---
 
-### Task 5: Variabilita — průzkum, stavby, výroba
+### Task 5: Variability — scouting, buildings, production
 
 **Files:** Modify `src/doai.{h,cpp}`
 
-- [ ] **Step 1: Průzkum** — `ManageScouting` přepsat: `want = clamp(round(personality.scout_count), 1, 2)`, jen pokud `force_count >= want + 2` (průzkum neubírá malou armádu); udržuj `scout_ids[]` (ID živých jednotek; mrtvé vyřaď), doplň z nejlehčích bojových jednotek; každý průzkumník, který stojí (`UA_STAY`), dostane nový cíl: s pravděpodobností 0,5 start náhodného nepřítele (`players[pid]->initial_x/y` ± `rng.Index(7)-3`), jinak náhodný bod mapy (`rng.Index(map.width-4)+2`). Průzkumníci jsou vyřazeni z obrany/armády (Task 4 filtruje podle `scout_ids`). Smaž smyčku `for (si < scouts)` v `Think()` a `scout_phase`.
-- [ ] **Step 2: Stavby** — `FindBuildPosition`: na začátku `int orient = rng.Index(4)` (otočení pořadí dx/dy: `(dx,dy)`, `(-dx,dy)`, `(dx,-dy)`, `(-dx,-dy)`), a místo návratu prvního platného místa sbírej až 3 kandidáty v rámci stejného průchodu (`pi`) a do rádiusu `první_rádius + 2`; vrať `cands[rng.Index(nc)]`.
-- [ ] **Step 3: Výroba** — v `ManageFactories(BG_FORCE)` nahraď první řazení „heavy-prefer“ váženým výběrem: pro kandidáty bez blokátoru (`TAI_PredictProduceBlocker < 0`) váha `w = pow(score / max_score, 0.5f + personality.flavor.aggressivity)`, pokud `heavy_only` jen těžcí; `j = rng.PickWeighted(w, nc)`. Fallbacky „affordable-light“ a „force-queue“ zůstávají.
-- [ ] **Step 4: Integrace** — 3 běhy `ai_smoke.sh` (300 s, trial, 2 CPU): v logu různé `personality=` a (`logs think on` stačí na 60 s) různé `StartBuild ... ok` pozice / pořadí; žádný `Err:`.
+- [ ] **Step 1: Scouting** — rewrite `ManageScouting`: `want = clamp(round(personality.scout_count), 1, 2)`, only if `force_count >= want + 2` (scouting does not drain a small army); maintain `scout_ids[]` (IDs of living units; drop dead ones), refill from the lightest combat units; each scout that is idle (`UA_STAY`) gets a new target: with probability 0.5 a random enemy's start (`players[pid]->initial_x/y` ± `rng.Index(7)-3`), otherwise a random map point (`rng.Index(map.width-4)+2`). Scouts are excluded from defence/army (Task 4 filters by `scout_ids`). Delete the `for (si < scouts)` loop in `Think()` and `scout_phase`.
+- [ ] **Step 2: Buildings** — `FindBuildPosition`: at the start `int orient = rng.Index(4)` (rotating the dx/dy order: `(dx,dy)`, `(-dx,dy)`, `(dx,-dy)`, `(-dx,-dy)`), and instead of returning the first valid spot collect up to 3 candidates within the same pass (`pi`) and up to radius `first_radius + 2`; return `cands[rng.Index(nc)]`.
+- [ ] **Step 3: Production** — in `ManageFactories(BG_FORCE)` replace the first "heavy-prefer" sort with a weighted choice: for candidates without a blocker (`TAI_PredictProduceBlocker < 0`) weight `w = pow(score / max_score, 0.5f + personality.flavor.aggressivity)`, if `heavy_only` only heavy ones; `j = rng.PickWeighted(w, nc)`. The "affordable-light" and "force-queue" fallbacks stay.
+- [ ] **Step 4: Integration** — 3 runs of `ai_smoke.sh` (300 s, trial, 2 CPUs): different `personality=` in the log and (`logs think on` for 60 s is enough) different `StartBuild ... ok` positions / order; no `Err:`.
 - [ ] **Step 5: Commit** `feat(ai): dedicated scouts, randomized build sites and weighted unit mix`
 
 ---
 
-### Task 6: Dokumentace + finální ověření
+### Task 6: Documentation + final verification
 
 **Files:** Modify `docs/AI_SYSTEM.md`
 
-- [ ] **Step 1:** Doplň sekce: osobnosti (tabulka presetů + šum), `ai_level` + `addcpu [level]`, vojenský automat (diagram GATHER/ATTACK/RETREAT + obrana), odveta s vypršením, průzkum, `doai_logic` + `make test-ai`, nové řádky `logs`. Oprav tvrzení o „Default build Easy + Aggressive“ a o Commercial.
-- [ ] **Step 2:** `make test-ai`, `make` (klient), build serveru v kopii, `ai_smoke.sh` 300 s na `trial` i `sunnybay` → bez chyb, ATTACK dosažen.
+- [ ] **Step 1:** Add sections: personalities (preset table + noise), `ai_level` + `addcpu [level]`, military state machine (GATHER/ATTACK/RETREAT diagram + defence), retaliation with expiry, scouting, `doai_logic` + `make test-ai`, new `logs` lines. Correct the claims about "Default build Easy + Aggressive" and about Commercial.
+- [ ] **Step 2:** `make test-ai`, `make` (client), server build in a copy, `ai_smoke.sh` 300 s on both `trial` and `sunnybay` → no errors, ATTACK reached.
 - [ ] **Step 3: Commit** `docs(ai): personalities, levels, military state machine`
