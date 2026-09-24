@@ -18,8 +18,6 @@ using OpenAI image models. There are two execution paths:
 | **OpenAI Batch API** (default) | Whole entity / whole race; pay-per-image with batch discount | `.cursor/skills/dark-oberon-dat/scripts/run_openai_board_batch.py` |
 | **`codex exec` CLI** (opt-in) | Re-roll a single board, ad-hoc fixes, or when the user is logged in via ChatGPT subscription and wants to avoid API billing | `.cursor/skills/dark-oberon-codex/tools/run_codex_board.sh` |
 
-Both replace the older local Stable Diffusion / A1111 pipeline.
-
 ## Prerequisites
 
 | Component | Details |
@@ -184,12 +182,6 @@ Your org may not be verified for the 1.5 family — pass `--model gpt-image-1`.
   the style string.
 - If the whole batch is off, fix the `--style` argument and resubmit only the
   failing entities via `--entities`.
-
-### Migration from old SD pipeline
-The old `dark-oberon-sd` skill (Automatic1111 + ControlNet) and its
-`run_sd_board_batch.py` script have been retired. The state file name changed
-from `_sd_batch_state.json` to `_batch_state.json`; run the monitor with
-`--reset` on any in-flight `boards/` directory before switching.
 
 ## Security
 
