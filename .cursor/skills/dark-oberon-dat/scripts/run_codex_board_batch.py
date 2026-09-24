@@ -35,6 +35,10 @@ from codex_prompts import design_prompt, restyle_prompt
 HERE = Path(__file__).resolve().parent
 
 
+class CodexUsageLimit(RuntimeError):
+    """codex refused to run: the ChatGPT plan usage limit is exhausted (retrying is pointless)."""
+
+
 def codex_command(images: list[Path], work: Path) -> list[str]:
     cmd = ["codex", "exec", "--skip-git-repo-check", "-s", "workspace-write", "-C", str(work)]
     for img in images:
@@ -48,11 +52,15 @@ def run_codex(prompt: str, images: list[Path], expect: Path, work: Path,
     for attempt in range(1, retries + 1):
         print(f"  codex {expect.name} attempt {attempt}/{retries}", file=sys.stderr)
         try:
-            subprocess.run(codex_command(images, work), input=prompt, text=True,
-                           cwd=str(work), timeout=timeout, check=False,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            res = subprocess.run(codex_command(images, work), input=prompt, text=True,
+                                 cwd=str(work), timeout=timeout, check=False,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         except subprocess.TimeoutExpired:
             continue
+        out = res.stdout or ""
+        if "usage limit" in out:
+            line = next((l for l in out.splitlines() if "usage limit" in l), "usage limit")
+            raise CodexUsageLimit(line.strip())
         if expect.exists() and expect.stat().st_mtime != before:
             try:
                 with Image.open(expect) as im:

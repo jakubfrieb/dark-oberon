@@ -105,3 +105,19 @@ def test_codex_input_is_cropped_to_slots(tmp_path):
     b.design(["footman"]); b.approve(["footman"])
     b.restyle(only={"footman"}, animation="stay")
     assert Image.open(w / "codex_in" / m["boards"][0]["board_file"]).size == (8, 6)
+
+
+def test_run_codex_stops_on_usage_limit(tmp_path, monkeypatch):
+    import subprocess
+    import pytest
+    import run_codex_board_batch as rc
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 1, stdout="ERROR: You've hit your usage limit. try again at 2:17 AM",
+                                           stderr="")
+    monkeypatch.setattr(rc.subprocess, "run", fake_run)
+    with pytest.raises(rc.CodexUsageLimit, match="usage limit"):
+        rc.run_codex("p", [], tmp_path / "x.png", tmp_path, retries=3)
+    assert len(calls) == 1
