@@ -121,3 +121,18 @@ def test_run_codex_stops_on_usage_limit(tmp_path, monkeypatch):
     with pytest.raises(rc.CodexUsageLimit, match="usage limit"):
         rc.run_codex("p", [], tmp_path / "x.png", tmp_path, retries=3)
     assert len(calls) == 1
+
+
+def test_restyle_passes_hint_to_prompt(tmp_path):
+    w = make_work(tmp_path)
+    seen = []
+
+    def runner(prompt, images, expect, work, **kw):
+        seen.append(prompt)
+        expect.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (16, 16)).save(expect)
+        return True
+    b = Batch(w, ENTS, runner=runner)
+    b.design(["footman"]); b.approve(["footman"])
+    b.restyle(only={"footman"}, animation="stay", hint="grey clay rock")
+    assert "grey clay rock" in seen[-1]

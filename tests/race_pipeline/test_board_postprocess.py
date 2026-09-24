@@ -149,3 +149,12 @@ def test_accept_is_remembered_between_runs(tmp_path):
     report = process_all(w)
     assert report["x__stay__b0"]["accepted"] is True
     assert (w / "boards/edited/x__stay__b0.png").exists()
+
+
+def test_restore_alpha_drops_light_fringe_on_outline_keeps_interior_light():
+    gen = np.array(orc_generated())
+    gen[10:40, 39] = (225, 225, 220)     # light grey fringe column on the right outline
+    gen[20, 25] = (230, 230, 230)        # light detail inside the figure
+    out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
+    assert out.getpixel((39, 20))[3] == 0
+    assert out.getpixel((25, 20))[3] == 255

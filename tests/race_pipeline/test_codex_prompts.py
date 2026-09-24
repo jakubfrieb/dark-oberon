@@ -65,3 +65,9 @@ def test_zombie_prompt_keeps_ruins():
 def test_projectile_prompt_is_simple_missile():
     p = restyle_prompt(dict(BOARD, animation="projectile"), ENT, "raw/x.png").lower()
     assert "projectile" in p and "rock" in p and "same size" in p
+
+
+def test_restyle_prompt_includes_extra_hint():
+    p = restyle_prompt(BOARD, ENT, "raw/x.png", hint="no blue ore piles")
+    assert "no blue ore piles" in p
+    assert "no blue ore piles" not in restyle_prompt(BOARD, ENT, "raw/x.png")

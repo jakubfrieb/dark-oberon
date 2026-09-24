@@ -23,6 +23,9 @@ from PIL import Image, ImageFilter
 
 WHITE = 235
 BG_WHITE = 245
+FRINGE_MIN = 210        # light grey outline fringe (min RGB)
+FRINGE_MAX_SAT = 25
+FRINGE_PASSES = 2
 SHADOW_ALPHA = 250
 SHADOW_LUMA = 80
 FIGURE_ALPHA = 128
@@ -100,6 +103,14 @@ def restore_alpha(generated: Image.Image, original: Image.Image) -> Image.Image:
     # only white connected to the outside counts - enclosed light details stay
     candidate = (gen.min(axis=2) >= BG_WHITE) & ~shadow
     out[_connected_to(candidate, alpha == 0)] = 0
+    # light grey fringe left on the outline by the old (lighter) human silhouette; cream/bone
+    # details are more saturated and stay
+    for _ in range(FRINGE_PASSES):
+        transparent = out[..., 3] == 0
+        g = out[..., :3].astype(np.int32)
+        light = (g.min(axis=2) >= FRINGE_MIN) & (g.max(axis=2) - g.min(axis=2) < FRINGE_MAX_SAT) & ~shadow
+        edge = _grow(transparent) & ~transparent                       # touches transparency
+        out[light & edge] = 0
     out[alpha == 0] = 0
     return Image.fromarray(out, "RGBA")
 

@@ -164,7 +164,7 @@ class Batch:
         (self.work / "design" / "approved.json").write_text(json.dumps(approved, indent=2))
 
     # -- restyle ------------------------------------------------------------
-    def restyle(self, only=None, animation=None, force=False, parallel=1, dry_run=False) -> dict:
+    def restyle(self, only=None, animation=None, force=False, parallel=1, dry_run=False, hint=None) -> dict:
         approved = self._approved()
         jobs = []
         for b in self.manifest["boards"]:
@@ -180,7 +180,7 @@ class Batch:
                 continue
             src = self._flat_input(b)
             out.parent.mkdir(parents=True, exist_ok=True)
-            prompt = restyle_prompt(b, self.entities[eid], f"raw/{b['board_file']}")
+            prompt = restyle_prompt(b, self.entities[eid], f"raw/{b['board_file']}", hint)
             jobs.append((key, prompt, [src, self.work / "design" / f"{eid}.png"], out))
         return self._run_jobs(jobs, parallel, dry_run)
 
@@ -194,6 +194,7 @@ def main() -> int:
     a = sub.add_parser("approve"); a.add_argument("work", type=Path); a.add_argument("entities", nargs="+")
     r = sub.add_parser("restyle"); r.add_argument("work", type=Path)
     r.add_argument("--only"); r.add_argument("--animation")
+    r.add_argument("--hint", default=None, help="extra instruction appended to the restyle prompt")
     for p in (d, r):
         p.add_argument("--parallel", type=int, default=1)
         p.add_argument("--force", action="store_true")
@@ -214,7 +215,7 @@ def main() -> int:
         return 0
     else:
         only = set(args.only.split(",")) if args.only else None
-        res = batch.restyle(only, args.animation, args.force, args.parallel, args.dry_run)
+        res = batch.restyle(only, args.animation, args.force, args.parallel, args.dry_run, args.hint)
     failed = [k for k, ok in res.items() if not ok]
     print(f"\n{len(res) - len(failed)} done, {len(failed)} failed")
     return 1 if failed else 0

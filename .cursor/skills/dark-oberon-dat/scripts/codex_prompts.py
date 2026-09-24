@@ -74,7 +74,7 @@ def _crop_size(board: dict) -> str:
     return f"{w}x{h}"
 
 
-def restyle_prompt(board: dict, entity: dict, out_rel: str) -> str:
+def restyle_prompt(board: dict, entity: dict, out_rel: str, hint: str | None = None) -> str:
     size = _crop_size(board)
     cols, rows = board["grid"]
     n = len(board["slots"])
@@ -100,6 +100,7 @@ construction) - keep those differences.
 - the orc must be identical across all sprites (same colours and gear as image 2).
 
 {ANIMATION_HINTS.get(board["animation"], "")}
+{("IMPORTANT: " + hint) if hint else ""}
 
 {STYLE_RULES}
 
