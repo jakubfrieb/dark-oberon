@@ -118,7 +118,7 @@ enum TAGGRESSIVITY_MODE
 class TDRAW_ITEM {
 public:
   int index;                //!< Identificator of item in its table.
-  char * text_id;           //!< User text identifikator used in conf. files
+  char * text_id;           //!< User text identifier used in conf. files
   char * name;              //!< Text name of item.
   int tg_stay_id;           //!< Texture group identifier.
   int tg_dying_id;          //!< Texture group identifier for dying.
@@ -360,7 +360,7 @@ public:
     {if (count_of_active_instances > 0) return count_of_active_instances--; return count_of_active_instances;};
 
   float materials[SCH_MAX_MATERIALS_COUNT];  //!< How much of which material is needed to build the unit.
-  float mat_per_pt[SCH_MAX_MATERIALS_COUNT]; //! <How much material is needed for one unit of life (jednotku zivota) of unit. 
+  float mat_per_pt[SCH_MAX_MATERIALS_COUNT]; //! <How much material is needed for one unit of life of unit. 
     
 
   TINTERVAL<T_SIMPLE> visible_segments[DAT_SEGMENTS_COUNT];  //!< Segments into which the unit sees when it is in x-th segment.

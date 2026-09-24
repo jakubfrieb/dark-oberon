@@ -987,7 +987,7 @@ TSEL_NODE * TA_STAR_ALG::GetGroup(TSEL_NODE **unit_list)
   if (! *unit_list)
     return NULL;
   
-  group =  *unit_list;  //vezmi prveho  
+  group =  *unit_list;  //take the first one  
   *unit_list = (*unit_list)->next;
   group->next = NULL;
   group->prev = NULL;  
@@ -995,7 +995,7 @@ TSEL_NODE * TA_STAR_ALG::GetGroup(TSEL_NODE **unit_list)
   if (*unit_list)
     (*unit_list)->prev = NULL;
   else
-    return group;   //jediny prvok, ktory vratime v group
+    return group;   //the only element we return in the group
 
   act = group;
 
@@ -1006,25 +1006,25 @@ TSEL_NODE * TA_STAR_ALG::GetGroup(TSEL_NODE **unit_list)
   //int iRes =0;
   while(u)
   {
-    TFORCE_UNIT *unit = u->unit;   //spocitaj vzdialenost od prveho z group
+    TFORCE_UNIT *unit = u->unit;   //compute the distance from the first one in the group
     shift_x = unit->GetPosition().x - group->unit->GetPosition().x;    
     shift_y = unit->GetPosition().y - group->unit->GetPosition().y;  
     shift_z = unit->GetPosition().segment - group->unit->GetPosition().segment;    
     
     pointer_moved = false;
 
-    //iRes = strcmp(u->selected_unit->unit->GetPointerToItem()->name,group->selected_unit->unit->GetPointerToItem()->name);  //do skupiny idu jednotky rovnakeho typu
+    //iRes = strcmp(u->selected_unit->unit->GetPointerToItem()->name,group->selected_unit->unit->GetPointerToItem()->name);  //units of the same type go into the group
     //if (!iRes)
     if (u->unit->GetPointerToItem()->index == group->unit->GetPointerToItem()->index)
     {
       if ((abs(shift_x) <= UPP_DIST_BOUNDARY) && (abs(shift_y) <= UPP_DIST_BOUNDARY) && (abs(shift_z) <= 0))
-      {   //ak je jednotka blizko prveho,a je to jednotka rovnakeho typu,tak ju vezmi
-        TSEL_NODE *del = u;   //vyberame u;
-        if (del == *unit_list)  //pohyname zaciatkom zoznamu      
+      {   //if the unit is close to the first one and is of the same type, take it
+        TSEL_NODE *del = u;   //taking out u;
+        if (del == *unit_list)  //moving the head of the list      
           *unit_list = u->next;      
       
         pointer_moved = true;
-        //vypust zo zoznamu jednotiek
+        //remove from the unit list
         u = u->next;
         if (u)
           u->prev  = del->prev;
@@ -1034,7 +1034,7 @@ TSEL_NODE * TA_STAR_ALG::GetGroup(TSEL_NODE **unit_list)
         del->next = NULL;
         del->prev = NULL;
 
-        //zarad do group zoznamu na koniec
+        //append to the end of the group list
 
         act->next = del;
         del->prev = act;
@@ -1043,7 +1043,7 @@ TSEL_NODE * TA_STAR_ALG::GetGroup(TSEL_NODE **unit_list)
     }
     if ((u) && (!pointer_moved))
       u = u->next;
-    //prveho v
+    //the first one in
   }
   return group;
 }
@@ -1057,7 +1057,7 @@ TPATH_INFO* TA_STAR_ALG::DevideToGroups(TPATH_INFO* path_info)
   
   while (1)
   {
-    group = GetGroup(&unit_list);   //groupa sa samozrejme vyjme zo zoznamu unit_list
+    group = GetGroup(&unit_list);   //the group is of course removed from unit_list
 
     if (!group)
       return NULL; 
@@ -1066,11 +1066,11 @@ TPATH_INFO* TA_STAR_ALG::DevideToGroups(TPATH_INFO* path_info)
     if (!group_info)
     {
       pool_path_info->PutToPool(path_info);
-      return NULL;         //???nema sa vyrobit nieco sofistikovanejsie???
+      return NULL;         //???shouldn't something more sophisticated be made???
     }
     group_info->goal.x = path_info->goal.x;  
     group_info->goal.y = path_info->goal.y;
-    group_info->loc_map  = path_info->loc_map;      //???? nema si vziat vlastnu local mapu ??? nieco ako player->GetLoacalMap(); ??
+    group_info->loc_map  = path_info->loc_map;      //???? shouldn't it take its own local map ??? something like player->GetLoacalMap(); ??
     group_info->request_id  = path_info->request_id;
     group_info->event_type  = path_info->event_type;
     group_info->unit_list = group;            
@@ -1078,14 +1078,14 @@ TPATH_INFO* TA_STAR_ALG::DevideToGroups(TPATH_INFO* path_info)
     threadpool_astar->AddRequest(group_info, &TA_STAR_ALG::MoveGroup);
   }
 
-  //vrat path_info spat do bazenika
+  //return path_info back to the pool
   pool_path_info->PutToPool(path_info);
   return NULL;
 }
 
 
 /*
-  Fcia najde pre danu skupinu leadra a kazdej jednotke v skupine nastavi cestu, potom kazdej jednotke posle request, ze jej cesta bola najdena a vo fcii ProcessEvent sa bude na to musiet nejak zareagovat
+  Finds a leader for the given group and sets a path for each unit in the group, then sends each unit a request that its path was found; ProcessEvent will have to react to it somehow
 */
 TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
 {
@@ -1105,9 +1105,9 @@ TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
   TPOSITION_3D goal;
   TPATH_LIST *u_path = NULL;
 
-  while (actual)      //loop cez celu skupinu
+  while (actual)      //loop over the whole group
   {
-    u = actual->unit;    //dana jednotka
+    u = actual->unit;    //the given unit
 
     if (view_segment == DRW_ALL_SEGMENTS)     
       dest.SetPosition(group_info->goal.x, group_info->goal.y, u->GetPosition().segment);          
@@ -1125,7 +1125,7 @@ TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
       if (group_info->path)
       {
         leader = fu; //set the unit as the leader one        
-        //posli jednotke event, ze sa moze pohnut, pribal do neho waiting request id                  
+        //send the unit an event that it can move, attach the waiting request id to it                  
         break;
       }
     }    
@@ -1143,7 +1143,7 @@ TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
     {
       if (group_info->path) //if the path for the leader was found, all the units, which are closer than UPP_DIST_BOUNDARY form the leader will use the same path,but shifted.                    
       {
-        //spocitaj posun jednotky od leadra
+        //compute the unit's offset from the leader
         shift_x = u->GetPosition().x - leader->GetPosition().x;    
         shift_y = u->GetPosition().y - leader->GetPosition().y;  
         shift_z = u->GetPosition().segment - leader->GetPosition().segment;
@@ -1172,13 +1172,13 @@ TPATH_INFO* TA_STAR_ALG::MoveGroup(TPATH_INFO* group_info)
           real_dest.segment = group_info->real_goal.segment + shift_z;
         
       }
-      //posli jednotke request, ze sa ma pohnut s danym request Id,ci uz cestu nasla alebo nie.
+      //send the unit a request to move with the given request Id, whether or not the path was found.
       u->SendRequest(false, time_stamp,RQ_GROUP_MOVING,group_info->request_id,group_info->succ,real_dest.x,real_dest.y,real_dest.segment,
                       0,0,reinterpret_cast<intptr_t>(u_path),group_info->event_type);
     }    
     else
     {
-      if (!leader || !fu)   //leader sa nenasiel, tak sa vsetkym jednotkam aspon ma poslat request, ze maju prejst do US_STAY
+      if (!leader || !fu)   //no leader found, so at least send all units a request to switch to US_STAY
       {
         u->SendRequest(false, time_stamp,RQ_GROUP_MOVING,group_info->request_id,group_info->succ,group_info->real_goal.x,group_info->real_goal.y,group_info->real_goal.segment,
                       0,0,reinterpret_cast<intptr_t>(group_info->path),group_info->event_type);
@@ -1217,7 +1217,7 @@ TPATH_INFO* TA_STAR_ALG::ComputePath(TPATH_INFO* path_info)
     TPATH_LIST *p_pathlist = path_info->path;
     path_info->path = NULL;
 
-    //last state posli ako dalsi parameter
+    //send last state as another parameter
 #if DEBUG_PATHFINDING
     Debug (LogMsg ("SendPathEvent ID = %d", path_info->request_id));
 #endif
@@ -1428,7 +1428,7 @@ TPOSITION_3D TPATH_LIST::GetNextPosition()
 bool TPATH_LIST::TestLastPathPosition(void)
 {
   if (a_step + 1 >= steps) {   //it was last step
-    if (f_node && a_step + 1 > steps) {   /* OFIK: >= namiesto ==. Naviac update a_nodu. */
+    if (f_node && a_step + 1 > steps) {   /* OFIK: >= instead of ==. Also updates a_node. */
       Debug(LogMsg("OFIK before - first:%i, steps:%i, a_step:%i", f_node->first, steps, a_step));
 
       a_step = steps - 1;
@@ -1599,12 +1599,12 @@ double TPATH_LIST::CountTime(TFORCE_UNIT *unit)
   pos = GetNextPosition();  
   
 
-  while(pos != worker->GetGoal()  /*tu sa to bude pytat niekoho ineho nez panacika,kedze cesta nebude ukladana k nemu ale niekam inde */)  //if we arent in the goal position already
+  while(pos != worker->GetGoal()  /*this will query something other than the unit, since the path will not be stored with it but elsewhere */)  //if we arent in the goal position already
   {
     worker->path->IncreaseASteps();
     pos_next = GetNextPosition(); 
 
-    //? obtiaznost hardest sa pocita podla sucasnej pozicie,alebo podla pozicie v dalsom kroku ? teda podla pos alebo pos_next ?
+    //? is the hardest difficulty computed from the current position or from the position in the next step ? i.e. from pos or pos_next ?
     for (int i=pos_next.x ; i<pos_next.x + worker->GetUnitWidth(); i++)
        for (int j= pos_next.y  ; j< pos_next.y + worker->GetUnitHeight();j++)
        {
@@ -1618,7 +1618,7 @@ double TPATH_LIST::CountTime(TFORCE_UNIT *unit)
     {  //direction is east, nort,south or west (also in segment meaning - up and down)
          spent_time += 1/speed;
     }
-    else if ((abs(pos_next.x - pos.x) == 1) && (abs(pos_next.y - pos.y) == 1))   //segment nezahrnat ???
+    else if ((abs(pos_next.x - pos.x) == 1) && (abs(pos_next.y - pos.y) == 1))   //do not include segment ???
     {  //direction southeast,northeast,northwest,southwest
         spent_time += 1.4142/speed;
     }

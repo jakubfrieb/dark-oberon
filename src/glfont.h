@@ -23,7 +23,7 @@
  *
  *  @date 2002
  *
- *  @todo Je potrebne okomentovat vsetko v glfont.cpp a glfont.h.
+ *  @todo Document everything in glfont.cpp and glfont.h.
  */
 
 #ifndef __glfont_h_

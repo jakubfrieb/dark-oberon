@@ -128,13 +128,13 @@ struct TPROJECTION {
 
   /** @def game_h_coef
    *  Horizontal projection coeficient.
-   *  Prepocitava horizontalne vzdialenosti z okna aplikacie na interne vzdialenosti 
-   *  vzhladom na projekciu hry.
+   *  Converts horizontal distances in the application window to internal distances
+   *  relative to the game projection.
    */
   /** @def game_v_coef
    *  Vertical projection coeficient.
-   *  Prepocitava vertikalne vzdialenosti z okna aplikacie na interne vzdialenosti 
-   *  vzhladom na projekciu hry.
+   *  Converts vertical distances in the application window to internal distances
+   *  relative to the game projection.
    */
   GLfloat game_h_coef;
   GLfloat game_v_coef;

@@ -668,7 +668,7 @@ void TSELECTION::UpdateInfo(bool update_action, bool lock)
             ChangeActionPanel(MNU_PANEL_BUILD);
           }
         }
-        // break; tu nema by
+        // break; should not be here
 
       case IT_BUILDING: {
           TBUILDING_ITEM *it = static_cast<TBUILDING_ITEM *>(units->unit->GetPointerToItem());
@@ -1180,7 +1180,7 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
     if (!path_info->unit_list)
     {
       path_info->unit_list = new_node;
-      //jednotke, na ktoru ukazuje krabicka posli event, zapamataj si request id pre ostatne jednotky
+      //send an event to the unit the box points at, remember the request id for the other units
       
       fu->SendEvent(false, time_stamp, US_WAIT_FOR_PATH, 0);
 
@@ -1189,22 +1189,22 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
     }
     else
     {
-      path_info->unit_list->prev = new_node;   //zoznam ma jednotky v obratenom poradi ako zoznam TFORCE_UNIT
+      path_info->unit_list->prev = new_node;   //the list holds units in reverse order compared to the TFORCE_UNIT list
       new_node->next  = path_info->unit_list;
       path_info->unit_list = new_node;
 
       fu->SendEvent(false, time_stamp, US_WAIT_FOR_PATH, path_info->request_id);
     }
 
-    //posli jednotke event, ze caka na najdenie cesty
+    //send the unit an event that it is waiting for a path to be found
     node->unit->SetWaitRequestId(path_info->request_id);    //waited request id
   }
   
-  //v path_info je nastaveny requestId, takze sa message moze poslat
+  //requestId is set in path_info, so the message can be sent
 
   threadpool_astar->AddRequest(path_info, &TA_STAR_ALG::DevideToGroups);
 
-  //fcia group management rozdeli skupinu do mensich skupin a pre kazdu skupinu najde leadra.
+  //the group management function splits the group into smaller groups and finds a leader for each.
   SDL_UnlockMutex(mutex);
   process_mutex->Unlock();
 

@@ -248,7 +248,7 @@ static void WriteEditorPlayersSection(FILE *out)
  *  @param ty  ???
  *  @param tz  ???
  *
- *  @todo okomentovat funkciu a parametere
+ *  @todo document the function and parameters
  */
 TTERR_BASIC::TTERR_BASIC(int tx, int ty, int tz)
 {
@@ -263,7 +263,7 @@ TTERR_BASIC::TTERR_BASIC(int tx, int ty, int tz)
 /**
  *  ???
  *
- *  @todo okomentovat funkciu
+ *  @todo document the function
  */
 void TTERR_BASIC::Draw(void)
 {
@@ -277,7 +277,7 @@ void TTERR_BASIC::Draw(void)
 /**
  *  ???
  *
- *  @todo okomentovat funkciu
+ *  @todo document the function
  */
 void TTERR_BASIC::UpdateGraphics(void)
 {
@@ -299,7 +299,7 @@ void TTERR_BASIC::UpdateGraphics(void)
  *  @param ty  ???
  *  @param tz  ???
  *
- *  @todo okomentovat funkciu a parametere
+ *  @todo document the function and parameters
  */
 TTERR_FRAG::TTERR_FRAG(int tid, int tx, int ty, int tz)
 : TTERR_BASIC(tx, ty, tz)
@@ -326,7 +326,7 @@ TTERR_FRAG::TTERR_FRAG(int tid, int tx, int ty, int tz)
  *  @param ty  ???
  *  @param tz  ???
  *
- *  @todo okomentovat funkciu a parametere
+ *  @todo document the function and parameters
  */
 TTERR_LAYER::TTERR_LAYER(int tid, int tx, int ty, int tz)
 : TTERR_BASIC(tx, ty, tz)

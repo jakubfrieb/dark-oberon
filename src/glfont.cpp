@@ -136,21 +136,21 @@ void glfPrint(GLFfont *font, GLfloat x, GLfloat y, char *string, bool outline)  
   GLboolean  enable_blend, enable_depth;
 
   // blending
-  glGetBooleanv(GL_BLEND, &enable_blend);             // pouziva sa blending?
-  if (!enable_blend) glEnable(GL_BLEND);              // ak nie, zapne ho
-  else {                                              // ak ano, zalohuje funkcie 
+  glGetBooleanv(GL_BLEND, &enable_blend);             // is blending enabled?
+  if (!enable_blend) glEnable(GL_BLEND);              // if not, enable it
+  else {                                              // if so, back up the blend functions 
     glGetIntegerv(GL_BLEND_SRC, &blend_src);
     glGetIntegerv(GL_BLEND_DST, &blend_dst);
   }
 
   // dept testing
-  glGetBooleanv(GL_DEPTH_TEST, &enable_depth);        // pouziva sa dept test?
+  glGetBooleanv(GL_DEPTH_TEST, &enable_depth);        // is depth test enabled?
   glDisable(GL_DEPTH_TEST);                           // Disables Depth Testing
 
   glBindTexture(GL_TEXTURE_2D, font->fTexture[0]);    // Select Our Font Texture
   
   if (reset_projection) {
-    // ulozenie aktualnych matic
+    // save current matrices
     glMatrixMode(GL_PROJECTION);                      // Select The Projection Matrix
     glPushMatrix();                                   // Store The Projection Matrix
     glLoadIdentity();                                 // Reset The Projection Matrix
@@ -167,10 +167,10 @@ void glfPrint(GLFfont *font, GLfloat x, GLfloat y, char *string, bool outline)  
     glPushMatrix();                                   // Store The Modelview Matrix
   }
 
-  glGetFloatv(GL_CURRENT_COLOR, color);               // ulozi povodnu farbu  
+  glGetFloatv(GL_CURRENT_COLOR, color);               // save the original color  
   glTranslatef(x, y, 0);                              // Position The Text (0,0 - Bottom Left)  
 
-  // vykresli sa cierna silueta
+  // draw the black outline
   if (outline) glListBase(font->fBase - font->fStartPosBG);
   else glListBase(font->fBase - font->fStartPosFG);
   
@@ -182,13 +182,13 @@ void glfPrint(GLFfont *font, GLfloat x, GLfloat y, char *string, bool outline)  
   glCallLists(strlen(string), GL_BYTE, string);
   glPopMatrix();
 
-  // vykresli sa text
-  glColor3f(color[0], color[1], color[2]);            // nastavi farbu na povodnu
+  // draw the text
+  glColor3f(color[0], color[1], color[2]);            // restore the original color
   glListBase(font->fBase - font->fStartPosFG);        // Choose The Font Set (0 or 1)
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_COLOR);
   glCallLists(strlen(string), GL_BYTE, string);       // Write The Text To The Screen
 
-  // navrat povodnych matic
+  // restore original matrices
   if (reset_projection) {
     glMatrixMode(GL_PROJECTION);                      // Select The Projection Matrix
     glPopMatrix();                                    // Restore The Old Projection Matrix
@@ -201,8 +201,8 @@ void glfPrint(GLFfont *font, GLfloat x, GLfloat y, char *string, bool outline)  
   }
 
   if (enable_depth) glEnable(GL_DEPTH_TEST);          // Enables Depth Testing
-  if (!enable_blend) glDisable(GL_BLEND);             // vrati povodny stav
-  else glBlendFunc(blend_src, blend_dst);             // vrati povodne funkcie
+  if (!enable_blend) glDisable(GL_BLEND);             // restore the original state
+  else glBlendFunc(blend_src, blend_dst);             // restore the original functions
 }
 
 

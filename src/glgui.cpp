@@ -3202,7 +3202,7 @@ void TGUI::Update(double time_shift)
       GLfloat ty = mice_y - y - TGUI::tooltip_box->GetHeight() - cursor_height;
 
       if(tx + TGUI::tooltip_box->GetWidth() > x + width) tx = x + width - TGUI::tooltip_box->GetWidth();
-      if(ty < 0) ty = mice_y - y + 3; // +3 aby to nebolo nalepene ka kurzore
+      if(ty < 0) ty = mice_y - y + 3; // +3 so it is not stuck to the cursor
 
       TGUI::tooltip_box->SetPos(tx, ty);
     }

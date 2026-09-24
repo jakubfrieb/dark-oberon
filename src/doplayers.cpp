@@ -503,7 +503,7 @@ void TPLAYER::IncreaseBuildingCount(int mat_index,int player_id)
 {
   TLIST<TSOURCE_UNIT>::TNODE<TSOURCE_UNIT> * source;  
 
-  source = hyper_player->sources[mat_index].GetFirst();  //evidentne sa to sem neprida...
+  source = hyper_player->sources[mat_index].GetFirst();  //apparently it is not added here...
   while (source != NULL)  //cycle through the whole list of the sources,which belong to the "hyperplayer" (player with ID == 0)
   { 
     for (int i =0 ; i < this->race->workers_item_count[mat_index] ; i++)
@@ -831,7 +831,7 @@ bool TLOC_MAP::IsNextPositionEmpty(const TPOSITION_3D pos, const int dir, TFORCE
 
   if ((dir == LAY_UP) || (dir == LAY_DOWN))   //move to another segment
   {
-    for (i = pos.x; i < pos.x + size; i++)    //vsechny nove obsazovane policka musime otestovat na nepritomnost jednotek
+    for (i = pos.x; i < pos.x + size; i++)    //all newly occupied fields must be tested for the absence of units
       for (j = pos.y; j < pos.y + size; j++)
         if ((! ::map.IsInMap(i,j,pos.segment)) 
           || ((map[pos.segment][i][j].player_id != WLK_EMPTY_FIELD) && (::map.segments[pos.segment].surface[i][j].unit != unit)))
@@ -839,8 +839,8 @@ bool TLOC_MAP::IsNextPositionEmpty(const TPOSITION_3D pos, const int dir, TFORCE
   }
   else                                        //move in same segment
   {
-    //Urcime rozdily, ktere se budou pricitam nebo odcitat podle smeru pohybu od rohoveho pole nove obsazovanych policek,
-    //aby se zjistilo zda nejsou obsazeny jednotkami.
+    //Determine the offsets to add or subtract, depending on the move direction, from the corner field of the newly occupied fields,
+    //to find out whether they are occupied by units.
     switch(dir)
     {
     case LAY_SOUTH:
@@ -1252,7 +1252,7 @@ int TPLAYER_ARRAY::GetPlayerID (in_addr address, in_port_t port, int min_id) {
 
   Lock ();
 
-  /* XXX: sprava prichadza z nahodneho portu, preto ten port nekontrolujeme. */
+  /* XXX: the message comes from a random port, so we do not check the port. */
 
   for (int i = min_id; i < GetCount (); i++) {
     if (TNET_RESOLVER::NetworkToAscii (player[i].addr) == TNET_RESOLVER::NetworkToAscii (address)) {
@@ -1284,7 +1284,7 @@ bool TPLAYER_ARRAY::AllPlayersAreLocal () {
 void TPLAYER_ARRAY::PlayerReady (in_addr address, in_port_t port) {
   Lock ();
 
-  /* XXX: sprava prichadza z nahodneho portu, preto ten port nekontrolujeme. */
+  /* XXX: the message comes from a random port, so we do not check the port. */
 
   for (int i = 0; i < GetCount (); i++) {
     if (IsRemote (i) &&

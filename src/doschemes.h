@@ -98,7 +98,7 @@ struct TTERRAIN_PROPS {
 /**
  *  ???
  *
- *  @todo okomentovat triedu
+ *  @todo document the class
  */
 class TTERR_ITEM {
 public:
@@ -162,7 +162,7 @@ class TTERRL_ITEM: public TTERR_ITEM {
 public:
   TTERRL_ITEM():TTERR_ITEM() {text_id = NULL; name = NULL;};
   
-  char * text_id;           //!< User text identifikator used in conf. files
+  char * text_id;           //!< User text identifier used in conf. files
   char * name;              //!< Text name of item.
 
   ~TTERRL_ITEM()     //!< Destructor.

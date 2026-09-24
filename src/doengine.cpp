@@ -634,7 +634,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
 
   } catch (...) {
-    Debug ("nejaka ina vynimka");
+    Debug ("some other exception");
   }
 }
 
@@ -1201,7 +1201,7 @@ bool TMAP_INFO_LIST::LoadMapList() {
     if (entry->d_type != DT_DIR)
     {
       extension = strrchr(entry->d_name, '.');
-      /** XXX: TU TO ASI MOZE SPADNUT, ked tam bude subor bez pripony **/
+      /** XXX: THIS WILL PROBABLY CRASH if there is a file without an extension **/
       if (!(strcmp(extension, ".map")))
         ok = LoadMapInfo(true, entry->d_name); // loads map info for each *.map file
     }
@@ -1572,7 +1572,7 @@ bool CreateGame()
 #endif
   host->AddEmptyAddress (); /* hyper player */
 
-  // XXX: skontrolovat, ci sa podarilo spustit server
+  // XXX: check whether the server started successfully
   connected = true;
 
   giant->Unlock ();
@@ -2016,7 +2016,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
       if (host->GetType () == THOST::ht_leader) {
         TLEADER *leader = dynamic_cast<TLEADER *>(host);
 
-        /* XXX: netreba... leader->FillRemoteAddresses (); */
+        /* XXX: not needed... leader->FillRemoteAddresses (); */
         leader->SendPlayerArray (selected_map_name, true);
       }
 
@@ -2024,8 +2024,8 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
       giant->Unlock ();
 
-      /* XXX: tu je potrebne este nejako zablokovat, aby sa uz nepridali dalsi
-       *      hraci... Takze nieco ako player_array.NoMoreChanges (); */
+      /* XXX: we still need to block somehow so that no more players can be
+       *      added... i.e. something like player_array.NoMoreChanges (); */
     }
 
     player_array.Unlock ();
@@ -3654,7 +3654,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   bool start_game = (msg->GetSubtype() == 1);
   if (start_game) {
     int my_id = player_array.GetMyPlayerID ();
-    Debug (LogMsg ("My_id je %d", my_id));
+    Debug (LogMsg ("My_id is %d", my_id));
 
     /* We are already connected to leader with remote_address 0, which is
      * hyperplayer. */
@@ -3664,7 +3664,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     for (i = 1; i < player_array.GetCount (); i++) {
       if (player_array.IsComputer (i)) {
         host->AddEmptyAddress ();
-        Debug (LogMsg ("%d: Pridavam prazdnu adresu (computer)", i));
+        Debug (LogMsg ("%d: Adding empty address (computer)", i));
       } else if (i < my_id) {
         /* Wait until player with id < my_id gets connected to me. */
         int fd;
@@ -3673,23 +3673,23 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i));
           if (fd != -1)
             break;
-          Debug ("Este stale nemam tu adresu");
+          Debug ("Still do not have that address");
           AppSleepSeconds(0.5);
         }
 
         if (fd != -1) {
           host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i), fd);
-          Debug (LogMsg ("%d: Pridavam adresu s filedescriptorom", i));
+          Debug (LogMsg ("%d: Adding address with file descriptor", i));
         } else {
           Error (LogMsg ("%d: host not connected in 15 seconds...", i));
         }
       } else if (player_array.IsRemote (i)) {
         host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
         host->GetListener ()->AddListenerByFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i), host->GetTalker ()->GetRemoteFiledescriptor (i));
-        Debug (LogMsg ("%d: Pridavam remote adresu", i));
+        Debug (LogMsg ("%d: Adding remote address", i));
       } else {
         host->AddEmptyAddress ();
-        Debug (LogMsg ("%d: Pridavam prazdnu adresu", i));
+        Debug (LogMsg ("%d: Adding empty address", i));
       }
     }
 
@@ -3940,19 +3940,19 @@ struct TDISCONNECT_DATA {
 static int SDLCALL OnDisconnectThread (void *d) {
   TDISCONNECT_DATA *data = static_cast<TDISCONNECT_DATA *>(d);
 
-  Debug ("niekto sa odpojil");
+  Debug ("someone disconnected");
 
   giant->Lock ();
 
   if (host == NULL) {
-    Debug ("Ale nemam hosta");
+    Debug ("But there is no host");
     giant->Unlock ();
     delete data;
     return 0;
   }
 
   if (state == ST_PLAY_MENU) {
-    Debug ("som v menu");
+    Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
       action_force = true;
@@ -3978,7 +3978,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
       player_array.Unlock ();
     }
   } else if (state == ST_GAME) {
-      Debug ("som v hre");
+      Debug ("in game");
 
       player_array.Lock ();
 

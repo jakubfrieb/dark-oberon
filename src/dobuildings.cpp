@@ -290,7 +290,7 @@ void TBUILDING_UNIT::Disconnect()
 
 /**
  *  To "pevent" put event which is integrated to QUEUE according to @param new_ts (time stamp).
- *  If unit has som event in queue, check if it is endable state or not.
+ *  If unit has some event in queue, check if it is endable state or not.
  *  if in queue is not endable state make necessary undo actions (returns one piece of material into source...)
  */
 TEVENT* TBUILDING_UNIT::SendEvent(bool n_priority, double n_time_stamp, int n_event, int n_request_id, T_SIMPLE n_simple1, T_SIMPLE n_simple2, T_SIMPLE n_simple3, T_SIMPLE n_simple4, T_SIMPLE n_simple5, T_SIMPLE n_simple6, intptr_t n_int1,intptr_t n_int2)
@@ -309,7 +309,7 @@ TEVENT* TBUILDING_UNIT::SendEvent(bool n_priority, double n_time_stamp, int n_ev
     if (n_event == US_DYING)
     { // new state is US_DYING => stop all actions of unit
       if (pevent->GetTimeStamp() > n_time_stamp)
-      { // if timestamp od pevent is greater than new DYING timestamp -> remove pevent from queue and put new event
+      { // if timestamp of pevent is greater than new DYING timestamp -> remove pevent from queue and put new event
         queue_events->GetEvent(pevent);
         pevent->SetEventProps(GetPlayerID(), GetUnitID(), n_priority, n_time_stamp, n_event, last_event, n_request_id, n_simple1, n_simple2, n_simple3, n_simple4, n_simple5, n_simple6, n_int1,n_int2);
         queue_events->PutEvent(pevent); // put event to queue

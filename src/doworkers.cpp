@@ -1279,7 +1279,7 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
                 path_event = SendEvent(false, proc_event->GetTimeStamp(), US_WAIT_FOR_PATH, 0);
                 waiting_request_id = path_event->GetRequestID();       
 
-                ComputePath(new_ps,waiting_request_id,ET_NOTPATH_LAND,last_state,state);  //brane ako 7cka
+                ComputePath(new_ps,waiting_request_id,ET_NOTPATH_LAND,last_state,state);  //treated as 7
                 return;
               }
               else { // unit can land on next position
@@ -1318,7 +1318,7 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
       }
      
       
-      if (change_position) path->IncreaseASteps(); // !!! skontrolovat, ci sa to vzdy korekne nastavi
+      if (change_position) path->IncreaseASteps(); // !!! check whether this is always set correctly
       new_priority = change_position;
       
       if (new_state == US_TRY_TO_MOVE)
@@ -2861,7 +2861,7 @@ TSOURCE_UNIT * TWORKER_UNIT::IsSourceOnPosition(int pos_x, int pos_y)
       source_unit = static_cast<TSOURCE_UNIT*>(map_unit);
       // get source materials
       int source_material = static_cast<TSOURCE_ITEM*>(source_unit->GetPointerToItem())->GetOfferMaterial();
-      // zisti ci je zdroj neprazdny a ci moze tazit a ak uz nieco tazi, tak primarne to nech tazi dalej
+      // check whether the source is non-empty and can be mined; if already mining something, prefer to keep mining it
       if ((!source_unit->IsEmpty()) && (GetMaterial() == source_material) && (source_unit != source)) 
       { 
         found_source =  source_unit;   //set finded source as new                    
@@ -3512,18 +3512,18 @@ bool TWORKER_UNIT::StartUnload(TBUILDING_UNIT *unit, bool auto_call)
  */
 TBUILDING_UNIT* TWORKER_UNIT::GetNearestBuilding(TSOURCE_UNIT *src, TA_STAR_ALG *path_tool)
 {
-  //ak panacik este u svojho playera nema nastaveny nearest alebo ten je neplatny alebo k nemu neexistuje cesta
-  //alebo od posledneho volania   
+  //if the unit's player has no nearest set yet, or it is invalid, or there is no path to it
+  //or since the last call   
   int order = static_cast<TWORKER_ITEM*>(GetPointerToItem())->GetOrder(src->GetOfferMaterial());
   TNEAREST_BUILDINGS& nearest = src->GetPlayerArray()[GetPlayerID() - 1][order];  
   
-  ////!!!!!!! v pripade ze sa jednotka pri delete sama vyberie z PlayerArray tak netreba 
-  // testovat ci vobec existuje.
+  ////!!!!!!! if the unit removes itself from PlayerArray on delete, there is no need 
+  // to test whether it exists at all.
 
   if (!nearest.nearest_building || ///!!!! !map.IsUnitPresent(nearest.nearest_building) ||
      !GetPlayer()->material_array[mined_material].IsMember(nearest.nearest_building) ||
      nearest.nearest_building->TestState(US_DYING) || nearest.nearest_building->TestState(US_ZOMBIE) || nearest.nearest_building->TestState(US_DELETE))
-    //!!!!!!!!!!!!!!mozno uplne neidentifikuje zaniknutu budovu!!!!!!!!!! pocitane pointre
+    //!!!!!!!!!!!!!!may not fully detect a destroyed building!!!!!!!!!! reference-counted pointers
   {
      nearest.nearest_building = NULL;
      nearest.path_time = WRK_MAX_PATH_TIME;
@@ -3572,11 +3572,11 @@ void TWORKER_UNIT::FindNearestBuilding(TLIST<TBUILDING_UNIT>&acceptable_building
   {
     for (; p_actual; p_actual = p_actual->GetNext())
     {
-      //spocitaj, kolko budov sa bude prehladavat a posli toto info s kazdym vlaknom ako param.
-      //prepni sa do stavu hladam cestu
-      //spusti vlakno
-      //v reakcii na prijatie vlakna bude nejaky counter, ktory bude pocitat, ktora cesta je najkratsia a kolko vlaken uz do pocitalo a ked to dojde na maximum, tak sa prepne do nejakeho ineho stavu
-      //v reakcii na tento stav potom urob to, co normalne v reakcii na GetNearestBuilding (cize to bude chciet na vstupe este nejaky identifikator, aby bolo jasne, ktora cast vyslala hladanie najblizsej budovy      
+      //count how many buildings will be searched and send this info with each thread as a param.
+      //switch to the 'searching for path' state
+      //start the thread
+      //on receiving a thread result, a counter will track which path is shortest and how many threads have finished; when it reaches the maximum, switch to some other state
+      //in response to that state, do what is normally done in response to GetNearestBuilding (so it will also need some identifier on input to tell which part issued the nearest-building search      
       
       //try to find path to the actual building
       

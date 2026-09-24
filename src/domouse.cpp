@@ -68,8 +68,8 @@ GLfloat circle_color[MC_COUNT][3] = {
  *
  *  @todo Comment.
  *  
- *  @todo Ak sa nieco vymysli s cyklickymi zavislostami, tak urobit tuto
- *        funkciu inline.
+ *  @todo If the cyclic dependencies get resolved somehow, make this
+ *        function inline.
  */
 void MouseToMap(GLfloat rpos_x, GLfloat rpos_y, double *map_x, double *map_y)
 {
@@ -595,8 +595,8 @@ void TMOUSE::FindOverUnit(int seg)
     
     // draw units
     for (i = 0; i < count; i++) {
-      //!!! tuto nastava chyba ze units[i] == NULL napriek tomu, ze je to pocitany 
-      // pointer. Ak sa to nevyriesi inak, moze sa tu dat test a aspon to nespadne.
+      //!!! an error occurs here: units[i] == NULL even though it is a ref-counted
+      // pointer. If not solved otherwise, add a check here so at least it won't crash.
       SetMapPosition(units[i]->GetRealPositionX(), units[i]->GetRealPositionY());
 
       // draws black silhoulette of unit

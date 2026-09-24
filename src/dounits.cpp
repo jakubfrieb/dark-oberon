@@ -617,7 +617,7 @@ void TBASIC_UNIT::SetView(bool set)  //sets view to the unit
                 {
                   int pl_id = map.segments[k].surface[i][j].unit->GetPlayerID();
 
-                  if (pl_id == -1)    /////!!! toto je divne lebo GetPlayerID vracia T_BYTE [PPP]
+                  if (pl_id == -1)    /////!!! this is odd because GetPlayerID returns T_BYTE [PPP]
                     local_map->map[k][i][j].player_id = 254;
                   else
                     local_map->map[k][i][j].player_id = pl_id;
@@ -1059,7 +1059,7 @@ void TPROJECTILE_UNIT::ProcessEvent(TEVENT *proc_event)
  
   /****************** Synchronisation and setup *************************/
   
-  /****************** Compute new values (tupe vykonanie spravy) ********************************/
+  /****************** Compute new values (plain message execution) ********************************/
 
   // RQ_CHANGE_SEGMENT
   if (proc_event->TestEvent(RQ_CHANGE_SEGMENT))
@@ -1086,7 +1086,7 @@ void TPROJECTILE_UNIT::ProcessEvent(TEVENT *proc_event)
     return;
   }
   
-  /****************** Compute next event (rozhodovanie a planovanie) *******************************/
+  /****************** Compute next event (decision making and planning) *******************************/
   
   if (!player_array.IsRemote(proc_event->GetPlayerID())) { // compute only not remote (local) units
     ;

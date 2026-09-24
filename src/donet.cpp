@@ -562,7 +562,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
 void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port, int fd) {
   struct sockaddr_in remote_addr;
 
-  Debug ("pridavam podla filedscriptoru");
+  Debug ("adding by file descriptor");
 
   remote_addr.sin_family = AF_INET;
   remote_addr.sin_port = htons (port);
@@ -673,7 +673,7 @@ int SDLCALL TNET_TALKER::talker_thread_function (void *talker_class) {
      * one only (e.g. only for one player).
      */
     if (msg->GetDest () == 255) {
-      // XXX: namiesto 255 to chce konstantu
+      // XXX: should use a constant instead of 255
 
       for (unsigned i = 0; i < self->distinct_remote_addresses.size (); i++) {
         try {

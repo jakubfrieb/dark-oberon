@@ -88,7 +88,7 @@ TFORCE_UNIT::TFORCE_UNIT(int uplayer, int ux, int uy, int uz, int udirection, TF
  */
 TFORCE_UNIT::~TFORCE_UNIT()
 {
-  // !!! zatial tu nie je nic [PPP]    
+  // !!! nothing here yet [PPP]    
   if (path)
   {
     delete path;
@@ -100,7 +100,7 @@ TFORCE_UNIT::~TFORCE_UNIT()
 
 /**
  *  To "pevent" put event which is integrated to QUEUE according to @param new_ts (time stamp).
- *  If unit has som event in queue, check if it is endable state or not.
+ *  If unit has some event in queue, check if it is endable state or not.
  *  if in queue is not endable state make necessary undo actions (returns one piece of material into source...)
  */
 TEVENT* TFORCE_UNIT::SendEvent(bool n_priority, double n_time_stamp, int n_event, int n_request_id, T_SIMPLE n_simple1, T_SIMPLE n_simple2, T_SIMPLE n_simple3, T_SIMPLE n_simple4, T_SIMPLE n_simple5, T_SIMPLE n_simple6, intptr_t n_int1,intptr_t n_int2)
@@ -119,7 +119,7 @@ TEVENT* TFORCE_UNIT::SendEvent(bool n_priority, double n_time_stamp, int n_event
     if (n_event == US_DYING)
     { // new state is US_DYING => stop all actions of unit
       if (pevent->GetTimeStamp() > n_time_stamp)
-      { // if timestamp od pevent is greater than new DYING timestamp -> remove pevent frm queue and put new event
+      { // if timestamp of pevent is greater than new DYING timestamp -> remove pevent frm queue and put new event
         queue_events->GetEvent(pevent);
         pevent->SetEventProps(GetPlayerID(), GetUnitID(), n_priority, n_time_stamp, n_event, US_NONE, n_request_id, n_simple1, n_simple2, n_simple3, n_simple4, n_simple5, n_simple6, n_int1,n_int2);
         queue_events->PutEvent(pevent); // put event to queue
@@ -1224,7 +1224,7 @@ void TFORCE_UNIT::ProcessEvent(TEVENT * proc_event)
                 path_event = SendEvent(false, proc_event->GetTimeStamp(), US_WAIT_FOR_PATH, 0);
                 waiting_request_id = path_event->GetRequestID();           
 
-                ComputePath(new_ps,waiting_request_id,ET_NOTPATH_LAND,last_state,state);  //narozdiel od workera brane ako 6tka
+                ComputePath(new_ps,waiting_request_id,ET_NOTPATH_LAND,last_state,state);  //unlike the worker, treated as 6
                 return;
               }
               else { // unit can land on next position
@@ -1263,7 +1263,7 @@ void TFORCE_UNIT::ProcessEvent(TEVENT * proc_event)
       }
      
       
-      if (change_position) path->IncreaseASteps();    // !!! skontrolovat, ci sa to vzdy korekne nastavi
+      if (change_position) path->IncreaseASteps();    // !!! check whether this is always set correctly
       new_priority = change_position;
      
       if (new_state == US_TRY_TO_MOVE)
@@ -1921,7 +1921,7 @@ void TFORCE_UNIT::SetViewDirection(int direction)
         tex_id = (j + 1) * map_w * 4 + (i + 1) * 4;
 
         if (!(IsSeenByUnit(pos, i, j, u_width, u_height, view)) && (IsSeenByUnit(pos_new, i, j, u_width, u_height, view))) { //set visibility
-          for (int seg_num = seg_num_max; seg_num >= seg_num_min; seg_num--) {  //segmetny nastavovat potom inak....
+          for (int seg_num = seg_num_max; seg_num >= seg_num_min; seg_num--) {  //set segments differently later....
 
             //unknown area
             if (local_map->map[seg_num][i][j].state == WLK_UNKNOWN_AREA) {
@@ -1985,10 +1985,10 @@ void TFORCE_UNIT::SetViewDirection(int direction)
 
         else if (!(this->IsSeenByUnit(pos_new, i, j, u_width, u_height, view)) && (this->IsSeenByUnit(pos, i, j, u_width, u_height, view))) {
           //set invisibility
-          for (int seg_num = seg_num_max; seg_num >= seg_num_min; seg_num--) {   //podobne,segmenty nastavovat inak...
+          for (int seg_num = seg_num_max; seg_num >= seg_num_min; seg_num--) {   //likewise, set segments differently...
             if (local_map->map[seg_num][i][j].state > 0)
               local_map->map[seg_num][i][j].state -= 1;
-            /*else {  OFIK: Nesynchronizovane is_in_map
+            /*else {  OFIK: is_in_map not synchronised
               Critical("!!!!!!!!!!!!!!!!!!!!!");
             }*/
             if (map.IsInMap(i, j))
@@ -2664,7 +2664,7 @@ void TFORCE_UNIT::ComputePath(TPOSITION_3D goal,int request_id,int event_type,T_
 
   ppath_info->goal = goal;
   ppath_info->loc_map = player->GetLocalMap();
-  ppath_info->path = NULL;   //nahrada za predchadzajuci riadok
+  ppath_info->path = NULL;   //replacement for the previous line
   ppath_info->real_goal = goal;
   ppath_info->succ = false;
   ppath_info->e_simple1 =e_simple1;

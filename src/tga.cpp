@@ -38,7 +38,7 @@
 /**
  *  TGA file header information.
  *
- *  @todo mozno by chcelo niekde zistit, ktora zlozka co znamena...
+ *  @todo maybe find out somewhere which component means what...
  */
 typedef struct {
   int idlen;                //!< 1 byte
