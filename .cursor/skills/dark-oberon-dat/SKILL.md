@@ -2,8 +2,10 @@
 name: dark-oberon-dat
 description: >-
   Packs and unpacks Dark Oberon binary .dat resource archives (textures as embedded
-  TGA, optional sounds). Use when editing schemes/races/dat assets, plastic.dat,
-  human-*.dat, dat/*.dat, or when the user mentions unpack_dat, pack_dat, or do_dat_tool.
+  TGA, optional sounds), and provides a sprite-sheet pipeline for creating new races.
+  Use when editing schemes/races/dat assets, plastic.dat, human-*.dat, dat/*.dat,
+  or when the user mentions unpack_dat, pack_dat, do_dat_tool, compose_sheets,
+  slice_sheets, race_pipeline, sprite sheets, or new race creation.
 ---
 
 # Dark Oberon `.dat` archives
@@ -60,13 +62,38 @@ python3 .cursor/skills/dark-oberon-dat/scripts/do_dat_tool.py unpack schemes/pla
 python3 .cursor/skills/dark-oberon-dat/scripts/do_dat_tool.py pack /tmp/plastic_out -o schemes/plastic.dat
 ```
 
-## Workflow
+## Workflow (manual TGA editing)
 
 1. **Unpack** → edit files under `textures/` (and `sounds/` if present).
 2. Do **not** rename entries in `manifest.json` casually; paths must match on disk.
 3. **Pack** back to the original `.dat` path (or a copy) and test in-game.
 
+## Sprite-sheet pipeline (new race creation)
+
+Scripts in this skill's `scripts/` directory also include a sprite-sheet pipeline for creating new races by restyling existing ones. For the full workflow, domain knowledge, and step-by-step instructions see the [dark-oberon-race skill](../dark-oberon-race/SKILL.md).
+
+Key scripts: `compose_sheets.py`, `slice_sheets.py`, `generate_rac.py`, `race_pipeline.sh`, `sheet_chunks_for_ai.py`.
+
+### AI tools — canvas too large
+
+Many image models cap resolution. After `compose`, run:
+
+```bash
+python3 .cursor/skills/dark-oberon-dat/scripts/sheet_chunks_for_ai.py export \
+  ai-working/race-pipeline-<id>/sheets --max-w 1536 --max-h 1536
+```
+
+This writes `…/sheets/ai_chunks/<entity>/` with crops ≤ `--max-w` / `--max-h` (cuts only on cell guides or empty padding). Edit the chunk PNGs, then:
+
+```bash
+python3 .cursor/skills/dark-oberon-dat/scripts/sheet_chunks_for_ai.py merge \
+  ai-working/race-pipeline-<id>/sheets
+```
+
+which overwrites the full `*.png` sheets from the chunks (sizes must match exactly).
+
 ## References
 
 - Loader implementation: [`src/dodata.cpp`](../../../src/dodata.cpp)
 - TGA handling: [`src/tga.cpp`](../../../src/tga.cpp)
+- Race format spec: [`docs/RACE_SPEC_FOR_AI.md`](../../../docs/RACE_SPEC_FOR_AI.md)

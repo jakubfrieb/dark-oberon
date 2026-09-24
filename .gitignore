@@ -9,3 +9,8 @@ src/doxygen.log
 src/doxygen.conf
 src/doxygen.log
 src/*.o
+logs/*
+
+ai-working
+# unpacked .dat working copies
+races/*/*.dat-unpacked/

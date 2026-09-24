@@ -171,10 +171,12 @@ struct TA_STAR_MAP_FIELD {
   TSET_FIELD *p_heap_fld;   //!< Pointer to the heap, where the field was inserted during the A* algorithm.
   bool is_goal;             //!< Sign whether field is in the set of goal field or not
   bool is_i_am;             //!< Sign whether field is under unit for which path is being found.
+  TPOSITION_3D parent;      //!< Parent position in the A* search tree (predecessor in close set).
+  bool has_parent;          //!< Whether parent has been set (false for start node).
 
   //! Constructor.
   TA_STAR_MAP_FIELD()
-    { set_id = 0; p_heap_fld = NULL; is_goal = false; is_i_am = false;};
+    { set_id = 0; p_heap_fld = NULL; is_goal = false; is_i_am = false; has_parent = false;};
 };
 
 //! Alias name for pointer to TA_STAR_MAP_FIELD for simple usage.
