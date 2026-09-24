@@ -1,423 +1,422 @@
-# Programátorská dokumentácia
+# Programmer Documentation
 
-*Konverzia z PDF `Programmer_documentation_SK.pdf` (pdftotext + štruktúra nadpisov). Pôvodný jazyk: slovenčina. Obrázky a presné formátovanie z PDF tu nie sú.*
+*Translated from the original Slovak PDF `Programmer_documentation_SK.pdf` (pdftotext + heading structure). Images and exact formatting from the PDF are not included.*
 
 ---
 
-## 1 Prenositeľnosť
+## 1 Portability
 Marián Černý, Martin Košalko, Peter Knut
 
 
-### 1.1 Cieľ projektu
+### 1.1 Project goal
 
-Cieľom projektu bolo vytvoriť hru, ktorá bude prenositeľná na bežne používané platformy:
-Windows a Linux.
+The goal of the project was to create a game that would be portable to commonly used platforms:
+Windows and Linux.
 
-### 1.2 Použité prostriedky
+### 1.2 Tools used
 
-#### 1.2.1 Grafika
+#### 1.2.1 Graphics
 
-Pre zabezpečenie prenositeľnosti sme sa rozhodli grafický výstup riešiť pomocou knižnice
-OpenGL, ktorá poskytuje rozhranie pre prácu s grafickou kartou. Prenositeľnosť aplikácie
-z hľadiska vstupu a práce s oknom rieši knižnica GLFW (An OpenGL Framework), ktorá
-podporuje množstvo platforiem. Knižnica okrem funkcií potrebných pre prácu s oknom
-ponúka naviac jednotné rozhranie pre prácu s vláknami, zámkami a podmienenými
-premennými.
+To ensure portability we decided to handle graphical output using the OpenGL
+library, which provides an interface for working with the graphics card. Portability of the application
+with respect to input and window handling is handled by the GLFW library (An OpenGL Framework), which
+supports many platforms. Besides the functions needed for window handling, the library
+additionally offers a unified interface for working with threads, locks and condition
+variables.
 
-#### 1.2.2 Zvuk
+#### 1.2.2 Sound
 
-Pre prácu so zvukom sme sa rozhodli použiť knižnicu FMOD. Je to síce komerčná knižnica
-(pre nekomerčné projekty zadarmo), ale zato veľmi kvalitná. Jej nevýhodou je, že je dostupná
-v binárnej forme a iba pre niektoré platformy. Z tých pre náš projekt zaujímavých sú tieto:
-Windows 95+, Linux (IA-32) a Apple Macintosh.
+For working with sound we decided to use the FMOD library. It is a commercial library
+(free for non-commercial projects), but it is of very high quality. Its disadvantage is that it is available
+only in binary form and only for some platforms. Of those interesting for our project, these are:
+Windows 95+, Linux (IA-32) and Apple Macintosh.
 
-### 1.3 Podpora platforiem
+### 1.3 Platform support
 
-Projekt sme vyvíjali a testovali na týchto platformách: Windows 2000, Windows XP
-a FreeBSD – všetko IA-32 (32 bitová architektúra). Na platforme Linux sme projekt priamo
-nevyvíjali, iba občas testovali. Podobnosť s FreeBSD je ale natoľko veľká, že sa nikdy
-nevyskytli závažnejšie problémy s prenositeľnosťou. Použité prekladače boli: MS Visual
-Studio 6.0, MS Visual Studio 7.0 a GNU Compiler Collection (GCC) vo verziách 2.95, 3.2 a
+We developed and tested the project on these platforms: Windows 2000, Windows XP
+and FreeBSD – all IA-32 (32-bit architecture). We did not develop the project directly on the Linux
+platform, only tested it occasionally. However, the similarity with FreeBSD is so great that no
+serious portability problems ever occurred. The compilers used were: MS Visual
+Studio 6.0, MS Visual Studio 7.0 and the GNU Compiler Collection (GCC) in versions 2.95, 3.2 and
 3.4.
-Okrem platforiem, na ktorých sme projekt vyvíjali, sme testovali tieto platformy: ostatné
-verzie Windows 95, Windows 98, Windows Millenium, Windows XP AMD-64 (so
-spustiteľným súborom v 32 bitovej forme), Linux (IA-32).
-Projekt by mal byť ďalej preložiteľný na ostatných platformách, ktoré sú podporované
-knižnicou GLFW. Na Unixových platformách SGI IRIX, SUN Solaris, QNX, NetBSD,
-OpenBSD, HP-UX a IBM-AIX by nemali byť potrebné žiadne úpravy, prípadne iba
-minimálne. Podobné to bude aj s platformou MAC OS X, ktorú podporuje dokonca aj
-knižnica FMOD (knižnica pre prácu so zvukom). Na platforme MS-DOS budú potrebné
-úpravy funkcií pre prácu s adresármi. Inak by preklad mal byť bezproblémový, keďže aj pre
-túto platformu je dostupný prekladač GCC. GLFW podporuje ešte platformu Amiga OS, pre
-ktorú ale neexistuje verzia prekladača GCC, takže tu môžu nastať s prekladom problémy.
-Preklad projektu by mal byť možný aj na architektúrach procesorov iných ako 32 bitové littleendian procesory. Problém bude pri sieťovej hre medzi rôznymi architektúrami procesorov,
-fungovať bude iba s rovnakými architektúrami. K tomu, aby fungovala sieťová hra aj medzi
-rôznymi
-architektúrami,
-je
-potrebné
-upraviť
-iba
-dve
-funkcie:
-funkciu
+Besides the platforms on which we developed the project, we tested these platforms: other
+versions Windows 95, Windows 98, Windows Millenium, Windows XP AMD-64 (with the
+executable in 32-bit form), Linux (IA-32).
+The project should furthermore be compilable on other platforms supported
+by the GLFW library. On the Unix platforms SGI IRIX, SUN Solaris, QNX, NetBSD,
+OpenBSD, HP-UX and IBM-AIX no modifications should be necessary, or only
+minimal ones. The same will apply to the MAC OS X platform, which is even supported by the
+FMOD library (the library for working with sound). On the MS-DOS platform, modifications
+of the functions for working with directories will be necessary. Otherwise compilation should be trouble-free, since
+a GCC compiler is available for this platform as well. GLFW also supports the Amiga OS platform,
+for which, however, no version of the GCC compiler exists, so compilation problems may occur there.
+Compiling the project should also be possible on processor architectures other than 32-bit little-endian processors. The problem will be network play between different processor architectures;
+it will only work between identical architectures. For network play to work also between
+different architectures,
+it is
+necessary
+to modify
+only
+two
+functions:
+the function
 
 
-TEVENT::Linearise(), ktorá pripravuje správu na poslanie po sieti a
-TNET_EVENT::Delinearise(), ktorá z prijatej správy zo siete správne naplní štruktúru
-TEVENT. Nemali sme však k dispozícii iné architektúry pri vývoji a preto tieto funkcie neboli
+TEVENT::Linearise(), which prepares a message to be sent over the network, and
+TNET_EVENT::Delinearise(), which correctly fills the TEVENT structure from a message
+received from the network. However, we did not have other architectures available during development, and therefore these functions were not
 
-ani implementované prenositeľne. Nebol to ani cieľ nášho projektu.
-Sieťová hra na architektúre IA-32 funguje bez problémov aj na rôznych platformách.
-Testované boli kombinácie Windows, Linux a FreeBSD. Taktiež AMD-64 v 32 bitovom (so
-spustiteľným súborom v 32 bitovej frome) režime funguje.
+implemented portably. That was not a goal of our project either.
+Network play on the IA-32 architecture works without problems even across different platforms.
+Combinations of Windows, Linux and FreeBSD were tested. AMD-64 in 32-bit mode (with the
+executable in 32-bit form) also works.
 
 
-## 2 Správy – jadro hry
+## 2 Events – the game core
 Martin Košalko
 
 
-### 2.1 Úvod
+### 2.1 Introduction
 
-Projekt Dark Oberon nie je len jediná strategická hra, ale výpočtový stroj pre strategické hry
-bežiace v reálnom čase, čomu sú prispôsobené aj hlavné programové štruktúry. Keďže je
-program šablónou pre hry, o jednotkách, prostredí a ani mapách konkrétnej inštancie hry nie
-je možné predpokladať takmer nič. Jednotky je však možné podľa ich vlastností zaradiť do
-dopredu pripravených skupín (bojové jednotky, pracanti, zdroje, budovy a továrne). Každá
-z týchto skupín môže vykonávať rôzne špecifické činnosti (ťažiť materiály, vyrábať
-jednotky). Niektoré akcie však zostávajú spoločné (útočenie), pričom ale môžu byť
-vykonávané s menšími rozdielmi (budovy môžu síce strieľať, no nesmú sa pohybovať). Nedá
-sa však predpokladať, ako rýchlo budú dané akcie prebiehať. Aby samotný výpočtový stroj
-zaťažoval systém len minimálne vzhľadom na aktivitu jednotiek a nechával tak viac priestoru
-na náročnejšie operácie ako napríklad vykresľovanie scény, používa prioritnú frontu. Riadenie
-činností jednotiek je teda riešené systémom správ (events) spracovávaných už spomínanou
-prioritnou frontou. Navyše sa táto štruktúra veľmi dobre hodí pri návrhu sieťovej
-komunikácie zabezpečujúcej synchronizáciu jednotiek. Na vzdialený počítač sa zasielajú
-práve tie správy (events), ktoré sú zaraďované do fronty na lokálnom počítači. Problém
-synchronizácie činností jednotiek cez sieťové rozhranie sa tým transformoval (zjednodušil) na
-synchronizáciu lokálnej a vzdialenej fronty správ.
+The Dark Oberon project is not just a single strategy game, but a computational engine for real-time strategy
+games, and the main program structures are adapted to this. Since the
+program is a template for games, almost nothing can be assumed about the units, the environment or the maps of a concrete instance of the game.
+Units can, however, be classified according to their properties into
+predefined groups (combat units, workers, sources, buildings and factories). Each
+of these groups can perform various specific activities (mining materials, producing
+units). Some actions, however, remain common (attacking), although they may be
+performed with minor differences (buildings can shoot, but they must not move). It
+cannot be predicted, however, how fast the given actions will proceed. So that the computational engine itself
+loads the system only minimally with respect to unit activity, leaving more room
+for more demanding operations such as scene rendering, it uses a priority queue. Control
+of unit activities is therefore handled by a system of events processed by the aforementioned
+priority queue. Moreover, this structure is very well suited to the design of network
+communication ensuring unit synchronization. Exactly those events are sent to the remote computer
+which are enqueued in the queue on the local computer. The problem
+of synchronizing unit activities over the network interface was thereby transformed (simplified) into
+the synchronization of the local and remote event queues.
 
-### 2.2 Typy správ
+### 2.2 Event types
 
-S pohľadu počítača a fronty správ je možné jednotky hráčov rozdeliť na lokálne a vzdialené.
-Lokálne jednotky sú jednotky hráčov bežiacich na lokálnom počítači (v princípe to môže byť
-jeden reálny – ľudský hráč a niekoľko počítačových hráčov) a vzdialené sú jednotky hráčov
-pripojených cez sieťové rozhranie. Idea systému správ je taká, že o tom, akú akciu vykoná
-jednotka sa rozhoduje vždy na lokálnom počítači, pričom výsledok rozhodovania sa zasiela aj
-do front vzdialených počítačov, kde sú tieto „výsledky“ bez všetkého vykonané. Z tohto
-pohľadu je možné správy kategorizovať ako rozhodovacie (plánovacie) – vkladajú sa len do
-fronty lokálneho počítača (lokálnej fronty) a akčné, ktoré sa plánujú aj v lokálnej a aj vo
-vzdialených frontách. Je teda automaticky zabezpečené, že na všetkých počítačoch bude
-jednotka vykonávať tú istú akciu.
-Každá jednotka si v svojej premennej „state“ udržiava svoj aktuálny stav – aktuálne
-vykonávanú akciu. Na stav jednotky sú naviazané ďalšie rozhodovacie procesy a jej
-audiovizuálne prejavy – textúry a zvuky. V programe sú akcie, ktoré sa dajú popísať
-postupnou zmenou stavov jednotky (chodenie = státie, pohyb, otočenie, pohyb..., otočenie,
-státie), no niekedy je nutné, aby jednotka navonok vykonávala jednu akciu, ale vnútorne musí
-byť členená na menšie podakcie (strieľanie = nabitie náboja, mierenie, vystrelenie náboja,
-čakanie, nabíjanie). Z tohto pohľadu sú správy delené na „events“ – správy meniace stav
-jednotky a „requests“ – žiadosti o vykonanie nejakej akcie. V zdrojových kódoch sú čísla
-správ definované systematicky: US_XXX – event (US = Unit State), RQ_XXX – request.
+From the point of view of the computer and the event queue, players' units can be divided into local and remote ones.
+Local units are units of players running on the local computer (in principle this can be
+one real – human player and several computer players), and remote units are units of players
+connected via the network interface. The idea of the event system is that the decision about which action a
+unit will perform is always made on the local computer, while the result of the decision is also sent
+to the queues of the remote computers, where these "results" are executed unconditionally. From this
+point of view, events can be categorized as decision (planning) events – inserted only into the
+queue of the local computer (local queue) – and action events, which are scheduled both in the local and in the
+remote queues. It is thus automatically ensured that on all computers the
+unit will perform the same action.
+Each unit keeps its current state – the action currently being
+performed – in its variable "state". Further decision processes and its
+audiovisual manifestations – textures and sounds – are bound to the unit's state. In the program there are actions that can be described
+by a sequence of unit state changes (walking = standing, moving, rotating, moving..., rotating,
+standing), but sometimes it is necessary for a unit to outwardly perform one action while internally it must
+be divided into smaller sub-actions (shooting = loading a projectile, aiming, firing the projectile,
+waiting, reloading). From this point of view, events are divided into "events" – messages changing the state of the
+unit – and "requests" – requests to perform some action. In the source code the event
+numbers are defined systematically: US_XXX – event (US = Unit State), RQ_XXX – request.
 
-### 2.3 Popis správy – trieda TEVENT
+### 2.3 Event description – the TEVENT class
 
-Pre správy bol vytvorený špeciálny objekt: TEVENT, ktorý je potomkom triedy
-TOOL_ELEMENT. Ako už napovedá sám názov predka, všetky aktuálne nepoužité inštancie
+A special object was created for events: TEVENT, which is a descendant of the class
+TOOL_ELEMENT. As the name of the ancestor already suggests, all currently unused instances
 
 
-objektov TEVENT sú umiestnené v zásobníku – „bazéne správ“. Zásobníkom sa síce zvyšujú
-pamäťové nároky programu, no pri každom vkladaní do fronty správ nie je nutné alokovať
-pamäť na novú správu a pri každom výbere z fronty dealokovať pamäť, čo je zbytočné
-a hlavne časovo náročné. V návrhu sme uprednostnili časové nároky pred pamäťovými –
-inštancia správy sa miesto alokácie a dealokácie vyberie a vloží do zásobníka, čo sú
-primitívne operácie s pointrami.
-Trieda TEVENT obsahuje:
+of TEVENT objects are placed in a pool – the "event pool". The pool does increase
+the memory requirements of the program, but on each insertion into the event queue it is not necessary to allocate
+memory for a new event and on each removal from the queue to deallocate memory, which is unnecessary
+and above all time-consuming. In the design we preferred time requirements over memory requirements –
+instead of allocation and deallocation, an event instance is taken from and put back into the pool, which are
+primitive pointer operations.
+The TEVENT class contains:
 •
 
-adresné položky – jednoznačná identifikácia konkrétnej jednotky,
-o player_id – jednoznačný identifikátor hráča (index do poľa hráčov),
-o unit_id – jednoznačný identifikátor jednotky v rámci hráča. Keďže jednotky
-nie sú v poli, ale v niekoľkých spojových zoznamoch (pretože ich počet je
-veľmi premenlivý) je nutné, aby prevod medzi číslom jednotky a pointrom na
-jednotku bol rýchly (prevod sa pochopiteľne vykonáva s každou správou
-vybranou z fronty). Na prevod je využitá hashovacia tabuľka optimalizovaná
-pre prípad, že identifikátory jednotiek sa postupne zvyšujú. Vychádza sa
-z predpokladu, že staršie jednotky (s menším ID) budú zničené skôr ako
-jednotky s vyšším ID. Každá správa musí mať teda konkrétneho adresáta –
-jednotku.
-
-•
-
-manipulačné položky – určujú do ktorej fronty správ a na aké miesto má byť (je)
-správa zaradená,
-o priority – určuje, či sa má správa zaradiť do prioritnej fronty. Existencia
-prioritnej fronty je dôsledkom toho, že v niektorých prípadoch je nutné, aby
-dva po sebe idúce stavy jednotky neboli prerušiteľné iným stavom,
-o time_stamp – časová značka, kedy má byť správa vybraná z fronty (podľa
-toho je do nej samozrejme vkladaná). Čas sa počíta od spustenia hry a všetky
-počítače ho majú synchronizovaný. Položka zabezpečuje, aby sa akcie tej istej
-jednotky vykonali v správnom poradí a podľa možností v správnom okamihu.
-Z dôvodu nenulového času prenosu správ cez sieťové rozhranie nie je možné
-vo všetkých prípadoch zabezpečiť rovnaké poradie vykonávania akcií dvoch
-jednotiek bežiacich na dvoch rôznych počítačoch,
-o queue_left, queue_right – väzba správy vo fronte (organizovanej ako
-obojsmerný spojový zoznam).
+address fields – unique identification of a concrete unit,
+o player_id – unique player identifier (index into the array of players),
+o unit_id – unique identifier of the unit within the player. Since units
+are not in an array but in several linked lists (because their number is
+highly variable), the conversion between a unit number and a pointer to the
+unit must be fast (the conversion is, of course, performed for every event
+taken from the queue). The conversion uses a hash table optimized
+for the case where unit identifiers increase gradually. It is based
+on the assumption that older units (with a lower ID) will be destroyed sooner than
+units with a higher ID. Each event must therefore have a concrete recipient –
+a unit.
 
 •
 
-dátové položky – informácie pre spracovanie správy jednotkou.
-o event – typ správy (US_XXX, RQ_XXX). Podľa typu správy prebieha jej
-spracovanie,
-o last_event, request_id – pomocné položky, ktoré slúžia na upresnenie
-spracovania správy jednotkou,
-o simple1 – simple, int1, int2 – parametre správy. Prenášajú sa v nich
-všetky potrebné parametre na vykonanie akcie (pozície jednotky na mape, cieľ
-pohybu, cieľ útočenia....).
+handling fields – determine into which event queue and at what position the
+event is to be (is) placed,
+o priority – determines whether the event is to be placed into the priority queue. The existence
+of the priority queue is a consequence of the fact that in some cases it is necessary that
+two consecutive unit states cannot be interrupted by another state,
+o time_stamp – time stamp at which the event is to be taken from the queue (according to
+which it is, of course, inserted into it). Time is counted from the start of the game and all
+computers have it synchronized. The field ensures that actions of the same
+unit are performed in the correct order and, as far as possible, at the correct moment.
+Due to the non-zero transmission time of events over the network interface it is not possible
+in all cases to ensure the same order of execution of actions of two
+units running on two different computers,
+o queue_left, queue_right – link of the event in the queue (organized as a
+doubly linked list).
 
-### 2.4 Generátory správ
+•
 
-Správy sú do fronty zaraďované v princípe zo štyroch zdrojov:
+data fields – information for processing of the event by the unit.
+o event – event type (US_XXX, RQ_XXX). Processing proceeds according to the event
+type,
+o last_event, request_id – auxiliary fields which serve to refine
+the processing of the event by the unit,
+o simple1 – simple, int1, int2 – event parameters. They carry
+all the parameters needed to perform the action (unit positions on the map, movement
+target, attack target....).
+
+### 2.4 Event generators
+
+Events are enqueued, in principle, from four sources:
 
 
 •
 
-správy generované reálnym hráčom – reálny hráč ovláda svoje jednotky myšou
-a klávesnicou a tým generuje správy predávané jednotkám ako informácie o tom, že
-majú začať vykonávať nejakú akciu (generujú sa teda „štartovacie“ správy),
+events generated by the real player – the real player controls his units with the mouse
+and keyboard and thereby generates events passed to the units as information that
+they are to start performing some action (i.e. "starting" events are generated),
 
 •
 
-správy generované počítačovým hráčom – každý počítačový hráč rozhoduje
-o svojich jednotkách z pohľadu správ totožne s reálnym hráčom. Rozdiel je len v tom,
-že nepoužíva klávesnicu a myš, ale neurónové siete,
+events generated by a computer player – each computer player decides
+about its units, from the point of view of events, identically to the real player. The only difference is
+that it does not use the keyboard and mouse but neural networks,
 
 •
 
-správy generované vzdialeným hráčom – správy zaraďované do fronty správ
-prostredníctvom sieťového rozhrania. Ako už bolo vysvetlené, správy prichádzajúce
-zo siete sú „akčné“ a vykonávajú sa bez ohľadu na lokálne podmienky,
+events generated by a remote player – events enqueued into the event queue
+via the network interface. As already explained, events arriving
+from the network are "action" events and are executed regardless of local conditions,
 
 •
 
-správy generované jednotkou ako reakcia na prijatú správu – typicky dostane
-jednotka od hráča len „štartovaciu“ správu (napríklad presuň sa na pozíciu [X,Y,Z]).
-Samotné vykonanie tohto príkazu je rozložené do elementárnych akcií, ktoré si už
-jednotka plánuje sama. Správy, ktoré si jednotka sama generuje sú aj „akčné“
-(zasielajú sa súčasne aj do sieťového rozhrania) a aj „plánovacie“ (testuje sa v nich
-dostupnosť pozícií, existencia iných jednotiek ... a následne plánuje „akčná“ správa).
+events generated by a unit as a reaction to a received event – typically a
+unit receives from the player only a "starting" event (for example move to position [X,Y,Z]).
+The execution of this command itself is decomposed into elementary actions which the
+unit plans itself. Events that the unit generates itself are both "action" events
+(they are also sent simultaneously to the network interface) and "planning" events (they test
+the availability of positions, the existence of other units ... and subsequently plan an "action" event).
 
-Z uvedeného je jasné, že je nutné zabezpečiť, aby bola jednotka v danom okamihu „ovládaná“
-len jedným generátorom správ a nedostávala tak protichodné správy. Program to rieši tak, že
-jednotka môže mať v každom okamihu vo fronte správ len jednu správu typu US_XXX
-(správa meniaca stav jednotky). Znamená to, že ak má jednotka vo fronte správ naplánovaný
-napríklad výpočet ďalšej pozície pohybu (teda sa momentálne pohybuje medzi dvoma
-pozíciami – mapelmi) a užívateľ chce začať s danou jednotkou úplne inú akciu (napríklad
-útok), nová akcia sa naplánuje až v okamihu skončenia predchádzajúcej elementárnej akcie –
-správe, ktorá je vo fronte, sa zmenia len dátové položky (miesto vo fronte a časová značka
-ostanú nezmenené). Existujú však aj výnimky. Príkladom je deštrukcia jednotky, ktorá sa
-musí vykonať okamžite bez ohľadu na správy meniace stav vo fronte jednotky (ktoré budú
-pochopiteľne ignorované).
-Stavy jednotky teda možno z pohľadu prerušiteľnosti rozdeliť na prerušiteľné (regenerácia
-jednotky), neprerušiteľné (pohyb jednotky medzi dvoma mapelmi) a prioritné (deštrukcia
-jednotky).
+From the above it is clear that it is necessary to ensure that a unit is "controlled" at a given moment
+by only one event generator and thus does not receive contradictory events. The program solves this so that
+a unit can have at any moment only one event of type US_XXX in the event queue
+(an event changing the unit's state). This means that if a unit has scheduled in the event queue,
+for example, the computation of the next movement position (i.e. it is currently moving between two
+positions – mapels) and the user wants to start a completely different action with that unit (for example
+an attack), the new action is scheduled only at the moment the previous elementary action ends –
+for the event that is in the queue only the data fields are changed (the position in the queue and the time stamp
+remain unchanged). There are, however, exceptions. An example is the destruction of a unit, which
+must be performed immediately regardless of state-changing events in the unit's queue (which will
+of course be ignored).
+From the point of view of interruptibility, unit states can therefore be divided into interruptible (unit
+regeneration), non-interruptible (unit movement between two mapels) and priority (unit
+destruction).
 
-### 2.5 Spracovanie správ
+### 2.5 Event processing
 
-Celé spracovanie správ beží v samostatnom vlákne. Hlavná funkcia spracovania správ je
-funkcia ProcessFunction(), ktorá v nekonečnom cykle vyberá z fronty správ. V danom
-okamihu sú vyberané všetky správy, ktorých časová značka je menšia ako aktuálny čas
-(prípadne žiadne, ak vo fronte nie sú). Správa je potom predaná na spracovanie príslušnej
-jednotke.
-Ako už v úvode do spracovania správ bolo spomenuté, o jednotkách konkrétnej inštancie hry
-nie je možné predpokladať takmer nič. Avšak podľa akcií, ktoré vykonávajú, ich je možné
-zaradiť do vopred definovaných skupín (útočné jednotky, pracanti, továrne...). Presne takto sú
-typy jednotiek reprezentované aj vnútorne. Existuje hierarchia typov jednotiek, ktorá je
-podrobne popísaná v dokumentácii programových štruktúr, odzrkadľujúca existenciu skupín
-s rozdielnymi vlastnosťami. Niektoré vlastnosti jednotiek sú spoločné (jednotky majú
-rozhľad), niektoré sú špeciálne pre daný typ jednotky (ťaženie materiálov) a niektoré sú
-podobné (strieľanie budov a bojových jednotiek). Táto skutočnosť sa dobre implementuje
-systémom virtuálnych funkcií typov jednotiek.
+All event processing runs in a separate thread. The main event-processing function is
+the function ProcessFunction(), which takes events from the queue in an infinite loop. At a given
+moment all events whose time stamp is less than the current time are taken
+(or none, if there are none in the queue). The event is then passed for processing to the appropriate
+unit.
+As already mentioned in the introduction to event processing, almost nothing can be assumed about the units of a concrete game instance.
+However, according to the actions they perform, they can be
+classified into predefined groups (attack units, workers, factories...). This is exactly how
+unit types are represented internally as well. There is a hierarchy of unit types, which is
+described in detail in the documentation of program structures, reflecting the existence of groups
+with different properties. Some unit properties are common (units have
+a view range), some are special for the given unit type (mining materials) and some are
+similar (shooting of buildings and combat units). This fact is well implemented by
+a system of virtual functions of unit types.
 
 
-#### 2.5.1 Funkcia ProcessEvent
+#### 2.5.1 The ProcessEvent function
 
-Funkcia ProcessEvent(..) je virtuálna funkcia typu jednotky, ktorá spracováva správy
-vyberané z fronty správ. Z pohľadu spracovania správ sa funkcia vnútorne člení na dve časti:
+The function ProcessEvent(..) is a virtual function of the unit type which processes events
+taken from the event queue. From the point of view of event processing, the function is internally divided into two parts:
 •
 
-spracovanie akčných správ (ktoré sa bez akýchkoľvek testov vykonajú) – tieto
-prichádzajú jednak ako reakcie na plánovacie správy jednotiek a jednak zo sieťového
-rozhrania. Táto časť má dôležitú podčasť – synchronizáciu, kde sa synchronizujú
-hlavné vlastnosti jednotky – poloha na mape a natočenie jednotky,
+processing of action events (which are executed without any tests) – these
+arrive both as reactions to the planning events of units and from the network
+interface. This part has an important subpart – synchronization, where the
+main properties of the unit are synchronized – position on the map and unit rotation,
 
 •
 
-spracovanie plánovacích (rozhodovacích) správ (testujú sa všetky podmienky
-a plánuje sa nasledujúci stav jednotky).
+processing of planning (decision) events (all conditions are tested
+and the next unit state is planned).
 
-Plánovacie správy lokálnej jednotky sa spracovávajú vždy len na lokálnom počítači. Niektoré
-akčné správy majú pochopiteľne „plánovaciu dohru“ (po pohybe sa musí jednotke naplánovať
-testovanie nasledujúcej pozície), no tá sa tiež samozrejme vykonáva len pre lokálne jednotky
-na lokálnom počítači.
-Spracovanie akčných správ má dôležitú podčasť – synchronizáciu. Tá zabezpečuje, že
-jednotky na všetkých počítačoch majú rovnakú pozíciu na mape a rovnaké natočenie.
-Z dôvodu nenulového času prenosu správy sieťovým rozhraním a neexistencie centrálnej
-sieťovej autority (servra) sa môže stať, že jednotka zo vzdialeného počítača a lokálna jednotka
-budú chcieť obsadiť tú istú pozíciu na mape. Program to rieši tak, že existujú dvoje súradnice
-jednotiek – skutočné a lokálne. Skutočné sú na všetkých počítačoch vždy rovnaké a lokálne sú
-vždy nastavené tak, aby na lokálnom počítači nedochádzalo ku kolíziám jednotiek. Na nejaký
-(s vysokou pravdepodobnosťou malý) čas sa môže stať, že hráč vidí jednotku na nesprávnom
-mieste, no s ďalšou synchronizačnou správou sa situácia s vysokou pravdepodobnosťou
-napraví a súradnice sa zosynchronizujú správne. Všetky akčné cykly jednotiek (hlavne
-strieľanie, ktoré vyžaduje interakciu dvoch jednotiek) sú prispôsobené existencii lokálnych
-a skutočných súradníc jednotky tak, aby lokálny hráč nespozoroval problém.
+Planning events of a local unit are always processed only on the local computer. Some
+action events naturally have a "planning follow-up" (after a move, testing of the next
+position must be scheduled for the unit), but that too is, of course, performed only for local units
+on the local computer.
+Processing of action events has an important subpart – synchronization. It ensures that
+units on all computers have the same position on the map and the same rotation.
+Due to the non-zero transmission time of an event through the network interface and the absence of a central
+network authority (server), it may happen that a unit from a remote computer and a local unit
+want to occupy the same position on the map. The program solves this by having two sets of coordinates
+for units – real and local. The real ones are always the same on all computers, and the local ones are
+always set so that no unit collisions occur on the local computer. For some
+(with high probability short) time it may happen that the player sees a unit in the wrong
+place, but with the next synchronization event the situation is, with high probability,
+corrected and the coordinates are synchronized correctly. All action cycles of units (mainly
+shooting, which requires the interaction of two units) are adapted to the existence of local
+and real unit coordinates so that the local player does not notice any problem.
 
-### 2.6 Popis akčných cyklov jednotky
+### 2.6 Description of unit action cycles
 
-Vo všetkých diagramoch, ktoré budú nasledovať, je začiatočný bod – zásah hráča do hry –
-označený symbolom počítačovej myši a koncový bod – výsledná správa, prípadne stav –
-podfarbená sivo.
+In all the diagrams that follow, the starting point – the player's intervention in the game – is
+marked with a computer mouse symbol and the end point – the resulting event, or state – is
+shaded grey.
 
-#### 2.6.1 Chodenie
+#### 2.6.1 Walking
 
-Chodenie je ako celok ukážkové, pretože sa v ňom v ideálnom prípade striedajú akčné
-a plánovacie správy. Navyše v prípade, že nastane akýkoľvek problém, sú využité aj žiadosti
-(requesty). Ideálny prípad chodenia nastáva, keď jednotka počas presunu medzi jednotlivými
-mapelmi nenarazí na žiadnu inú jednotku a ani na pre ňu nepriechodný terén. Vtedy sa
-postupne striedajú stavy US_NEXT_STEP a US_MOVE (pripadne US_ROTATING,
-US_LANDING, US_UNLANDING). Stav US_NEXT_STEP je plánovací a testovací. Ako je vidieť
-z diagramu, testuje sa v ňom dostupnosť a obsadenosť nasledujúcej pozície, správne natočenie
-jednotky a ešte niekoľko ďalších (pre samotný algoritmus nedôležitých) vecí.
-V prípade, že nasledujúca pozícia cesty jednotky je obsadená inou jednotkou, jednotka čaká,
-či sa neuvoľní cesta a až po desiatich (definované makrom) pokusoch spočíta inú cestu
-(cyklus US_TRY_TO_MOVE).
-
-
-Zaujímavý je tiež spôsob hľadania cesty. Hľadanie cesty pre jednotku je vo všeobecných
-podmienkach časovo náročné a beží preto v inom (predpripravenom) vlákne. Jednotke sa teda
-pred začiatkom hľadania cesty správou US_WAIT_FOR_PATH oznámi, že má čakať na
-výsledok výpočtu (každý výpočet ma špeciálne jednoznačné číslo). Jednotka v tomto stave
-(US_WAIT_FOR_PATH samozrejme mení stav jednotky) zotrvá, až kým jej nepríde správa
-RQ_PATH_FINDING (zo správnym identifikátorom) z vlákna, ktoré hľadalo cestu. Táto správa
-naštartuje ďalší pohyb jednotky.
-Všetky akčné správy chodenia – US_MOVE, US_RIGHT(LEFT)_ROTATING, US_LANDING,
-US_UNLANDING sa posielajú aj cez sieťové rozhranie na vzdialené počítače, kde sú
-vykonávané.
-
-#### 2.6.2 Útočenie
-
-Strieľanie spolu s ťažením materiálov je pravdepodobne najzložitejší cyklus, pretože v ňom
-musia vzájomne interagovať jednotky dvoch rôznych hráčov, čo kladie zvýšené nároky na
-sieťové rozhranie. Do cyklu vstupujú tri objekty: útočiaca jednotka, náboj, brániaca sa
-jednotka.
-Úloha útočiacej jednotky je dostať sa „na dostreľ“ k cieľu a vystreliť. V ideálnom prípade sa
-teda budú striedať testovací stav US_NEXT_ATTACK a akčné stavy (zasielané aj cez sieťové
-rozhranie) US_ATTACKING, RQ_FIRE_OFF (náboj vyletí z hlavne) a RQ_FEEDING
-(nabíjanie). V menej ideálnom prípade sú prerušované hľadaním cesty a presunom za cieľom.
-Náboj vstupuje do cyklu v okamihu jeho vystrelenia, čo je podchytené správou
-RQ_FIRE_OFF. V tomto okamihu sa náboju naplánujú všetku okamihy, kedy mení segment
-(RQ_CHANGE_SEGMENT) a hlavne okamih a miesto dopadu (RQ_IMPACT), čím sa životný
-cyklus náboja končí. Všetky správy, ktoré sú určené náboju, sú v schéme šrafované.
-V okamihu dopadu náboja sa na každom lokálnom počítači odoberie lokálnym jednotkám,
-ktoré boli dopadom zasiahnuté, časť života (spôsob odobratia je presne popísaný
-v dokumentácii k automatickému strieľaniu) a na vzdialené počítače sa od každej takejto
-jednotky zašle synchronizačná správa RQ_SYNC_LIFE. V prípade, že má jednotka nulový
-život (čo sa kontroluje len na lokálnom počítači), nasleduje „deštrukcia“ jednotky –
-postupnosť stavov US_DYING (umieranie), US_ZOMBIE (rozkladanie) a US_DELETE
-(zrušenie), ktoré sú zasielané aj na vzdialené počítače.
-
-#### 2.6.3 Ťaženie materiálov
-
-Podobne ako strieľanie, kladie ťaženie materiálov zvýšené nároky na sieťové rozhranie,
-pretože vzájomne interagujú jednotky dvoch rôznych hráčov – schémového hráča a reálneho
-hráča, ktorý chce ťažiť. Do cyklu vstupujú dva objekty: pracant a zdroj. V schéme sú akcie
-a stavy pracanta popísané nad vodorovnou čiarou a zdroja pod čiarou.
-Hlavnú líniu pracanta tvorí postupnosť správ US_NEXT_MINE, RQ_CAN_MINE, US_MINING.
-Stav US_NEXT_MINE je testovací a plánovací. Testuje sa v ňom existencia zdroja (či ho
-náhodou niekto nezničil), či je pracant na správnej pozícii...). Ak niečo nie je v poriadku,
-pracant sa pokúsi nájsť vo svojom okolí iný zdroj a začať ťažiť z neho. Ak je všetko OK,
-pracant zašle zdroju žiadosť o vyťaženie jednej jednotky materiálu – správa RQ_CAN_MINE
-(?) a sám čaká na odpoveď.
+Walking as a whole is exemplary, because in the ideal case action
+and planning events alternate in it. Moreover, if any problem occurs, requests are also
+used. The ideal case of walking occurs when the unit, while moving between individual
+mapels, does not bump into any other unit or into terrain impassable for it. Then
+the states US_NEXT_STEP and US_MOVE (or US_ROTATING,
+US_LANDING, US_UNLANDING) alternate. The state US_NEXT_STEP is a planning and testing one. As can be seen
+from the diagram, it tests the availability and occupancy of the next position, the correct rotation
+of the unit and several other things (unimportant for the algorithm itself).
+If the next position on the unit's path is occupied by another unit, the unit waits
+to see whether the way clears, and only after ten (defined by a macro) attempts does it compute another path
+(the US_TRY_TO_MOVE cycle).
 
 
-Ak má zdroj voľnú jednotku, odpovedá pracantovi správou RQ_CAN_MINE (Y) (s príslušným
-identifikátorom otázky), inak odpovedá RQ_CAN_MINE (N). Ak sa zmení množstvo materiálu
-v zdroji, synchronizuje sa správou RQ_SYNC_MAT_AMOUNT.
-Pracant po obdržaní odpovede reaguje buď hľadaním nového zdroja, alebo ďalším cyklom
-ťaženia. V prípade, že pracant vyťažil maximálne množstvo, ktoré je schopný odniesť, nájde
-najbližšiu budovu, ktorá akceptuje daný materiál a odnesie ho.
-Po vyložení materiálu (pomocou cyklu správ US_UNLOADING a US_NEXT_UNLOADING) sa
-pracant automaticky pokúsi ťažiť zo zdroja, z ktorého ťažil naposledy – má ho uložený
-v premennej source.
+The path-finding method is also interesting. Path finding for a unit is, under general
+conditions, time-consuming and therefore runs in another (pre-prepared) thread. So before the
+path search starts, the unit is notified by the event US_WAIT_FOR_PATH that it is to wait for the
+result of the computation (each computation has a special unique number). The unit remains in this state
+(US_WAIT_FOR_PATH, of course, changes the unit's state) until it receives the event
+RQ_PATH_FINDING (with the correct identifier) from the thread that was searching for the path. This event
+starts the further movement of the unit.
+All action events of walking – US_MOVE, US_RIGHT(LEFT)_ROTATING, US_LANDING,
+US_UNLANDING are also sent via the network interface to the remote computers, where they are
+executed.
 
-#### 2.6.4 Stavanie a opravovanie
+#### 2.6.2 Attacking
 
-Pri stavaní a opravovaní musia spolu interagovať dve jednotky toho istého hráča a informácie
-o oboch sa musia posielať aj cez sieťové rozhranie. Všetky stavy popísané v diagrame
-v rámčeku s prerušovaným okrajom sú synchronizačné správy stavanej jednotky a aj pracanta,
-a sú zasielané cez sieťové rozhranie (na lokálnom počítači sa potrebné akcie vykonávajú
-v stavoch pracanta). Stavanie a opravovanie sú algoritmicky úplne rovnaké a líšia sa len
-v detailoch (stav pracanta, ktorý má však rovnaké textúry a zvuky).
-Oba stavy začínajú tým, že sa pracant musí dostať k opravovanej jednotke. Ak sa to nepodarí,
-opravovanie skončí a pracant ostane stáť. Potom už len prebieha cyklus plánovacích
+Shooting, together with mining materials, is probably the most complex cycle, because in it
+units of two different players must interact, which places increased demands on the
+network interface. Three objects enter the cycle: the attacking unit, the projectile, and the defending
+unit.
+The task of the attacking unit is to get "within range" of the target and fire. In the ideal case,
+therefore, the testing state US_NEXT_ATTACK and the action states (also sent via the network
+interface) US_ATTACKING, RQ_FIRE_OFF (the projectile leaves the barrel) and RQ_FEEDING
+(reloading) will alternate. In a less ideal case they are interrupted by path finding and moving after the target.
+The projectile enters the cycle at the moment it is fired, which is captured by the event
+RQ_FIRE_OFF. At this moment all the moments at which the projectile changes segment
+(RQ_CHANGE_SEGMENT) are scheduled for it, and above all the moment and place of impact (RQ_IMPACT), which ends the life
+cycle of the projectile. All events that are intended for the projectile are hatched in the diagram.
+At the moment of the projectile's impact, on each local computer, local units
+hit by the impact lose part of their life (the way of subtracting it is described exactly
+in the documentation on automatic shooting), and a synchronization event RQ_SYNC_LIFE is sent to the remote computers from each such
+unit. If a unit has zero
+life (which is checked only on the local computer), the "destruction" of the unit follows –
+a sequence of states US_DYING (dying), US_ZOMBIE (decomposing) and US_DELETE
+(removal), which are also sent to the remote computers.
+
+#### 2.6.3 Mining materials
+
+Similarly to shooting, mining materials places increased demands on the network interface,
+because units of two different players interact – the scheme player and the real
+player who wants to mine. Two objects enter the cycle: the worker and the source. In the diagram the actions
+and states of the worker are described above the horizontal line and those of the source below the line.
+The main line of the worker is formed by the sequence of events US_NEXT_MINE, RQ_CAN_MINE, US_MINING.
+The state US_NEXT_MINE is a testing and planning one. It tests the existence of the source (whether
+someone has perhaps destroyed it), whether the worker is at the correct position...). If something is not right,
+the worker tries to find another source in its surroundings and start mining from it. If everything is OK,
+the worker sends the source a request to mine one unit of material – the event RQ_CAN_MINE
+(?) and itself waits for the answer.
+
+
+If the source has a free unit, it answers the worker with the event RQ_CAN_MINE (Y) (with the corresponding
+question identifier), otherwise it answers RQ_CAN_MINE (N). If the amount of material
+in the source changes, it is synchronized with the event RQ_SYNC_MAT_AMOUNT.
+After receiving the answer, the worker reacts either by searching for a new source or by another mining
+cycle. If the worker has mined the maximum amount it is able to carry, it finds
+the nearest building that accepts the given material and carries it there.
+After unloading the material (using the cycle of events US_UNLOADING and US_NEXT_UNLOADING) the
+worker automatically tries to mine from the source it mined from last – it has it stored
+in the variable source.
+
+#### 2.6.4 Building and repairing
+
+When building and repairing, two units of the same player must interact, and information
+about both must also be sent via the network interface. All states described in the diagram
+in the box with a dashed border are synchronization events of the unit being built as well as of the worker,
+and they are sent via the network interface (on the local computer the necessary actions are performed
+in the worker's states). Building and repairing are algorithmically completely identical and differ only
+in details (the worker's state, which however has the same textures and sounds).
+Both states begin with the worker having to get to the unit being repaired. If this fails,
+the repair ends and the worker remains standing. Then only a cycle of planning
 (US_NEXT_REPAIRING,
 US_NEXT_CONSTRUCTING)
-a akčných
+and action
 (US_REPAIRING,
-US_CONSTRUCTING) správ, ktorými sa postupne pridáva život a „progress“ (len v prípade
-stavania) opravovanej jednotke. V prípade úspešného dokončenia sa stavanej jednotke zašle
-správa US_STAY.
-Všetky akčné správy – US_CONSTRUCTING, US_REPAIRING, US_STAY sa zasielajú aj na
-vzdialené počítače.
+US_CONSTRUCTING) events runs, which gradually adds life and "progress" (only in the case
+of building) to the unit being repaired. In case of successful completion, the event
+US_STAY is sent to the unit being built.
+All action events – US_CONSTRUCTING, US_REPAIRING, US_STAY are also sent to the
+remote computers.
 
-#### 2.6.5 Vyrábanie nových jednotiek
+#### 2.6.5 Producing new units
 
-Vyrábanie (cvičenie) nových jednotiek sa deje v továrňach. Továreň má možnosť atakovať
-cudzie jednotky (v prípade, že tak bola definovaná) a to aj v prípade, že momentálne vyrába
-nové jednotky. Vyrábanie jednotiek sa teda musí diať „na pozadí“ – nesmie teda meniť stav
-budovy. To je hlavný dôvod, prečo sa používa správa RQ_PRODUCING a nie US_PRODUCING.
-S každou prijatou správou RQ_PRODUCING sa testuje, či má hráč dostatok materiálov, jedla
-a energie, a podľa toho sa vyrábanej jednotke zvýši progress, alebo nie. V každom prípade sa
-však do fronty správ naplánuje ďalšia správa RQ_PRODUCING. Ak je vidieť z diagramu,
-ostatným hráčom sa zasielajú synchronizačné správy RQ_SYNC_PROGRESS.
-Zaujímavý je okamih, keď továreň jednotku vyrobí, no jednotka nemôže z budovy vyjsť
-(napríklad pretože sú pozície obsadené). Vtedy si budova plánuje správy RQ_TRY_TO_LEAVE
-až do vtedy, kým jednotka neopustí budovu.
-Po opustení budovy sa jednotke na lokálnom počítači zašle US_NEXT_STEP (aby korektne
-ostala stáť), no na vzdialených počítačoch sa jednotka len v danom okamihu vytvorí (správa
+Producing (training) new units takes place in factories. A factory can attack
+foreign units (if it was defined that way), even while it is currently producing
+new units. Unit production must therefore happen "in the background" – it must not change the state
+of the building. That is the main reason why the event RQ_PRODUCING is used and not US_PRODUCING.
+With each received RQ_PRODUCING event it is tested whether the player has enough materials, food
+and energy, and accordingly the progress of the unit being produced is increased or not. In any case,
+however, another RQ_PRODUCING event is scheduled in the event queue. As can be seen from the diagram,
+synchronization events RQ_SYNC_PROGRESS are sent to the other players.
+An interesting moment is when the factory has produced a unit but the unit cannot leave the building
+(for example because the positions are occupied). Then the building schedules RQ_TRY_TO_LEAVE events
+until the unit leaves the building.
+After leaving the building, US_NEXT_STEP is sent to the unit on the local computer (so that it correctly
+remains standing), but on the remote computers the unit is merely created at that moment (event
 RQ_CREATE_UNIT).
 
 
-#### 2.6.6 Regenerácia zdrojov a obnovovanie jednotiek
+#### 2.6.6 Source regeneration and unit healing
 
-Regenerácia zdrojov a ozdravovanie jednotiek majú úplne rovnaký princíp, no aplikujú sa na
-iné typy jednotiek a každé zvyšuje inú vlastnosť. Regenerácia sa aplikuje na obnoviteľné
-zdroje a zvyšuje aktuálnu kapacitu zdroja, zatiaľ čo obnovovanie sa aplikuje na pohyblivé
-jednotky (bojové jednotky a pracanti) a zvyšuje život jednotky.
-Čo sa týka správ, obnovovanie využíva US_HEALING a regenerácia US_REGENERATING. Ani
-jedna z týchto správ sa neposiela cez sieťové rozhranie na vzdialené počítače, kam sa
-zasielajú synchronizačné správy RQ_SYNC_LIFE a RQ_SYNC_MAT_AMOUNT. Pre vzdialených
-hráčov je totiž dôležitý iba dôsledok regenerácie a obnovovania, teda to, že sa zvýšila
-kapacita zdroja, prípadne život jednotky.
-Obnovovanie jednotiek sa vykonáva len v prípade, že jednotka stojí, alebo je pristatá
-a zároveň má vlastnosť RAC_HEAL_WHEN_STAY, prípadne RAC_HEAL_WHEN_ANCHOR, ktoré
-sa zadávajú v konfiguračnom súbore. Časy, keď jednotka stála, sa sčítavajú (plánovanie správ
-US_HEALING je tomu prispôsobené).
-Regenerácia zdrojov prebieha len v prípade, že je zdroj obnoviteľný. Prvá jednotka materiálu
-(po tom, čo bol zdroj úplne vyťažený) sa pridáva v inom čase, ako všetky ostatné jednotky
-materiálu. Regenerácia prebieha vždy, keď zdroj nemá plnú kapacitu.
+Source regeneration and unit healing have exactly the same principle, but they are applied to
+different unit types and each increases a different property. Regeneration is applied to renewable
+sources and increases the current capacity of the source, while healing is applied to movable
+units (combat units and workers) and increases the unit's life.
+As far as events are concerned, healing uses US_HEALING and regeneration US_REGENERATING. Neither
+of these events is sent via the network interface to the remote computers, to which
+the synchronization events RQ_SYNC_LIFE and RQ_SYNC_MAT_AMOUNT are sent instead. For remote
+players only the consequence of regeneration and healing is important, i.e. that the
+capacity of the source, or the life of the unit, has increased.
+Unit healing is performed only if the unit is standing or has landed
+and at the same time has the property RAC_HEAL_WHEN_STAY, or RAC_HEAL_WHEN_ANCHOR, which
+are specified in the configuration file. The times when the unit was standing are summed (scheduling of
+US_HEALING events is adapted to this).
+Source regeneration takes place only if the source is renewable. The first unit of material
+(after the source has been completely mined out) is added at a different time than all other units
+of material. Regeneration always takes place when the source is not at full capacity.
 
 
-### 2.7 Schémy akčných cyklov jednotiek
+### 2.7 Diagrams of unit action cycles
 
-#### 2.7.1 Chodenie
+#### 2.7.1 Walking
 
 US_LEFT_ROTATING
 US_RIGHT_ROTATING
 
 +
-Je nutné
-rotovať
+Rotation
+required
 
 US_NEXT_STEP
 
@@ -428,22 +427,22 @@ US_WAIT_FOR_PATH
 
 +
 
-Je terén
-nasledujúcej
-pozície
-prechodný
+Is the terrain
+of the next
+position
+passable
 
 –
 
-Existuje cesta
+Path exists
 *
 
 –
 
 +
 
-Je nasledujúca
-pozícia voľná
+Is the next
+position free
 
 US_MOVE
 US_LANDING
@@ -459,30 +458,30 @@ US_UNLANDING
 
 US TRY TO MOVE
 
-* Plánovanie novej cesty
+* Planning a new path
 US_STAY
 US_ANCHORING
 
 +
 
 
-Posledná
-pozícia
+Last
+position
 
 –
 
 
-#### 2.7.2 Útočenie
+#### 2.7.2 Attacking
 
 US_START_ATTACK
 
 US_NEXT_ATTACK
 
-Existuje
-cieľová
-jednotka
+Does the
+target
+unit exist
 
-Pohyb k cieľovej jednotke
+Movement to the target unit
 
 –
 
@@ -491,9 +490,9 @@ US_ANCHORING
 
 +
 
-Cieľová
-jednotka je na
-dostrel
+Is the target
+unit within
+range
 
 US_END_ATTACK
 
@@ -513,13 +512,13 @@ RQ_IMPACT
 RQ_FIRE_OFF
 RQ_FEEDING
 
-Koniec
+End
 
 –
 
-Je cieľová
-jednotka
-zničená
+Is the target
+unit
+destroyed
 
 US_DYING
 
@@ -528,60 +527,60 @@ US_ZOMBIE
 US_DELETE
 
 
-#### 2.7.3 Ťaženie materiálov
+#### 2.7.3 Mining materials
 US_START_MINE
 
 US_NEXT_STEP
-Pohyb k zdroju
+Movement to the source
 –
 
 US_STAY
 US_ANCHORING
 
-Je pracant pri
-zdroji
+Is the worker at
+the source
 
-Vyloženie
-materiálu
+Unloading
+material
 +
-Pohyb k budove
+Movement to the building
 
 US_NEXT_MINE
 
 US_NEXT_STEP
 +
-Našla sa
-budova
+Building
+found
 
-Je zdroj
-zničený
+Is the source
+destroyed
 
 –
 
 +
 
-Hľadanie
-nového
-zdroja
+Searching for
+a new
+source
 
 +
-Existuje nový
-zdroj
+Does a new
+source exist
 
 –
 
 –
 
-Hľadanie budovy
-akceptujúcej materiál
+Searching for a building
+accepting the material
 
 US_STAY
 US_ANCHORING
 
 US_SEARCH_NEAREST
 +
-Je pracant
-plný
+Is the worker
+full
 
 –
 
@@ -597,27 +596,27 @@ RQ_SYNC_MAT_AMOUNT
 
 +
 
-Môže zdroj
-poskytnúť
-materiál
+Can the source
+provide
+material
 
 
 –
 
 
-Opravovanie a stavanie
+Repairing and building
 
 *
-Existuje ešte jednotka?
-Je jednotka v správnom stave?
-Treba ešte jednotku opravovať?
-Mám dostatok materiálov?
-Mám dostatok energie a jedla?
+Does the unit still exist?
+Is the unit in the correct state?
+Does the unit still need repairing?
+Do I have enough materials?
+Do I have enough energy and food?
 
 US_NEXT_STEP
-Pohyb k stavanej
-(opravovanej)
-jednotke
+Movement to the unit
+being built
+(repaired)
 
 US_START_REPAIR
 
@@ -626,19 +625,19 @@ RQ_UPGRADE_UNIT
 
 +
 
-pri jednotke
+at the unit
 
 US_STAY
 
 +
 
-Jednotka je
-opravená
+The unit is
+repaired
 
 US_REPAIRING
 US_CONSTRUCTING
 
-Pracant je
+The worker is
 
 –
 
@@ -647,7 +646,7 @@ US_NEXT_CONSTRUCTING
 
 +
 
-Je všetko
+Is everything
 OK *
 
 RQ_SYNC_PROGRESS
@@ -656,28 +655,27 @@ RQ_SYNC_LIFE
 
 –
 
-(Jednotka je nedostupná) –
+(The unit is unavailable) –
 
 #### 2.7.4 US_STAY
 US_ANCHORING
 
 
-#### 2.7.5 Vyrábanie novej jednotky
+#### 2.7.5 Producing a new unit
 RQ_PRODUCING
 
 –
 
-Hotovo
+Done
 +
 
-Koniec
+End
 
 +
 
-Môže jednotka
-vyjsť z továrne
+Can the unit
+leave the factory
 –
-
 RQ_CREATE_UNIT
 US_NEXT_STEP
 
@@ -687,695 +685,694 @@ RQ_TRY_TO_LEAVE
 RQ_SYNC_PROGRESS
 
 
-## 3 Štruktúry
+## 3 Structures
 Jiří Krejsa, Peter Knut
 
 
-### 3.1 Úvod
+### 3.1 Introduction
 
-V tejto časti dokumentácie budú popísané základné dátové štruktúry a vzťahy medzi nimi.
+This part of the documentation describes the basic data structures and the relationships between them.
 
-#### 3.1.1 Štruktúry jednotiek
+#### 3.1.1 Unit structures
 
-Z hľadiska
-jednotiek
-sú
-kľúčové dva typy štruktúry.
-Prvá z nich popisuje vlastnosti
-druhu jednotky, ktoré sa
-označujú
-slovom
+From the point of view
+of units,
+two types of structure
+are key.
+The first of them describes the properties
+of a kind of unit, which are
+denoted
+by the word
 ITEM,
-a druhá udržuje informácie
-o konkrétnych
-inštanciách
-týchto druhov. Tieto inštancie
-sú označované slovom UNIT.
-Samozrejme existujú rôzne
-typy druhov jednotiek, pričom
-spolu
-vytvárajú
-stromovú
-hierarchiu. Z vyššie uvedeného
-plynie,
-že
-existujú
-dve
-stromové hierarchie tried.
-Pozrime sa teraz stručne na
-význam jednotlivých tried
-(stromovú štruktúru znázorňuje
-obrázok č.1):
+and the second keeps information
+about the concrete
+instances
+of these kinds. These instances
+are denoted by the word UNIT.
+Of course there are various
+types of unit kinds, which
+together
+form
+a tree
+hierarchy. From the above it
+follows
+that
+there are
+two
+tree hierarchies of classes.
+Let us now look briefly at
+the meaning of the individual classes
+(the tree structure is shown in
+figure no. 1):
 •
 
-TDRAW_ITEM – trieda je
+TDRAW_ITEM – this class is
 
-základným kameňom
-hierarchie,
-obsahuje
-informácie potrebné pre
-vykresľovanie
-jednotiek,
+the cornerstone of the
+hierarchy,
+it contains
+the information needed for
+rendering
+units,
 •
 
-Obrázok 1: Hierarchia tried typov druhov jednotiek.
+Figure 1: Class hierarchy of unit kind types.
 
 TPROJECTILE_ITEM –
 
-trieda uchováva vlastnosti náboja,
+the class stores the properties of a projectile,
 •
 
-TSURFACE_ITEM – trieda sa používa pre objekty, ktoré sú súčasťou mapy. Uchováva
+TSURFACE_ITEM – the class is used for objects that are part of the map. It stores
 
-lokálne zmeny povrchu,
+local changes of the surface,
 •
 
-TMAP_ITEM – trieda je spoločným predkom všetkých objektov, ktoré môžu stáť na
+TMAP_ITEM – the class is the common ancestor of all objects that can stand on the
 
-mape,
+map,
 •
 
-TSOURCE_ITEM – trieda uchováva vlastnosti zdrojov,
-
-•
-
-TBASIC_ITEM – ide o spoločného predka budov a jednotiek. S potomkami tejto triedy
-môže hráč manipulovať,
+TSOURCE_ITEM – the class stores the properties of sources,
 
 •
 
-TFORCE_ITEM – trieda uchováva všetky potrebné informácie o pohyblivých
+TBASIC_ITEM – this is the common ancestor of buildings and units. The player can
+manipulate descendants of this class,
 
-jednotkách. Všetko, s čím môže hráč na mape pohybovať, je inštanciou tejto triedy
-alebo jej potomkom,
+•
+
+TFORCE_ITEM – the class stores all the necessary information about movable
+
+units. Everything the player can move on the map is an instance of this class
+or of its descendant,
 
 
 •
 
 
-TWORKER_ITEM – rozšírenie pohyblivých jednotiek o umožnenie ťažby materiálov,
+TWORKER_ITEM – an extension of movable units enabling mining of materials,
 
-stavanie budov a opravovanie jednotiek,
+building of buildings and repairing of units,
 •
 
-TBUILDING_ITEM – uchováva informácie potrebné pre budovy,
-
-•
-
-TFACTORY_ITEM – rozšírenie budovy o umožnenie výroby pohyblivých jednotiek.
-
-Význam tried je úplne zhodný s významom typov druhov jednotiek. Spomeňme teda v
-krátkosti len triedu, ktorá je v hierarchii naviac.
-•
-
-TPLAYER_UNIT – naviac obsahuje informácie o vlastnení jednotky hráčom.
-
-Obrázok 2: Hierarchia tried inštancií druhov jednotiek.
-
-#### 3.1.2 Štruktúra mapy
-
-V hre sú používané dva druhy mapy:
-•
-
-globálna, ktorá obsahuje úplnú informáciu o mape hry,
+TBUILDING_ITEM – stores the information needed for buildings,
 
 •
 
-lokálna, ktorá sa líši pre každého hráča.
+TFACTORY_ITEM – an extension of a building enabling production of movable units.
 
-##### 3.1.2.1 Lokálna mapa
-
-V lokálnej mape sú udržiavané tri druhy informácie, ktoré majú spoločnú vlastnosť. Týkajú sa
-mapy a každý hráč môže mať tieto informácie odlišné od ostatných hráčov. Mapa je
-
-
-reprezentovaná trojrozmerým poľom štruktúr TLOC_MAP_FIELD. V každom políčku lokálnej
-mapy sú tri dôležité atribúty:
+The meaning of the classes is exactly the same as the meaning of the unit kind types. So let us mention
+briefly only the class that is additional in the hierarchy.
 •
 
-state – vyjadruje viditeľnosť poľa v globálnej mape pre majiteľa lokálnej mapy. Sú
-rozlišované tri druhy hodnôt:
-o WLK_UNKNOWN_AREA (=255) – neznáma oblasť, hráčovi nie sú známe žiadne
-informácie o políčku,
-o WLK_WARFOG (=0) – vyjadruje neznámosť aktuálneho stavu políčka,
-o ostatné kladné čísla (>0 a < 255) – znamenajú plnú znalosť aktuálnych
-informácií o stavu políčka, teda, že je v dohľade aspoň jednej jednotky hráča.
-Hodnota čísla vyjadruje počet jednotiek hráča, ktoré na dané políčko vidia.
+TPLAYER_UNIT – additionally contains information about the unit being owned by a player.
+
+Figure 2: Class hierarchy of unit kind instances.
+
+#### 3.1.2 Map structure
+
+Two kinds of map are used in the game:
+•
+
+global, which contains complete information about the game map,
 
 •
 
-terrain_id – druh terénu. Opäť sú rozlišované tri základné typy:
-o WLK_UNKNOWN_AREA (=255) – hráčovi je terén neznámy, táto situácia nastáva
-len pokiaľ je to zároveň pre hráča neznáma oblasť,
-o nezáporné čísla menšie ako sto – podľa hráčových informácií je na políčku
-s týmto terrain_id terén uvedeného typu, pričom hodnoty typov sa zhodujú
-s hodnotami používanými v globálnej mape,
-o nezáporné čísla od sto do dvesto – podľa hráčových informácií je na políčku
-s touto hodnotou terén typu „aktuálna hodnota – 100“, na ktorom stojí budova.
+local, which differs for each player.
+
+##### 3.1.2.1 Local map
+
+The local map maintains three kinds of information that have a common property. They concern
+the map, and each player can have this information different from other players. The map is
+
+
+represented by a three-dimensional array of TLOC_MAP_FIELD structures. Each field of the local
+map has three important attributes:
+•
+
+state – expresses the visibility of the field in the global map for the owner of the local map. Three
+kinds of values are distinguished:
+o WLK_UNKNOWN_AREA (=255) – unknown area, the player knows no
+information about the field,
+o WLK_WARFOG (=0) – expresses that the current state of the field is unknown,
+o other positive numbers (>0 and < 255) – mean full knowledge of the current
+information about the state of the field, i.e. that it is within sight of at least one of the player's units.
+The value of the number expresses the number of the player's units that see the given field.
 
 •
 
-player_id – vyjadruje id hráča, ktorý na poli je podľa hráčových informácií. Rozlišuje
-dva druhy hodnôt:
-o WLK_EMPTY_FIELD (=255) – na políčku nestojí žiaden hráč, teda políčko je
-prázdne,
-o iná hodnota – vyjadruje ID hráča, toto ID je rovné indexu v globálnom poli
-hráčov.
-
-##### 3.1.2.2 Globálna mapa
-
-Obsahuje informácie odpovedajúce skutočnému stavu hry. Na každom počítači pripojenom do
-hry (pri sieťovej hre) je jej kopia. Tieto kópie sú synchronizované pomocou správ, ktoré si
-jednotky vymieňajú.
-Globálna mapa (TMAP) obsahuje predovšetkým pole troch segmentov, pole troch zoznamov
-jednotiek pre každý segment a štruktúru hospodáriacu s warfogom. Každý segment
-(TMAP_SEGMENT) ďalej obsahuje polia fragmentov, objektov a vrstiev patriacich do tohto
-segmentu, a dvojrozmerné pole s povrchom segmentu. Povrch segmentu (TMAP_SURFACE)
-zahŕňa pre jedno políčko mapy tri položky:
-•
-
-identifikátor terénu,
+terrain_id – terrain kind. Again three basic types are distinguished:
+o WLK_UNKNOWN_AREA (=255) – the terrain is unknown to the player; this situation occurs
+only if it is at the same time an unknown area for the player,
+o non-negative numbers less than one hundred – according to the player's information, the field
+with this terrain_id has terrain of the given type, where the type values correspond
+to the values used in the global map,
+o non-negative numbers from one hundred to two hundred – according to the player's information, the field
+with this value has terrain of type "current value – 100", on which a building stands.
 
 •
 
-jednotku stojacu na políčku,
+player_id – expresses the id of the player who is on the field according to the player's information. It distinguishes
+two kinds of values:
+o WLK_EMPTY_FIELD (=255) – no player stands on the field, i.e. the field is
+empty,
+o another value – expresses the player ID; this ID equals the index in the global array
+of players.
+
+##### 3.1.2.2 Global map
+
+Contains information corresponding to the real state of the game. Every computer connected to the
+game (in a network game) has a copy of it. These copies are synchronized using events that
+units exchange.
+The global map (TMAP) contains above all an array of three segments, an array of three lists
+of units for each segment and a structure managing the warfog. Each segment
+(TMAP_SEGMENT) further contains arrays of fragments, objects and layers belonging to that
+segment, and a two-dimensional array with the surface of the segment. The segment surface (TMAP_SURFACE)
+includes three items for one map field:
+•
+
+terrain identifier,
 
 •
 
-aktivitu pre každého hráča. Táto aktivita sa využíva pre rozhodovanie počítačového
-hráča.
+the unit standing on the field,
 
-Zoznamy jednotiek pre každý segment slúžia pre zoraďovanie a vykresľovanie jednotiek.
+•
 
+activity for each player. This activity is used for the decision-making of the computer
+player.
 
-#### 3.1.3 Štruktúry hráčov
-
-Existujú dva typy hráčov: obyčajný (ľudský) hráč reprezentovaný triedou TPLAYER
-a počítačový hráč reprezentovaný triedou TCOMPUTER_PLAYER. Každý hráč obsahuje
-informácie o svojom stave, zoznam jednotiek, ktoré mu patria a nástroje pre hľadanie cesty.
-Počítačový hráč má naviac informácie a nástroje pre rozhodovanie pomocou neurónových
-sietí.
+The unit lists for each segment serve for sorting and rendering units.
 
 
-## 4 ALGORITMUS
-CHODENIA
+#### 3.1.3 Player structures
+
+There are two types of players: an ordinary (human) player represented by the class TPLAYER
+and a computer player represented by the class TCOMPUTER_PLAYER. Each player contains
+information about its state, a list of units that belong to it and tools for path finding.
+The computer player additionally has information and tools for decision-making using neural
+networks.
+
+
+## 4 WALKING
+ALGORITHM
 Valéria Šventová
 
 
-### 4.1 Úvod
+### 4.1 Introduction
 
-Chodenie všetkých typov jednotiek zabezpečuje volanie funkcie PathFinder(..). Táto
-funkcia dostane prostredníctvom parametrov zadané informácie o jednotke, ktorá sa má
-pohnúť (pointer na danú jednotku), informácie o teréne (pointer na lokálnu mapu) a tiež
-súradnice cieľa. Na výstupe vráti nájdenú cestu a prípadne nový cieľ. Nový cieľ je políčko
-mapy, ktoré je najbližšie pôvodnému cieľu cesty a je vždy jednotkou dosiahnuteľné (jednotka
-doňho môže dôjsť). Ako príklad slúži poslanie jednotky do nedostupného cieľa (napríklad
-obkoleseného skalami, prípadne terénom, ktorý jednotka nemôže nijak obísť, aby sa dostala
-k cieľu.).
-O tom, akým spôsobom je možné panáčika donútiť k pohybu pojednáva užívateľský manuál
-k hre Dark Oberon (užívateľská dokumentácia).
-V projekte sú rozlíšené dva typy, resp. spôsoby chodenia:
+Walking of all unit types is handled by calling the function PathFinder(..). This
+function receives via its parameters information about the unit that is to
+move (a pointer to the given unit), information about the terrain (a pointer to the local map) and also
+the coordinates of the target. On output it returns the found path and possibly a new target. The new target is the map
+field that is closest to the original target of the path and is always reachable by the unit (the unit
+can walk to it). An example is sending a unit to an unreachable target (for example one
+surrounded by rocks, or by terrain which the unit cannot get around in any way to reach
+the target.).
+How a little man can be made to move is described in the user manual
+for the game Dark Oberon (user documentation).
+Two types, or ways, of walking are distinguished in the project:
 •
 
-chodenie jednotlivca,
-
-•
-
-chodenie skupín.
-
-V oboch prípadoch sa používa modifikovaný A*algorimtus, popísaný v nasledujúcom
-odstavci.
-
-### 4.2 A* algoritmus – podstata fungovania
-
-A * algoritmus slúži k nájdeniu najkratšej cesty na mape. Jeho výkonnosť je vysoká a patrí
-medzi najlepšie vyhľadávacie algoritmy.
-Vstupné informácie sú:
-•
-
-znalosť veľkosti mapy (je nutné, aby mapa bola rozdelená na políčka),
+walking of an individual,
 
 •
 
-priestupnosť všetkých jej políčok (políčka rozdelíme na priestupné a nepriestupné),
+walking of groups.
+
+In both cases a modified A* algorithm is used, described in the following
+paragraph.
+
+### 4.2 A* algorithm – the principle of operation
+
+The A* algorithm serves to find the shortest path on a map. Its performance is high and it is one of
+the best search algorithms.
+The input information is:
+•
+
+knowledge of the map size (the map must be divided into fields),
 
 •
 
-súradnice počiatku a cieľa cesty.
+the passability of all its fields (we divide fields into passable and impassable),
 
-#### 4.2.1 Určenie cesty
+•
 
-Pre určenie cesty je potrebné ohodnotiť jednotlivé políčka. Ohodnotenie sa určuje zo vzťahu:
+the coordinates of the start and target of the path.
+
+#### 4.2.1 Determining the path
+
+To determine the path, the individual fields need to be evaluated. The evaluation is determined from the relation:
 
 F = G + H (+D)
-kde:
-F – koeficient vzdialenosti
-G – vzdialenosť práve ohodnocovaného políčka od štartového políčka
-H – vzdialenosť práve ohodnocovaného políčka od cieľového políčka
-D – obtiažnosť políčka
-Dôvod takéhoto ohodnotenia spočíva v tom, že kratšia cesta sa považuje za lepšiu.
-POZNÁMKA: Základný a najjednoduchší A* algoritmus pracuje na mape, ktorej všetky
-políčka majú rovnakú obtiažnosť, preto uvádzame D vo vyššie uvedenom vzorci len
-v zátvorkách.
+where:
+F – distance coefficient
+G – distance of the currently evaluated field from the start field
+H – distance of the currently evaluated field from the target field
+D – difficulty of the field
+The reason for such an evaluation lies in the fact that a shorter path is considered better.
+NOTE: The basic and simplest A* algorithm works on a map all of whose
+fields have the same difficulty, which is why we give D in the formula above only
+in parentheses.
 
 
-#### 4.2.2 Využívané štruktúry
+#### 4.2.2 Structures used
 
-A* algoritmus využíva 2 základné množiny:
+The A* algorithm uses 2 basic sets:
 •
 
-Open set – organizovaná ako halda, obsahuje všetky uzly (políčka mapy), ktoré už
-boli algoritmom ohodnotené, ale neboli ešte vybraté do konečnej cesty
-
-•
-
-Close set -- organizovaná ako zotriedený zoznam, obsahuje všetky uzly, ktoré už boli
-ohodnotené a boli vybraté do cieľovej cesty. Každý prvok tejto množiny bol vybratý
-z Open set ako prvok s minimálnym ohodnotením.
-
-#### 4.2.3 Práca A* algoritmu
-
-A* algoritmus pracuje nasledovne:
-Pridá štartové políčko do Open set (hodnota G je 0). Prevádza sa cyklus cez všetky políčka
-Open množiny a to až do okamihu, kým nie je prázdna. Pokiaľ algoritmus skončí týmto
-spôsobom, cesta do pôvodného cieľa nie je nájdená. V spomínanom cykle sa vykonáva:
-•
-
-Vyber minimálnu položku z Open (v prípade haldy je táto položka v koreni).
+Open set – organized as a heap, contains all nodes (map fields) that have already
+been evaluated by the algorithm but have not yet been selected into the final path
 
 •
 
-Pridaj vybratú položku do množiny Close
+Close set -- organized as a sorted list, contains all nodes that have already been
+evaluated and have been selected into the target path. Each element of this set was selected
+from the Open set as the element with the minimal evaluation.
+
+#### 4.2.3 Operation of the A* algorithm
+
+The A* algorithm works as follows:
+It adds the start field to the Open set (the G value is 0). A loop is performed over all fields
+of the Open set until it is empty. If the algorithm ends in this
+way, the path to the original target has not been found. In the mentioned loop the following is performed:
+•
+
+Select the minimal item from Open (in the case of a heap this item is at the root).
 
 •
 
-Pokiaľ je táto položka cieľovým políčkom, algoritmus končí, cesta bola nájdená.
-V opačnom prípade dôjde k ohodnoteniu všetkých susedných políčok vybraného
-políčka a k ich pridaniu do množiny Open (resp. k zaradeniu do haldy)
+Add the selected item to the Close set
 
-### 4.3 Modifikácie algoritmu chodenia
+•
 
-V projekte Dark Oberon je A* algoritmus použitý s niekoľkými drobnými zmenami a to
-najmä za účelom zvýšenia rýchlosti či predchádzaniu možného zacyklenia.
-1. V hre je použitý systém 3 horizontálnych segmentov, v ktorých sa dané jednotky
-môžu pohybovať (pokiaľ majú takúto schopnosť nadefinovanú v konfiguračnom
-súbore). Bolo žiadúce, aby jednotka mohla prechádzať z jedného segmentu do
-druhého, ak je takto zostavená cesta pre ňu výhodnejšia. Z tohto dôvodu sa u každého
-políčka vkladaného do Close množiny neohodnocujú len susedia vo význame 2D
-(teda tie, ktoré majú od daného políčka súradnice x, y +1 resp. –1), ale susedia vo
-význame 3D (tretiu súradnicu definuje segment).
-2. Ohodnocovanie políčok je komplikovanejšie ako to v základnej verzii A* algoritmu.
-Dôvodov je niekoľko: použitie warfogu (políčka doposiaľ neobjavené dostávajú
-špeciálne ohodnotenie), rôzne typy jednotiek (každý typ jednotky má nadefinovaný
-vlastný rozsah terénu, ktorý je pre jednotku prípustný. Políčka s terénom mimo tento
-rozsah sú pre jednotku neprístupné, naviac jednotlivé typy jednotiek sa na danom
-povrchu môžu pohybovať inak rýchlo), atď. Políčka sú v mape rozdelené na:
-a. Prípustné pohybové – jedná sa o políčka, ktoré nie sú mimo mapu, jednotka
-na tieto políčka smie vstúpiť, políčko nie je obsadené nepriateľskou jednotkou
-(v projekte označené ako moveable),
-b. Prípustné pristávacie - políčka, ktoré nie sú mimo mapu, nie sú obsadené
-nepriateľskou jednotkou, a daná jednotka ich má v zozname políčok, na
-ktorých môže pristáť (v projekte označené ako landable),
-c. Neprípustné - pre jednotku nepovolené.
+If this item is the target field, the algorithm ends, the path has been found.
+Otherwise all neighbouring fields of the selected
+field are evaluated and added to the Open set (i.e. inserted into the heap)
 
+### 4.3 Modifications of the walking algorithm
 
-Nazvime políčko, ktorého susedov sa snažíme ohodnotiť, centrálnym políčkom.
-Potom je ohodnotenie susedného políčka dané súčtom:
+In the Dark Oberon project the A* algorithm is used with several minor changes, mainly
+in order to increase speed or prevent possible infinite looping.
+1. The game uses a system of 3 horizontal segments in which the given units
+can move (if they have such an ability defined in the configuration
+file). It was desirable for a unit to be able to pass from one segment to
+another if a path composed this way is more advantageous for it. For this reason, for each
+field inserted into the Close set not only the neighbours in the 2D sense are evaluated
+(i.e. those whose x, y coordinates differ from the given field by +1 or –1), but neighbours in the
+3D sense (the third coordinate is defined by the segment).
+2. The evaluation of fields is more complicated than in the basic version of the A* algorithm.
+There are several reasons: the use of warfog (fields not yet discovered receive
+a special evaluation), different unit types (each unit type has its own defined
+range of terrain that is admissible for the unit. Fields with terrain outside this
+range are inaccessible for the unit; moreover, individual unit types may move at different speeds on a given
+surface), etc. Fields in the map are divided into:
+a. Admissible for movement – these are fields that are not outside the map, the unit
+may enter these fields, and the field is not occupied by an enemy unit
+(denoted moveable in the project),
+b. Admissible for landing - fields that are not outside the map, are not occupied
+by an enemy unit, and the given unit has them in its list of fields on
+which it can land (denoted landable in the project),
+c. Inadmissible - not allowed for the unit.
+
+Let us call the field whose neighbours we are trying to evaluate the central field.
+Then the evaluation of a neighbouring field is given by the sum:
 
 C + D + H
-kde
-C – reálna vzdialenosť centrálneho políčka od štartu
-D – diagonálna vzdialenosť: závisí na polohe políčka vzhľadom k centrálnemu
-políčku.
-Označme: a – obtiažnosť terénu, s – rýchlosť jednotky v segmente. Potom
-D=a*odmocnina(2)/s pokiaľ
-sa
-ohodnocované
-políčko
-nachádza
-v diagonálnom smere od centrálneho políčka, D=a/s pokiaľ sa políčko nachádza od
-centrálneho políčka v priamom smere, D=2*a/s pokiaľ sa políčko nachádza vo
-vertikálnom smere od centrálneho políčka.
-H – heuristický odhad vzdialenosti daného políčka od cieľa
-POZNÁMKA: pri políčkach, kde sa dá pristáť, sa diagonálna vzdialenosť násobí
-naviac penalizačnou konštantou, ktorá vyjadruje obtiažnosť pristávacieho manévru.
-Použiť pristávacie políčko je možné len na posledný krok cesty.
-3. Cieľové políčka: V A* algoritme bol cieľ vždy reprezentovaný len jedným políčkom.
-V projekte Dark Oberon je cieľová oblasť rôzne modifikovaná v závislosti na tom, či
-užívateľ za cieľ označil inú jednotku, alebo len políčko na mape, na ktorom žiadna
-jednotka nestojí. V druhom prípade je cieľové políčko len jedno. V prvom prípade
-cieľová oblasť obsahuje políčka pod jednotkou, na ktorú užívateľ klepol a naviac
-všetky políčka okolo tejto jednotky do takej vzdialenosti, aby jednotka, pre ktorú sa
-cesta hľadá, bola v susedstve s jednotkou, na ktorú užívateľ klepol. Jednotka je teda
-v cieli v prípade, ak svojím ľavým dolným rohom zasahuje do cieľovej oblasti.
-(Obrázok 3).
+where
+C – the real distance of the central field from the start
+D – diagonal distance: depends on the position of the field relative to the central
+field.
+Let: a – terrain difficulty, s – unit speed in the segment. Then
+D=a*sqrt(2)/s if
+the
+evaluated
+field
+lies
+in a diagonal direction from the central field, D=a/s if the field lies in a
+straight direction from the central field, D=2*a/s if the field lies in the
+vertical direction from the central field.
+H – heuristic estimate of the distance of the given field from the target
+NOTE: for fields where landing is possible, the diagonal distance is additionally multiplied
+by a penalty constant which expresses the difficulty of the landing manoeuvre.
+A landing field can be used only for the last step of the path.
+3. Target fields: In the A* algorithm the target was always represented by only one field.
+In the Dark Oberon project the target area is modified in various ways depending on whether
+the user marked another unit as the target, or just a field on the map on which no
+unit stands. In the second case there is only one target field. In the first case the
+target area contains the fields under the unit the user clicked on and additionally
+all fields around this unit up to such a distance that the unit for which the
+path is being searched would be adjacent to the unit the user clicked on. The unit is therefore
+at the target if its lower-left corner reaches into the target area.
+(Figure 3).
 
-Obrázok 3: Cieľová množina pre pohybujúcu sa jednotku rozmerov 3x3
+Figure 3: Target set for a moving unit of size 3x3
 
-4. Cieľ: v projekte Dark Oberon sa pri hľadaní cesty zapamätáva políčko, ktoré je
-najbližšie cieľu zo všetkých políčok množiny close. Toto políčko sa použije ako
-náhradný cieľ v prípade, že pôvodný cieľ je pre pohybujúcu sa jednotku
-nedosiahnuteľný.
-5. Na rozdiel od klasického A* algoritmu sa používa okrem množín Open a Close aj
-množina Path, ktorá obsahuje všetky políčka, ktoré sa budú vyskytovať vo výslednej
-ceste, pokiaľ bude nájdenie tejto cesty úspešné.
+4. Target: in the Dark Oberon project, during path finding the field that is
+closest to the target of all fields of the close set is remembered. This field is used as a
+substitute target in case the original target is
+unreachable for the moving unit.
+5. Unlike the classic A* algorithm, besides the Open and Close sets a
+Path set is also used, which contains all fields that will appear in the resulting
+path, if finding this path is successful.
 
 
-### 4.4 Chodenie jednotiek
+### 4.4 Walking of units
 
-Ako už bolo spomenuté v odseku 1, dochádza k rozlíšeniu chodenia jednej jednotky a
-chodenia skupiny jednotiek.
+As already mentioned in paragraph 1, walking of a single unit and
+walking of a group of units are distinguished.
 
-#### 4.4.1 Chodenie jednotlivca
+#### 4.4.1 Walking of an individual
 
-Algoritmus na nájdenie cesty pre jednu jednotku je modifikáciou A* algoritmu. Pokiaľ
-jednotka má spočítanú nejakú cestu z predchádzajúceho volania funkcie PathFinder, táto
-cesta je zničená a je nahradená novou.
+The algorithm for finding a path for a single unit is a modification of the A* algorithm. If
+the unit has some path computed from a previous call of the PathFinder function, this
+path is destroyed and replaced by a new one.
 
-#### 4.4.2 Chodenie skupiny jednotiek
+#### 4.4.2 Walking of a group of units
 
-Pri hľadaní cesty pre viac označených jednotiek, ktoré tvoria formáciu, sa PathFinder
-nevolá pre každú jednotku tejto formácie zvlášť. Celá formácia sa rozdelí na jednu alebo
-viacero skupín (toto rozdelenie zabezpečuje funkcia GetGroup). Rozdeľovanie do skupín
-prebieha tak, že sa vezme vždy prvá jednotka zo zoznamu jednotiek a k nej sa nájdu všetky
-jednotky rovnakého typu, ktoré od tejto jednotky nemajú príliš veľkú vzdialenosť. Zároveň sa
-tieto jednotky vyberú zo zoznamu jednotiek, takže pri hľadaní ďalšej skupiny sa s nimi už
-nepočíta. V jednej takejto skupine sa nájde tzv. leader, t.j. jednotka, pre ktorú existuje cesta do
-cieľa. Pre každú jednotku skupiny sa následne spočíta jej posunutie vzhľadom k leadrovi
-a cesta tejto jednotky je rovná ceste leadra plus príslušné posunutie. Pokiaľ by niektorej
-jednotke zo skupiny pri pokuse o pohyb podľa „posunutej cesty“ stála v ceste prekážka,
-jednotka si od tejto prekážky do cieľa spočíta cestu už nezávisle na ostatných jednotkách
-skupiny a to volaním funkcie PathFinder.
-Dôvodom takéhoto rozdeľovania do skupín bola snaha zvýšiť rýchlosť pri počítaní cesty pre
-skupinu.
+When searching for a path for multiple selected units that form a formation, PathFinder
+is not called for each unit of this formation separately. The whole formation is divided into one or
+more groups (this division is handled by the function GetGroup). The division into groups
+proceeds by always taking the first unit from the unit list and finding for it all
+units of the same type which are not too far away from this unit. At the same time
+these units are removed from the unit list, so that they are no longer considered when searching for the next group.
+In one such group a so-called leader is found, i.e. a unit for which a path to the
+target exists. For each unit of the group its offset relative to the leader is then computed,
+and the path of this unit equals the leader's path plus the corresponding offset. If some
+unit of the group encountered an obstacle when attempting to move along the "shifted path",
+the unit computes a path from this obstacle to the target independently of the other units
+of the group, by calling the PathFinder function.
+The reason for such a division into groups was the effort to increase the speed of path computation for
+a group.
 
-### 4.5 Návratové hodnoty funkcie PathFinder
+### 4.5 Return values of the PathFinder function
 
-Ako už bolo popísané na začiatku tejto dokumentácie, funkcia PathFinder vracia pointer na
-nájdenú cestu (path), a reálny cieľ, t.j. políčko najbližšie pôvodnému cieľu cesty, ktoré je ale
-pre jednotku dostupné. Nájdená cesta i reálny cieľ sú parametrami predávanými odkazom.
-Funkcia PathFinder vracia typ boolean, ako návratovú hodnotu. FALSE vráti v prípade, že:
+As already described at the beginning of this documentation, the PathFinder function returns a pointer to the
+found path (path), and the real target, i.e. the field closest to the original target of the path which is, however,
+reachable for the unit. The found path and the real target are parameters passed by reference.
+The PathFinder function returns a boolean type as its return value. It returns FALSE if:
 •
 
-Vstupné parametre nie sú prípustné (pointer na pohybujúcu sa jednotku je NULL
-a pod.)
-
-•
-
-Cieľové a štartové políčko je zhodné
+The input parameters are not admissible (the pointer to the moving unit is NULL
+etc.)
 
 •
 
-Cestu pre danú jednotku nebolo možné zostaviť
-
-Pokiaľ nenastáva ani jedna zo spomínaných situácií, funkcia PathFinder vráti TRUE.
-
-### 4.6 Chodenie a imlementácia do vlákien
-
-Celý proces chodenia bol za účelom zvýšenia rýchlosti výpočtu cesty implementovaný do
-vlákien. V hlavnom vlákne beží hra, pre výpočet cesty sa vezme z bazénu vlákien čakajúce
-vlákno, ktoré dostane za úlohu nájsť cestu pre danú jednotku. Podrobnejší popis celkového
-
-
-fungovania vlákien je možné nájsť v sekcii o funkcii ProcessEvent, prípadne v sekcii
-o bazéne vlákien.
-
-### 4.7 Implementačné detaily funkcie PathFinder
-
-Dáta a metódy pre modifikovaný A* algoritmus zapúzdruje trieda TA_STAR_ALG. Udržiava
-pointer na tzv. star_mapu, do ktorej sa zaznamenávajú hodnoty políčok v procese hľadania
-cesty a ktorá je implementovaná ako pointer na triedu TA_STAR_MAP. Táto trieda už
-predstavuje samotnú mapu v 3D (šírka, výška, segmenty). Mapa sa pre danú jednotku alokuje
-za nasledujúcich podmienok:
-•
-
-Dané vlákno prvý krát vykonáva funkciu PathFinder, t.j. nemá naalokované políčka
-star mapy
+The target and start fields are identical
 
 •
 
-Aktuálna mapa nemá odpovedajúce rozmery - v tomto prípade sa táto mapa uvoľní
-a je naalokovaná mapa nová so žiadanými rozmermi. Táto situácia nastáva, pokiaľ
-vlákno po prvý krát vykonáva funkciu PathFinder v novej hre a už sa pred tým
-v tomto spustení programu hrala iná hra s inak veľkou mapou
+A path for the given unit could not be constructed
 
-ZHRNUTIE: Z už spomínaného vyplýva, že sa jedná o lenivú implementáciu a naalokované
-mapy sa prenášajú medzi rôznymi spusteniami hry (pozor, nie aplikácie). Pokiaľ je už
-naalokovaná mapa prípustná, dôjde iba k jej vyčisteniu (funkcia ResetMap).
-Trieda TA_STAR_ALG si okrem star mapy tiež udržiava informácie o Open a Close množinách
-(open set, close set, path množina). Množina Open je ogranizovaná ako halda v poli,
-minimum vyberá funkcia ExtractMinOpenSet, vkladanie do Open set je úlohou
+If none of the mentioned situations occurs, the PathFinder function returns TRUE.
+
+### 4.6 Walking and implementation in threads
+
+The whole walking process was implemented in threads in order to increase the speed of path computation.
+The game runs in the main thread; for path computation a waiting thread is taken from the thread pool
+and is given the task of finding a path for the given unit. A more detailed description of the overall
+
+
+operation of threads can be found in the section on the ProcessEvent function, or in the section
+on the thread pool.
+
+### 4.7 Implementation details of the PathFinder function
+
+The data and methods for the modified A* algorithm are encapsulated by the class TA_STAR_ALG. It keeps
+a pointer to the so-called star_map, into which field values are recorded during the path-finding
+process and which is implemented as a pointer to the class TA_STAR_MAP. This class already
+represents the map itself in 3D (width, height, segments). The map for a given unit is allocated
+under the following conditions:
+•
+
+The given thread executes the PathFinder function for the first time, i.e. it has no allocated
+star map fields
+
+•
+
+The current map does not have the corresponding dimensions - in this case this map is freed
+and a new map with the required dimensions is allocated. This situation occurs when
+the thread executes the PathFinder function for the first time in a new game and another game with
+a differently sized map has already been played before in this run of the program
+
+SUMMARY: From the above it follows that this is a lazy implementation and allocated
+maps are carried over between different game runs (note, not application runs). If the
+already allocated map is admissible, it is only cleared (function ResetMap).
+Besides the star map, the class TA_STAR_ALG also keeps information about the Open and Close sets
+(open set, close set, path set). The Open set is organized as a heap in an array,
+the minimum is extracted by the function ExtractMinOpenSet, insertion into the Open set is the task of
 InsertToOpenSet.
-Množina Close je poľom s rozmermi [počet segmetov*širka mapy* výška mapy +1], alokuje
-sa dynamicky v konštruktore triedy TA_STAR_ALG. Vyplnené políčko tohto poľa ukazuje
-pointrom na nejaké políčko v star mape. Zároveň dané políčko star mapy si v premennej
-p_heap_fld udržiava adresu daného políčka v štruktúre, do ktorej bolo políčko zaradené
-(Open alebo Close set).
-Najlepšie sa táto situácia obrazne popíše obrázkom 4 (je zachytená situácia, pri ktorej políčko
-mapy ukazuje na políčko množiny Close, môže však rovnako ukazovať na políčko množiny
-Open):
+The Close set is an array with dimensions [number of segments*map width* map height +1]; it is allocated
+dynamically in the constructor of the class TA_STAR_ALG. A filled field of this array points
+with a pointer to some field in the star map. At the same time, the given star map field keeps in the variable
+p_heap_fld the address of the given field in the structure into which the field was placed
+(Open or Close set).
+This situation is best described graphically by figure 4 (it captures a situation in which a
+map field points to a field of the Close set, but it can equally point to a field of the
+Open set):
 
-Obrázok 4: Prepojenie star mapy a množiny Close
-
-
-Takáto štruktúra bola zvolená najmä z dôvodu potreby rýchleho zostavenia výslednej cesty.
-Výsledná cesta je zostavená metódou CreatePathList triedy TA_STAR_ALG. Táto funkcia
-dostáva ako parametre cieľ a štart cesty a vráti ako návratovú hodnoty pointer na prvé políčko
-cesty, prípadne NULL, pokiaľ cestu nie je možné zostaviť. Na začiatku najprv dôjde
-k vytvoreniu inštancie triedy TPATH_LIST, ktorá zapúzdruje metódy a premenné týkajúce sa
-výslednej cesty.
-Štruktúru uchovávajúcu výslednú cestu popisuje obrázok č.5.:
-
-Obrázok 5: PathList
-
-POZNÁMKA: K vzniku inštancie štruktúry TPATH_NODE dôjde po zaplnení už existujúcich
-inštancií, t.j. po zaplnení všetkých prvkov poľa path_pos (na obrázku znázornené tmavo
-sivou farbou). Novovzniknutá inštancia je zaradená na začiatok zoznamu. Nakoľko
-zostavovanie cesty prebieha od cieľa smerom k štartu, je pozícia štartového a cieľového
-políčka, popísaná na obrázku, logická. Rovnako je z procesu vzniku tohto zoznamu zrejmé, že
-pole path_pos prvého prvku zoznamu môže zostať čiastočne nevyplnené. Preto z dôvodu
-rýchlosti bola na uchovanie prvého zaplneného políčka využitá samostatná premenná first.
-Dôvodom vzniku takejto štruktúry bol fakt, že cesta pre danú jednotku si vo veľkej väčšine
-nevyžiada vznik viac ako jednej inštancie štruktúry TPATH_NODE (tá obsiahne až 256 krokov
-cesty), čo je úsporné z hľadiska alokácie. Používanie tejto štruktúry má naviac dobré výsledky
-z hľadiska rýchlosti.
+Figure 4: Connection of the star map and the Close set
 
 
-## 5 Útok a obrana
+Such a structure was chosen mainly because of the need to construct the resulting path quickly.
+The resulting path is constructed by the method CreatePathList of the class TA_STAR_ALG. This function
+receives the target and start of the path as parameters and returns as its return value a pointer to the first field
+of the path, or NULL if the path cannot be constructed. At the beginning, first an
+instance of the class TPATH_LIST is created, which encapsulates the methods and variables concerning the
+resulting path.
+The structure holding the resulting path is described by figure no. 5.:
+
+Figure 5: PathList
+
+NOTE: An instance of the TPATH_NODE structure is created after the already existing
+instances are filled, i.e. after all elements of the path_pos array are filled (shown in the figure in dark
+grey). The newly created instance is placed at the beginning of the list. Since
+the path is constructed from the target towards the start, the position of the start and target
+fields described in the figure is logical. It is likewise evident from the process of creating this list that
+the path_pos array of the first element of the list may remain partially unfilled. Therefore, for reasons of
+speed, a separate variable first was used to store the first filled field.
+The reason for such a structure was the fact that the path for a given unit in the vast majority of cases
+does not require the creation of more than one instance of the TPATH_NODE structure (which holds up to 256 steps
+of the path), which is economical in terms of allocation. Moreover, using this structure gives good results
+in terms of speed.
+
+
+## 5 Attack and defence
 Jiří Krejsa
 
 
-### 5.1 Úvod
+### 5.1 Introduction
 
-Napriek tomu, že je nutné niektoré časti kódu súvisiace s útočnou fázou hry napísať odlišne
-pre rôzne typy jednotiek, je možné nájsť spoločnú množinu vlastností a chovaní. Pred
-ponorením sa do detailov implementácie, pozrime sa na samotnú myšlienku.
-Prvým úkonom, ktorý musí útočiaca jednotka previesť, je overenie možnosti zaútočiť, teda
-napríklad skontrolovať, či je vybraný cieľ v dosahu dostrelu a pod. Po overení
-dosiahnuteľnosti cieľa nastáva fáza výstrelu, ktorá je reprezentovaná napríklad pohybom
-ramena katapultu či švihnutím meča. Po skončení výstrelu logicky prichádza vypustenie
-strely. Tu sa nám udalosti delia na dve dejové línie. Prvou z nich sú činnosti, ktoré nasledujú z
-hľadiska útočníka, ktorý začína nabíjať. Druhým pohľadom sú akcie, ktoré prevádza samotná
-strela. Projektil sa okamžikom uvoľnenia stáva nezávislým na svojom pôvodcovi, teda
-útočník sa stáva iba obyčajnou jednotkou, ktorá môže byť zasiahnutá. Prvou činnosťou, ktorú
-musí strela previesť, je dosiahnutie dopadovej pozície. Po prekonaní potrebnej vzdialenosti
-nastáva samotný dopad, ktorý zahŕňa detonáciu, ktorej následkom je zasiahnutie okolia
-dopadu. Pre všetky objekty v zasiahnutej oblasti prichádza okamžik vyhodnotenia účinku
-strely. Teda celková sila zásahu sa určí ako sila zbrane, ktorá je z časti náhodne
-modifikovaná, delená počtom políčok v oblasti dopadu a kvalitou brnenia jednotky,
-a upravená súčinom schopnosti sa ukryť a náhody na strane obrancu.
+Although some parts of the code related to the attack phase of the game must be written differently
+for different unit types, it is possible to find a common set of properties and behaviours. Before
+diving into the implementation details, let us look at the idea itself.
+The first operation the attacking unit must perform is to verify the possibility of attacking, i.e.
+for example to check whether the selected target is within firing range, etc. After verifying
+that the target is reachable, the firing phase follows, which is represented for example by the movement
+of a catapult arm or the swing of a sword. After firing is finished, logically the release of the
+missile follows. Here events split into two storylines. The first of them are the activities that follow from
+the point of view of the attacker, who starts reloading. The second view is the actions performed by the
+missile itself. From the moment of release, the projectile becomes independent of its originator, i.e.
+the attacker becomes just an ordinary unit that can be hit. The first activity the
+missile must perform is reaching the impact position. After covering the necessary distance,
+the impact itself occurs, which includes a detonation, as a result of which the surroundings of the
+impact are hit. For all objects in the hit area the moment of evaluating the effect of the
+missile comes. That is, the total strength of the hit is determined as the strength of the weapon, partly randomly
+modified, divided by the number of fields in the impact area and by the quality of the unit's armour,
+and adjusted by the product of the ability to take cover and chance on the defender's side.
 
-### 5.2 Implementácia
+### 5.2 Implementation
 
-Zaistenie požadovanej funkčnosti je rozdelené do dvoch logických celkov. Prvou oblasťou je
-prechádzanie jednotlivých fáz útoku a druhou je samotná implementácia. Prvá oblasť je
-riadená z metódy ProcessEvent, z ktorej sú volané metódy zaisťujúce samotnú činnosť.
-Teraz si rozoberieme predovšetkým druhú oblasť, teda hlbšie detaily realizácie. Väčšina
-zdrojových kódov je umiestnená v súboroch dofight.cpp a dofight.cpp.
-Každý objekt umiestnený na mape, teda inštancia triedy TMAP_UNIT (typicky od nej
-oddedených potomkov), má inštanciu triedy TARMAMENT, ktorá obsahuje samostatnú útočnú
-a obrannú časť. Každá inštancia tejto triedy obsahuje obrannú časť, teda triedu TDEFENSE.
-Útočná časť výzbroja, ktorá je reprezentovaná triedou TGUN, je nepovinná, čím je
-vyjadrovaná schopnosť či neschopnosť samostatného útočenia na iné jednotky. Jediným
-účelom je uskladnenie informácie o kvalite brnenia jednotky a o schopnosti vyhnúť sa
-následkom zásahu.
+Providing the required functionality is divided into two logical parts. The first area is
+passing through the individual phases of the attack and the second is the implementation itself. The first area is
+controlled from the ProcessEvent method, from which the methods providing the actual activity are called.
+Now we will discuss primarily the second area, i.e. the deeper details of the implementation. Most of
+the source code is located in the files dofight.cpp and dofight.cpp.
+Every object placed on the map, i.e. an instance of the class TMAP_UNIT (typically of descendants
+derived from it), has an instance of the class TARMAMENT, which contains a separate attack
+and defence part. Each instance of this class contains a defence part, i.e. the class TDEFENSE.
+The attack part of the armament, which is represented by the class TGUN, is optional, which
+expresses the ability or inability to attack other units independently. The only
+purpose [of the defence part] is to store information about the quality of the unit's armour and the ability to avoid the
+consequences of a hit.
 
-#### 5.2.1 Test zasiahnuteľnosti
+#### 5.2.1 Hittability test
 
-Nosnou časťou útoku je počiatočný test, či je možné na daný cieľ okamžite zaútočiť. Pretože
-väčšina výpočtov nutná k prevedeniu útoku sa musí previesť už pri overení dostupnosti cieľa,
-je výsledkom testu nielen hodnota udávajúca, či sa zaútočiť dá, ale tiež informácia, čo je
-nutné prípadne previesť pre dosiahnutie dostupnosti cieľa. Zároveň sa tiež určí skutočný cieľ
-strely, ktorý sa od plánovaného líši započítaním nepresnosti zbrane. Všetky tieto informácie
-sú vrátené v štruktúre TATTACK_INFO metódou IsPossibleAttack. Rozoberme si teraz
-podrobnejšie, čo sa prevádza v metóde testujúcej možnosti útoku. Najprv sa prevádza
-niekoľko jednoduchých testov - či je cieľ v zasiahnuteľnom segmente, či nemusím najprv
-ukončiť zakotvenie a či som schopný zaútočiť na tento typ súpera, pričom rozlišujeme tri
-druhy objektov – budovy, zdroje a ostatné. Ďalšou podmienkou na otestovanie je, či je cieľ
+The key part of an attack is the initial test of whether the given target can be attacked immediately. Because
+most of the computations needed to carry out the attack must already be performed when verifying the availability of the target,
+the result of the test is not only a value indicating whether an attack is possible, but also information about what
+may need to be done to make the target reachable. At the same time the real target
+of the missile is determined, which differs from the planned one by taking the weapon's inaccuracy into account. All this information
+is returned in the TATTACK_INFO structure by the method IsPossibleAttack. Let us now discuss
+in more detail what is done in the method testing the possibility of an attack. First
+several simple tests are performed - whether the target is in a hittable segment, whether I do not first have to
+end anchoring, and whether I am able to attack this type of opponent, where we distinguish three
+kinds of objects – buildings, sources and others. Another condition to test is whether the target is
 
 
-v dostrele, čo platí, pokiaľ je aspoň jedným svojím políčkom v dostrele. Vzdialenosť je tu
-testovaná pomocou trojrozmernej Pythagorovej vety, kde tretí rozmer predstavujú segmenty.
-Špeciálnym prípadom sú jednotky s dostrelom práve jedna, kedy sa všetkých osem okolitých
-políčok považuje za nachádzajúcich sa v dostrele. Pokiaľ cieľ vyhovie všetkým okolitým
-podmienkam, je spočítaný najprv ideálny bod zásahu a na jeho základe ešte skutočné miesto
-dosahu, ktoré je modifikované podľa nepresnosti zbrane.
+within range, which holds if at least one of its fields is within range. The distance here is
+tested using the three-dimensional Pythagorean theorem, where the third dimension is represented by segments.
+A special case are units with range exactly one, where all eight surrounding
+fields are considered to be within range. If the target satisfies all surrounding
+conditions, first the ideal hit point is computed and on its basis the actual place
+of impact, which is modified according to the weapon's inaccuracy.
 
-#### 5.2.2 Útočný cyklus útočníka
+#### 5.2.2 The attacker's attack cycle
 
-V tomto odstavci predstavíme priebeh útoku z pohľadu útočníka a správ, ktoré zasiela či na
-ktoré reaguje. Tento cyklus je v zásade podobný ostatným akčným cyklom ako je ťaženie,
-chodenie či stavanie. Správou, ktorá začína útočenie, je US_START_ATTACK, ktorá korektne
-ukončí prevádzané akcie, zapamätá si cieľ a zašle správu US_NEXT_ATTACK. Tá otestuje, či
-zapamätaný cieľ nie je mŕtvy, umierajúci alebo či prípadne neunikol z dohľadu. Pokiaľ áno,
-zašle správu US_END_ATTACK, ktorá sa postará o ukončenie útočenia, a pokiaľ nie, prevedie
-test zasiahnuteľnosti. Podľa jeho výsledkov a typu útočiacej jednotky (pohyblivá alebo
-nepohyblivá) buďto začne útočiť, pokúsi sa zaujať lepšiu pozíciu alebo útok ukončí.
-Ak dôjde k útoku, jednotka prejde do stavu US_ATTACKING, počas ktorého sa pripraví
-inštancia projektilu (TPROJECTILE_UNIT) a začne sa útočný manéver, čo napríklad znamená
-pohyb ramena katapultu či švihnutie mečom. Zároveň sa zašle požiadavka na vypustenie
-projektilu v správnu dobu. Všetky tieto akcie sa prevedú v metóde FireOn. Aj napriek tomu,
-že vystrelenie a nabíjanie sú dve rôzne akcie, zostáva jednotka po prevedení oboch v stave
-US_ATTACKING. Po uplynutí času vyhradeného na vystrelenie a nabitie prechádza jednotka
-späť do stavu US_NEXT_ATTACK.
-Ako bolo zmienené v predchádzajúcom odstavci, počas trvania stavu US_ATTACKING by
-mala jednotka spracovať požiadavku (RQ_FIRE_OFF) na vypustenie strely. Počas
-spracovania je náboj zobrazený a zašlú sa prípadné požiadavky na zmenu segmentu
-a požiadavky s časom dopadu. Všetky tieto požiadavky sú smerované na inštanciu náboja.
+In this paragraph we present the course of an attack from the point of view of the attacker and the events it sends or
+to which it reacts. This cycle is in principle similar to the other action cycles such as mining,
+walking or building. The event that starts attacking is US_START_ATTACK, which correctly
+ends the actions being performed, remembers the target and sends the event US_NEXT_ATTACK. That one tests whether
+the remembered target is not dead, dying or whether it has possibly escaped from sight. If so,
+it sends the event US_END_ATTACK, which takes care of ending the attack, and if not, it performs the
+hittability test. Depending on its results and the type of attacking unit (movable or
+immovable), it either starts attacking, tries to take a better position or ends the attack.
+If an attack occurs, the unit passes into the state US_ATTACKING, during which an
+instance of the projectile (TPROJECTILE_UNIT) is prepared and the attack manoeuvre begins, which means for example
+the movement of a catapult arm or a sword swing. At the same time a request to release the
+projectile at the correct time is sent. All these actions are performed in the method FireOn. Even though
+firing and reloading are two different actions, the unit remains in the state
+US_ATTACKING after both have been performed. After the time reserved for firing and reloading has elapsed, the unit passes
+back into the state US_NEXT_ATTACK.
+As mentioned in the previous paragraph, during the state US_ATTACKING the
+unit should process the request (RQ_FIRE_OFF) to release the missile. During
+processing, the projectile is displayed and any requests for a segment change
+and requests with the impact time are sent. All these requests are directed at the projectile instance.
 
-#### 5.2.3 Vyhodnotenie dopadu projektilu
+#### 5.2.3 Evaluation of the projectile impact
 
-Najprv si stručne preberme súslednosť činností, ktorá je viazaná k projektilu. Po uvoľnení
-projektilu do priestoru sa začne pohybovať smerom k miestu dopadu. Pokiaľ dráha strely
-prechádza viacerými segmentami, je ich zmena signalizovaná požiadavkou
-RQ_CHANGE_SEGMENT. Okamžik dopadu je signalizovaný požiadavkou RQ_IMPACT.
-Reakciou na ňu je vyvolanie vlastnej metódy Impact, ktorá sa postará o vyriešenie dopadu a
-uvoľnenie inštancie projektilu z pamäte.
-Vo vyššie zmienenej metóde je priechod okolia dopadovej pozície v rozsahu výbuchu, tzv.
-dopadovej oblasti. Pokiaľ je na niektorom z políčok jednotka, spočíta sa intenzita zásahu,
-ktorý utrpela a to podľa nasledujúcich vzťahov:
+First let us briefly go through the sequence of activities bound to the projectile. After the
+projectile is released into space, it starts moving towards the place of impact. If the trajectory of the missile
+passes through several segments, their change is signalled by the request
+RQ_CHANGE_SEGMENT. The moment of impact is signalled by the request RQ_IMPACT.
+The reaction to it is invoking its own method Impact, which takes care of resolving the impact and
+freeing the projectile instance from memory.
+The above-mentioned method traverses the surroundings of the impact position within the range of the explosion, the so-called
+impact area. If there is a unit on any of the fields, the intensity of the hit
+it suffered is computed according to the following relations:
 
 DN = PrC * DPr
-kde:
-PrC – náhodné číslo z intervalu [0,4 ; 0,6]
-DPr – schopnosť obrany druhu zasiahnutej jednotky
-Potom DN je obranné číslo vyjadrujúce šancu na zníženie poškodenia
+where:
+PrC – a random number from the interval [0.4 ; 0.6]
+DPr – the defence ability of the kind of the hit unit
+Then DN is the defence number expressing the chance of reducing the damage
 
 
 w = (PMin + (PMax – Pmin)*PoC)/CHM
-kde:
-Pmin – minimálna sila útoku zbrane útočníka
-Pmax – maximálna sila útoku zbrane útočníka
-PoC – náhodné číslo z intervalu [0 ; 1]
-CHM – počet políčok v dopadovej oblasti
-A výsledok w udáva mieru zranenia podľa kvality rany útočníka
+where:
+Pmin – minimum attack strength of the attacker's weapon
+Pmax – maximum attack strength of the attacker's weapon
+PoC – a random number from the interval [0 ; 1]
+CHM – number of fields in the impact area
+And the result w gives the extent of injury according to the quality of the attacker's blow
 
 W = (w / DA) * (1 – DN)
-kde:
-DA – kvalita brnenia zasiahnutého
-DN – obranné číslo spočítané zo vzťahu 1
-w – výsledok predchádzajúceho vzťahu
-Výsledkom tohto vzťahu je W – skutočné zranenie zasiahnutého
+where:
+DA – armour quality of the hit unit
+DN – defence number computed from relation 1
+w – result of the previous relation
+The result of this relation is W – the actual injury of the hit unit
 
-#### 5.2.4 Riešenie útoku bez projektilu
+#### 5.2.4 Handling an attack without a projectile
 
-Doposiaľ sme počas popisu hovorili len o útoku na diaľku, teda takom, pri ktorom zranenie
-spôsobuje projektil vystrelený útočníkom. Nehovorili sme o útoku tvárou v tvár, teda
-napríklad o útoku mečom alebo päsťou, prípadne obuškom. Zdanlivé ignorovanie ale malo
-jednoduchý dôvod - i tento nestrelecký útok je vyriešený úplne rovnakým mechanizmom ako
-bol popísaný vyššie. Jediným rozdielom je to, že „náboje vystrelené“ mečom nie sú viditeľné,
-pretože nemajú žiadnu textúru a tiež čas ich letu je nulový. Alebo - že čas ich dopadu je
-zhodný s časom vypustenia projektilu útočníkom.
-Hlavnou výhodou zvolenia spomínaného riešenia je absolútna zhodnosť zaobchádzania
-s útočnou činnosťou, teda i ušetrenie nutnosti vytvárať ďalší kód, ktorý sa až na umiestnenie
-metód bude plne zhodovať v kľúčových častiach s útočením na diaľku.
+So far in the description we have talked only about ranged attack, i.e. one in which the injury
+is caused by a projectile fired by the attacker. We have not talked about face-to-face attack, i.e.
+for example attack with a sword or fist, or a club. The apparent omission, however, had
+a simple reason - this non-shooting attack is also handled by exactly the same mechanism as
+described above. The only difference is that the "projectiles fired" by a sword are not visible,
+because they have no texture and their flight time is zero. Or - that the time of their impact is
+identical to the time of release of the projectile by the attacker.
+The main advantage of choosing this solution is the absolute uniformity of handling
+the attack activity, i.e. also saving the need to create further code which, apart from the placement
+of methods, would fully match ranged attack in its key parts.
 
-#### 5.2.5 Automatická obrana
+#### 5.2.5 Automatic defence
 
-Samovoľné bránenie vlastných jednotiek voči nepriateľovi úzko súvisí s ich nastavenou
-agresivitou. Ako bolo spomenuté v užívateľskej časti dokumentácie (konkrétne
-v užívateľskom manuáli), jednotkám sa dá nastaviť agresivita ich chovania a to v rozsahu
-štyroch stupňov – stay, guard, offensive guard, agressive guard. Základná myšlienka, že
-obranca pri nájdení narušiteľa svojho priestoru naň zaútočí, je obrátená, teda narušiteľ hlási
-obrancovi vniknutie do jeho priestoru. Táto metóda je dosiahnutá pomocou udržiavania
-pomocných zoznamov pre každé políčko mapy. Zoznamy sú dvoch typov:
+The spontaneous defence of one's own units against the enemy is closely related to their set
+aggressiveness. As mentioned in the user part of the documentation (specifically
+in the user manual), the aggressiveness of units' behaviour can be set, in a range of
+four levels – stay, guard, offensive guard, agressive guard. The basic idea that
+the defender attacks an intruder of its space upon finding it is reversed, i.e. the intruder reports
+the intrusion into its space to the defender. This method is achieved by maintaining
+auxiliary lists for each map field. The lists are of two types:
 •
 
-Prvý vyjadruje dohľad jednotiek,
-
-•
-
-Druhý vyjadruje dostreľ jednotiek.
-
-Pri zmene polohy teda jednotka zašle správu všetkým jednotkám, ktoré spĺňajú všetky
-z nasledujúcich podmienok:
-
+The first expresses the view range of units,
 
 •
 
-Majú nastavený agresívny mód (agressive guard) a narušiteľ sa ocitol v ich dohľade
-alebo majú nastavený obranný (offensive guard), prípadne opatrný mód (guard)
-a v oboch týchto módoch je narušiteľ v ich dostrele,
+The second expresses the firing range of units.
+
+So when changing position, the unit sends an event to all units that satisfy all
+of the following conditions:
+
 
 •
 
-Narušiteľ nie je jednotka hyperhráča (hráča vlastniaceho objekty mapy ako prasatá
-alebo stromy, ktoré nie sú zdrojom materiálu a pod.),
+They have the aggressive mode set (agressive guard) and the intruder has come within their view range,
+or they have the defensive (offensive guard) or cautious mode (guard) set,
+and in both of these modes the intruder is within their firing range,
 
 •
 
-Obranca nemá za cieľ inú jednotku.
+The intruder is not a unit of the hyperplayer (the player owning map objects such as pigs
+or trees that are not a source of material, etc.),
 
-K implementácii zoznamov je použitá trieda TMAP_POOLED_LIST, ktorá je potomkom triedy
-TPOOLED_LIST. Ide o jednoduchý jednosmerný spojový zoznam, ktorý svoje prvky
-nealokuje, ale využíva dopredu naalokovaných z „bazéne“. Výber jednotiek, ktoré začnú
-útočiť, prevádza metóda AttackEnemy, ktorá odlišuje triedu TMAP_POOLED_LIST od jej
-predka. Ako bolo spomenuté vyššie, o jej volanie sa nestará obranca, ale narušiteľ.
+•
+
+The defender does not have another unit as its target.
+
+The lists are implemented with the class TMAP_POOLED_LIST, which is a descendant of the class
+TPOOLED_LIST. It is a simple singly linked list which does not allocate its elements
+but uses ones pre-allocated from a "pool". The selection of units that will start
+attacking is performed by the method AttackEnemy, which distinguishes the class TMAP_POOLED_LIST from its
+ancestor. As mentioned above, it is not the defender that takes care of calling it, but the intruder.
 
 
-## 6 Bazén vlákien
+## 6 Thread pool
 Jiří Krejsa
 
 
-### 6.1 Implementácia bazénu vlákien
+### 6.1 Implementation of the thread pool
 
-#### 6.1.1 Použitie bazénu vlákien
+#### 6.1.1 Use of the thread pool
 
-Bazén vlákien je využívaný na dvoch miestach. Tým prvým je vyhľadávanie ciest pre
-jednotky a tým druhým je meranie vzdialenosti medzi jednotkou a zdrojom, jednotkou a
-budovou a pod. Pozrime sa teraz na samotnú implementáciu podrobnejšie.
+The thread pool is used in two places. The first is path finding for
+units and the second is measuring the distance between a unit and a source, a unit and
+a building, etc. Let us now look at the implementation itself in more detail.
 
-#### 6.1.2 Implementačné detaily
+#### 6.1.2 Implementation details
 
-Rozhranie pre použitie bazénu vlákien je v súbore dothreadpool.h, a pretože je bazén
-naprogramovaný ako šablóna, je to tiež umiestnenie definícií funkcií. Všetko potrebné je
-zapúzdrené v triede TTHREAD_POOL. Najprv sa stručne pozrime na použitie bazénu.
-Základnou myšlienkou je vytvorenie rozhrania, ktoré zaistí spoľahlivý prístup k viacerým
-vláknam bez toho, aby bol užívateľ (v zmysle programátor, ktorý chce šablónu použiť) nútený
-akokoľvek riešiť problémy s obsadenosťou vlákien a pod. Preto je myšlienka vyberania
-vlákien posunutá do úzadia a je nahradená ideou kladenia požiadaviek na bazén vlákien.
-Každá z týchto požiadaviek je pridaná do vstupnej fronty, na ktorej je vytvorená
-podmienková premenná. Vložením do fronty sa prebudí jedno z pripravených vlákien, ktoré
-požiadavku odoberie a vyrieši. Vypočítaný výsledok je uložený do výstupnej fronty riešení,
-odkiaľ sú tieto riešenia po poradí odoberané. Pred samotným ponorením sa do detailov
-implementácie, spomeňme ešte jednu myšlienku. Pretože k výpočtu sú často nutné pomocné
-dáta, na ktorých musí byť medzi vláknami zaručené vzájomné vylúčenie, sú tieto dáta dávané
-k dispozícii samostatne každému jednému vláknu. S trvalým pridaním do triedy, ktorá
-zapúzdruje pomocné dáta, bola tiež rozšírená možnosť kladenia požiadaviek. Ku každej
-vznesenej požiadavke sa pridá informácia o metóde, ktorá sa má využiť k vypočítaniu
-výsledkov. Dá sa zvoliť ktorákoľvek členská metóda pomocnej triedy, ktorá typom odpovedá.
-Rozoberme teraz podrobne použité riešenie. Hlavička šablóny je nasledujúca:
+The interface for using the thread pool is in the file dothreadpool.h, and because the pool is
+programmed as a template, this is also the location of the function definitions. Everything needed is
+encapsulated in the class TTHREAD_POOL. First let us briefly look at how the pool is used.
+The basic idea is to create an interface that ensures reliable access to multiple
+threads without the user (in the sense of a programmer who wants to use the template) being forced
+to deal in any way with thread occupancy problems, etc. Therefore the idea of picking
+threads is moved into the background and replaced by the idea of posting requests to the thread pool.
+Each of these requests is added to an input queue on which a
+condition variable is created. Inserting into the queue wakes up one of the prepared threads, which
+takes the request and resolves it. The computed result is stored in an output queue of solutions,
+from which these solutions are taken in order. Before diving into the details
+of the implementation, let us mention one more idea. Because auxiliary
+data is often needed for the computation, on which mutual exclusion between threads would have to be guaranteed, this data is made
+available separately to each individual thread. With the permanent addition of a class that
+encapsulates the auxiliary data, the possibility of posting requests was also extended. Each
+posted request is accompanied by information about the method to be used to compute the
+results. Any member method of the auxiliary class whose type matches can be chosen.
+Let us now discuss the solution used in detail. The template header is as follows:
 template <class I, class O, class A> class TTHREAD_POOL {…}
 
-Význam troch argumentov je jednoduchý. Prvý parameter I označuje typ, ktorý obsahuje
-informácie nutné pre prevedenie výpočtu. Platí jednoduché pravidlo, že jedna inštancia
-odpovedá jednej požiadavke. Druhý parameter O je výstupnou hodnotou, ktorá je vkladaná do
-fronty odpovedí. Nakoniec tretí parameter A je typ, ktorý zapúzdruje pomocné dáta. Každé
-vlákno bude pracovať nad vlastnou inštanciou tohto typu.
+The meaning of the three arguments is simple. The first parameter I denotes the type that contains the
+information needed to perform the computation. A simple rule applies that one instance
+corresponds to one request. The second parameter O is the output value that is inserted into the
+response queue. Finally, the third parameter A is the type that encapsulates the auxiliary data. Each
+thread will work on its own instance of this type.
 
-##### 6.1.2.1 Vytvorenie bazénu
+##### 6.1.2.1 Creating the pool
 
-Jediným spôsobom, ako vytvoriť inštanciu bazénu vlákien je použitie jeho statickej metódy
+The only way to create an instance of the thread pool is to use its static method
 CreateNewThreadPool.
 static TTHREAD_POOL<I, O, A>* CreateNewThreadPool(
 int thread_count,
@@ -1384,113 +1381,113 @@ bool use_res_queue = false,
 unsigned int res_queue_size = THP_QUEUE_SIZE)
 
 
-Význam prvého parametru nie je potrebné príliš rozoberať. Určuje počet vlákien v bazéne.
-Druhým parametrom predávame informáciu o očakávanej veľkosti fronty požiadaviek. Pokiaľ
-neuvedieme hodnotu, bude očakávaná fronta do veľkosti 100 požiadaviek. Údaj je využívaný
-pre predprípravu potrebného množstva inštancií triedy obaľujúcej požiadavky. Tretí
-parameter hovorí, či sa bude využívať výstupná fronta odpovedí. Pokiaľ má hodnotu false,
-fronta sa nepoužije a výsledky funkcií sú zahadzované. Štvrtý a posledný parameter je
-veľkosť výstupnej fronty a má význam len vtedy, ak je používaná fronta odpovedí. Metóda
-vracia pointer na vytvorený bazén vlákien v prípade úspechu a hodnotu NULL, pokiaľ došlo
-k chybe.
-Samotný proces vytvorenia sa dá popísať veľmi stručne. Vytvorí sa vstupná, a pokiaľ je
-požadované, tak aj výstupná fronta. Následne sa pripraví podmienková premenná a je
-vytvorené pole inštancií triedy TTHREAD, ktorá obsahuje inštanciu pomocných dát. V
-samotnom závere sú pripravené vlákna. Každé vlákno je spustené v metóde
-FunctionStarter, ktorá zabezpečuje vyberanie požiadaviek, spustenie výpočtu a vloženie
-odpovedi.
+The meaning of the first parameter does not need much discussion. It determines the number of threads in the pool.
+With the second parameter we pass information about the expected size of the request queue. If
+we do not specify a value, a queue of up to 100 requests will be expected. The value is used
+to pre-prepare the required number of instances of the class wrapping the requests. The third
+parameter says whether the output response queue will be used. If it has the value false,
+the queue is not used and the results of the functions are discarded. The fourth and last parameter is the
+size of the output queue and is meaningful only if the response queue is used. The method
+returns a pointer to the created thread pool on success and the value NULL if an error
+occurred.
+The creation process itself can be described very briefly. The input queue is created and, if
+requested, also the output queue. Then a condition variable is prepared and
+an array of instances of the class TTHREAD, which contains an instance of the auxiliary data, is created. At
+the very end the threads are prepared. Each thread is started in the method
+FunctionStarter, which handles taking requests, starting the computation and inserting the
+response.
 
-##### 6.1.2.2 Pridanie požiadaviek
+##### 6.1.2.2 Adding requests
 
-Ako už bolo zmienené, s bazénom sa pracuje pridávaním požiadaviek. Pre vznesenie
-požiadavky sa použije rozhranie nasledujúcej metódy:
+As already mentioned, the pool is worked with by adding requests. To post a
+request, the interface of the following method is used:
 unsigned int AddRequest(I *request,O* (A::*processor)(I*))
 
-Pozrime sa na význam jednotlivých parametrov. Prvý parameter je inštancia typu, ktorý
-obsahuje všetky informácie potrebné k začatiu výpočtu. Druhý parameter je zaujímavejší, je
-ním pointer na členskú metódu triedy, ktorá obsahuje pomocné dáta výpočtu a ktorej inštanciu
-si drží každé vlákno. Z hlavičky je vidieť, že dostáva jediný parameter a to pointer na vstupný
-typ a jej návratovou hodnotou je pointer na výstupný typ.
+Let us look at the meaning of the individual parameters. The first parameter is an instance of the type that
+contains all the information needed to start the computation. The second parameter is more interesting; it is
+a pointer to a member method of the class that contains the auxiliary data for the computation and an instance of which
+each thread holds. From the header it can be seen that it receives a single parameter, namely a pointer to the input
+type, and its return value is a pointer to the output type.
 
-##### 6.1.2.3 Výber odpovedí
+##### 6.1.2.3 Taking responses
 
-Pokiaľ je využívaná výstupná fronta s odpoveďami, je potrebné výsledky vyberať. K tomu
-slúži metóda O* TakeOutResponse(). Metóda nemá žiadne parametre, teda zostáva len
-podotknúť, že výsledky sú vracané v takom poradí, v akom boli vrátené počítajúcimi
-metódami.
+If the output queue with responses is used, the results need to be taken out. For that
+the method O* TakeOutResponse() serves. The method has no parameters, so it only remains
+to note that the results are returned in the order in which they were returned by the computing
+methods.
 
-##### 6.1.2.4 Zničenie bazénu
+##### 6.1.2.4 Destroying the pool
 
-Všetky úkony potrebné k zničeniu bazénu sú prevedené v deštruktore, ktorý je na rozdiel od
-konštruktoru verejný. Najprv sú všetky vlákna, a to i tie, ktoré prevádzajú výpočet, ukončené.
-Následne je uvoľnená podmienková premenná, vstupná a výstupná fronta.
+All operations needed to destroy the pool are performed in the destructor, which, unlike the
+constructor, is public. First all threads, including those that are performing a computation, are terminated.
+Then the condition variable and the input and output queues are freed.
 
 
-## 7 Počítačový hráč
+## 7 Computer player
 Michal Král
 
 
-### 7.1 Úvod
+### 7.1 Introduction
 
-Implementácia chovania počítačového hráča bola veľmi sťažená veľkou všeobecnosťou hry.
-Na rozdiel od väčšiny strategických hier, v ktorých sú jednotlivé budovy a jednotky pevne
-dané, v hre DarkOberon si môže užívateľ nadefinovať rôznorodé typy. Pre aspoň čiastočné
-vysporiadanie sa s týmto problémom sú v niektorých miestach použité neurónové siete
-namiesto čisto algoritmického riešenia. Zo všeobecného pohľadu funguje rozhodovanie
-počítačového hráča na základe rozdelenia mapy na menšie časti, ktoré sa všetky pravidelne
-ohodnocujú (ich dôležitosť, rozhodnutie čo a kde robiť) a s použitím jednotiek blízkych danej
-ploche sa vykoná akcia.
+Implementing the behaviour of the computer player was made very difficult by the great generality of the game.
+Unlike most strategy games, in which the individual buildings and units are fixed,
+in the game DarkOberon the user can define diverse types. To at least partially
+deal with this problem, neural networks are used in some places
+instead of a purely algorithmic solution. From a general point of view, the decision-making of the
+computer player works on the basis of dividing the map into smaller parts, which are all regularly
+evaluated (their importance, the decision what to do and where) and an action is performed using units close to the given
+area.
 
-### 7.2 Neurónové siete
+### 7.2 Neural networks
 
-Väčšina ohodnocovania sa deje za pomoci neurónových sietí. Pre jednoduchšiu
-implementáciu bol zvolený len jeden typ sietí a pre jednotlivé prípady sa používajú len rôzne
-počty neurónov v jednotlivých vrstvách. Všetky siete použité v projekte DarkOberon sú
-perceptronové, majú len jednu vstupnú a dve skryté vrstvy, a len jeden neurón vo výstupnej
-vrstve. Prepojenie medzi jednotlivými vrstvami je urobené štýlom každý s každým (každý
-neurón zo vstupnej vrstvy je prepojený s každým neurónom prvej ukrytej úrovne atď.) ako
-ukazuje obrázok č. 6.
+Most of the evaluation is done with the help of neural networks. For simpler
+implementation only one type of network was chosen, and for the individual cases only different
+numbers of neurons in the individual layers are used. All networks used in the DarkOberon project are
+perceptron networks, they have only one input and two hidden layers, and only one neuron in the output
+layer. The connection between the individual layers is made in an all-to-all style (every
+neuron of the input layer is connected to every neuron of the first hidden layer, etc.) as
+figure no. 6 shows.
 
-Obrázok 6: Neurónová sieť
+Figure 6: Neural network
 
-Ako aktivačná funkcia je použitá sigmoida, presnejšie jej varianta s nasledujúcim vzorcom
-1/(1+exp{-4*Σ[vstup neuronu]})
-a počty neurónov v jednotlivých vrstvách sú volené skôr tak, aby sa sieť naučila príklady, než
-podľa nejakého pravidla. Pre učenie sietí bol zvolený algoritmus Back-Propagation, ale
-v rámci hry v tejto fáze žiadne učenie neprebieha, bol však použitý pri vytváraní sietí pre hru
-a je implementovaný. Pre tento algoritmus bola vo finálnej verzii použitá varianta s pevným
-koeficientom skoku (tzv. η) s hodnotou 3. Boli skúšané ako varianty s dynamickou hodnotou,
-tak i s inými hodnotami, ale táto sa ukázala ako najlepšia a najjednoduchšia. Všetky siete sú
-uložené v adresári Nets a ich mená sú pevne dané kódom programu, ich forma uloženia je ale
-čitateľná. Súbor je členený do riadkov a v nich sú jednotlivé údaje oddelené medzerou. Čísla
+As the activation function a sigmoid is used, more precisely its variant with the following formula
+1/(1+exp{-4*Σ[neuron input]})
+and the numbers of neurons in the individual layers are chosen rather so that the network learns the examples than
+according to some rule. The Back-Propagation algorithm was chosen for training the networks, but
+no training takes place within the game at this stage; it was, however, used when creating the networks for the game
+and is implemented. For this algorithm the final version uses the variant with a fixed
+step coefficient (the so-called η) with the value 3. Variants with a dynamic value as well as
+other values were tried, but this one proved to be the best and simplest. All networks are
+stored in the directory Nets and their names are fixed by the program code, but their storage format is
+readable. The file is divided into lines, and in them the individual values are separated by a space. Numbers
 
 
-označujúce počet neurónov sú zapísané bez desatinnej časti (tvar %i), čísla s desatinným
-rozvojom sú uložené vo formáte %e, teda s čiarkou ako desatinným oddeľovačom a bez
-použitia exponentu. Na prvom riadku sú v tomto poradí:
-• Počet neurónov v prvej vrstve (vstupné neuróny),
+denoting the number of neurons are written without a decimal part (format %i), numbers with a decimal
+expansion are stored in the %e format, i.e. with a comma as the decimal separator and without
+use of an exponent. On the first line there are, in this order:
+• Number of neurons in the first layer (input neurons),
 •
 
-Počet neurónov v druhej vrstve,
-
-•
-
-Počet neurónov v štvrtej vrstve (výstupný neurón),
+Number of neurons in the second layer,
 
 •
 
-Prahová hodnota (spoločná pre všetky neuróny v sieti),
+Number of neurons in the fourth layer (output neuron),
 
 •
 
-η (koeficient skoku v algoritme Back –Propagation.
+Threshold value (common to all neurons in the network),
 
-Ďalšie riadky odpovedajú každý jednému neurónu od prvého vstupného, cez druhý vstupný až
-po posledný výstupný neurón. Na riadku sú potom hodnoty váh vstupov do neurónu, napr. pre
-sieť s topológiou 4-7-5-1 bude 15. riadok odpovedať 3. neurónu tretieho radu a bude tu 7
-hodnôt odpovedajúcich váham medzi 1. neurónom druhého radu až 7. neurónom druhého
-a týmto 3. neurónom tretieho radu.
-Ukážka takéhoto súboru pre sieť z obrázku č.6:
+•
+
+η (step coefficient in the Back –Propagation algorithm.
+
+The further lines each correspond to one neuron, from the first input one, through the second input one, up
+to the last output neuron. On a line there are then the weight values of the inputs into the neuron, e.g. for
+a network with topology 4-7-5-1 the 15th line will correspond to the 3rd neuron of the third row and there will be 7
+values corresponding to the weights between the 1st neuron of the second row up to the 7th neuron of the second row
+and this 3rd neuron of the third row.
+An example of such a file for the network from figure no. 6:
 4 3 2 1 -4.316021e+008 3.000000e+000
 -9.180000e-002
 -6.600000e-003
@@ -1522,683 +1519,682 @@ Ukážka takéhoto súboru pre sieť z obrázku č.6:
 
 8.040000e-002 -6.940000e-002
 
-Využitie sietí bude vysvetlené neskôr v kontexte celého procesu rozhodovania počítačového
-hráča.
+The use of the networks will be explained later in the context of the whole decision-making process of the computer
+player.
 
-### 7.3 Ohodnocovanie rás
+### 7.3 Evaluation of races
 
-Ešte pred vlastným začiatkom hry, pri načítaní rás, prebieha pomocou neurónových sietí
-ohodnotenie jednotlivých jednotiek. Každej jednotke sa najprv ohodnotí sila jej zbrane
-a potom celková jej užitočnosť. Zvlášť sa ohodnocujú jednotky a zvlášť budovy, ale pre
-zistenie sily sa používa jedna neurónová sieť. Ako prvá sa použije neurónová sieť zo súboru
-network_for_armaments. Ako vstupy sa jej dajú takmer všetky vlastnosti zbrane
-jednotky. Keď je ohodnotená zbraň, ohodnocuje sa celá jednotka. Tu sa už používajú dve
-rôzne neurónové siete – jedna pre pohyblivé jednotky (network_for_force) a druhá pre
-budovy (network_for_building). Pre jednotky sú vstupnými hodnotami maximálna rýchlosť,
-dohľad, energia, jedlo, maximálny život, príznaky, či sa jednotka má schopnosť stavať,
-opravovať a ťažiť, sila zbrane a podobne. Pre budovy sú to napríklad ohodnotenie najlepšej
-jednotky, ktorú môže budova stavať, počet prijímaných materiálov, dohľad, energia, jedlo
+Even before the game itself starts, when the races are loaded, an evaluation of the individual units
+takes place using neural networks. For each unit first the strength of its weapon is evaluated
+and then its overall usefulness. Units and buildings are evaluated separately, but
+a single neural network is used for determining strength. First the neural network from the file
+network_for_armaments is used. Almost all properties of the unit's weapon are given to it as inputs.
+Once the weapon is evaluated, the whole unit is evaluated. Here two
+different neural networks are already used – one for movable units (network_for_force) and the other for
+buildings (network_for_building). For units the input values are maximum speed,
+view range, energy, food, maximum life, flags whether the unit has the ability to build,
+repair and mine, weapon strength and the like. For buildings they are, for example, the evaluation of the best
+unit the building can build, the number of accepted materials, view range, energy, food
 
 
-a sila zbrane. V oboch prípadoch by mala byť sieť schopná rozlíšiť jednotky líšiace sa
-v dôležitých parametroch.
+and weapon strength. In both cases the network should be able to distinguish units differing
+in important parameters.
 
-### 7.4 Ohodnocovanie plôch a ohodnocovací cyklus
+### 7.4 Evaluation of areas and the evaluation cycle
 
-Na úplnom začiatku vznikla idea získavania globálneho stavu hry z hľadiska počítačového
-hráča pomocou neurónovej siete majúcej ako vstupy políčka mapy. Zároveň bolo jasné, že
-sieť majúca toľko vstupov sa bude len veľmi ťažko učiť. Konečná podoba vyzerá tak, že je
-mapa rozdelená na niekoľko oblastí (presnejšie 98), na nich sa spočítajú charakteristiky
-pomeru síl, z nich sa spočíta pomocou neurónovej siete aktuálny stav na ploche, zo všetkých
-týchto stavov a globálnych štatistík (rovnaké ako tie na ploche, ale pre celú mapu dohromady)
-sa spočíta globálny stav a z globálneho stavu a opäť lokálnych štatistík sa pre každú plochu
-spočíta jednak dôležitosť danej plochy a jednak potreba vystavať útočnú budovu (napr. vežu),
-ekonomickú budovu (prijímajúcu suroviny) a tiež potreba vytvoriť pracovné jednotky (vedia
-ťažiť) na ploche (4 rôzne neurónové siete) a podľa týchto piatich čísel je na ploche vyvolaná
-nejaká akcia (bližšie popísané v odseku o vlastných pohyboch jednotiek).
+At the very beginning the idea arose of obtaining the global state of the game from the point of view of the computer
+player using a neural network having map fields as inputs. At the same time it was clear that
+a network with so many inputs would be very hard to train. The final form looks like this: the
+map is divided into several areas (more precisely 98), characteristics of the balance of forces
+are computed on them, from these the current state of the area is computed using a neural network, from all
+these states and global statistics (the same as those for an area, but for the whole map together)
+the global state is computed, and from the global state and again the local statistics, for each area
+both the importance of the given area and the need to build an attack building (e.g. a tower),
+an economic building (accepting raw materials) and also the need to create worker units (able to
+mine) in the area are computed (4 different neural networks), and according to these five numbers
+some action is triggered in the area (described in more detail in the paragraph on the units' own movements).
 
-Obrázok 7: Ukážka rozloženia plôch premapu 50x50. Čiernou sú zobrazené políčka mapy, modrou plochy
-prvej vrstvy a červenou plochy druhej vrstvy
+Figure 7: Example of the area layout for a 50x50 map. Map fields are shown in black, areas
+of the first layer in blue and areas of the second layer in red
 
-Plochy sú vytvorené tak, že sa mapa rozdelí na 7x7 obdĺžnikových plôch veľkosti (šírka
-mapy/7) x (výška mapy/7). Pokiaľ túto sieť položíme tak, aby jej počiatok bol v počiatku
-mapy, dostaneme prvú vrstvu plôch. Pokiaľ počiatok tejto siete bude splývať so súradnicami
-(1/2*šírka plochy) x (1/2*výška plochy), dostaneme druhú vrstvu plôch. Stred plochy prvej
-vrstvy tak vždy vychádza na rovnaké miesto ako roh štyroch plôch druhej vrstvy a naopak.
-Každé políčko mapy tak patrí vždy jednej ploche z prvej a jednej ploche z druhej vrstvy,
-okrem úzkeho pruhu na okraji mapy, ktorý nie je pokrytý druhou vrstvou, aby bol počet plôch
-v oboch vrstvách rovnaký.
-Rozdelenie na 7x7 vychádza z toho, že v prípade „8x8“ je príliš mnoho vstupov pre
-neurónovú sieť pre globálny stav a pre „6x6“ sú plochy zbytočne veľké (pre typické mapy
-s rozmermi okolo 200x200). Preto bol zvolený popísaný kompromis.
+The areas are created by dividing the map into 7x7 rectangular areas of size (map
+width/7) x (map height/7). If we place this grid so that its origin is at the origin of the
+map, we get the first layer of areas. If the origin of this grid coincides with the coordinates
+(1/2*area width) x (1/2*area height), we get the second layer of areas. The centre of an area of the first
+layer thus always falls on the same place as the corner of four areas of the second layer and vice versa.
+Every map field thus always belongs to one area of the first and one area of the second layer,
+except for a narrow strip at the edge of the map which is not covered by the second layer, so that the number of areas
+in both layers is the same.
+The division into 7x7 stems from the fact that in the "8x8" case there are too many inputs for the
+neural network for the global state, and for "6x6" the areas are unnecessarily large (for typical maps
+with dimensions around 200x200). Therefore the described compromise was chosen.
 
 
-Neurónová sieť pre zistenie stavu plochy je uložená v súbore network_for_state a ako
-vstupy má lokálne štatistiky, ktoré sú:
+The neural network for determining the state of an area is stored in the file network_for_state and as
+inputs it has the local statistics, which are:
 •
 
-súčet síl zbraní mojich jednotiek v nultom segmente,
+the sum of weapon strengths of my units in segment zero,
 
 •
 
-súčet síl zbraní mojich jednotiek v prvom segmente,
+the sum of weapon strengths of my units in segment one,
 
 •
 
-súčet síl zbraní mojich jednotiek v druhom segmente,
+the sum of weapon strengths of my units in segment two,
 
 •
 
-súčet síl zbraní všetkých cudzích jednotiek v nultom segmente,
+the sum of weapon strengths of all foreign units in segment zero,
 
 •
 
-súčet síl zbraní všetkých cudzích jednotiek v prvom segmente,
+the sum of weapon strengths of all foreign units in segment one,
 
 •
 
-súčet síl zbraní všetkých cudzích jednotiek v druhom segmente,
+the sum of weapon strengths of all foreign units in segment two,
 
 •
 
-počet mojich útočných jednotiek,
+the number of my attack units,
 
 •
 
-počet mojich práve stavaných útočných jednotiek (nie je úplne presné, z každej
-budovy sa počíta vždy len prvá stavaná jednotka),
+the number of my attack units currently being built (not completely accurate; from each
+building only the first unit being built is counted),
 
 •
 
-počet mojich pracovných jednotiek,
+the number of my worker units,
 
 •
 
-počet mojich práve stavaných jednotiek,
+the number of my units currently being built,
 
 •
 
-počet mojich budov,
+the number of my buildings,
 
 •
 
-počet mojich práve stavaných budov,
+the number of my buildings currently being built,
 
 •
 
-počet cudzích útočných jednotiek,
+the number of foreign attack units,
 
 •
 
-počet cudzích pracovných jednotiek,
+the number of foreign worker units,
 
 •
 
-počet cudzích budov,
+the number of foreign buildings,
 
 •
 
-moja aktivita,
+my activity,
 
 •
 
-cudzia aktivita,
+foreign activity,
 
 •
 
-množstvo suroviny 1,
-
+the amount of raw material 1,
 •
 
-množstvo suroviny 2,
+the amount of raw material 2,
 
 •
 
-množstvo suroviny 3,
+the amount of raw material 3,
 
 •
 
-množstvo suroviny 4.
+the amount of raw material 4.
 
-Výsledok tejto siete je číslo medzi 0 a 0.5, kde 0 znamená moju úplnú prevahu a 0.25 –
-vyrovnané sily a 0.5 úplnú prevahu súpera, resp. súperov.
-Ďalšou použitou sieťou je sieť pre zistenie globálneho stavu hry, tá je uložená v súbore
-network_for_global. Táto sieť má ako vstupy jednak všetkých 98 plôch, potom rovnaké
+The result of this network is a number between 0 and 0.5, where 0 means my complete superiority, 0.25 –
+balanced forces and 0.5 complete superiority of the opponent, or opponents.
+Another network used is the network for determining the global state of the game; it is stored in the file
+network_for_global. This network has as inputs, first, all 98 areas, then the same
 
-štatistiky, aké boli spomínané, ale v globálnej verzii a nakoniec ešte množstvo jedla, energie
-(ako dodanej, tak spotrebovanej) a aktuálne množstvo jednotlivých surovín. Dohromady teda
-98 +21 + 4 + 4 = 127 vstupov. Výstupom tejto siete je opäť číslo medzi 0 a 0.5, tentokrát
-však značiace, do akej fáze už hra dospela z pohľadu počítačového hráča. Číslo blízke 0 značí
-úplný začiatok hry, keď je ešte len potrebné vybudovať základňu a naopak číslo okolo 0.5 by
-už malo ukazovať na moju úplnú prevahu a len dobíjanie nepriateľov. Pri tomto pohľade síce
-nie je úplne jasné, čo ktoré číslo znamená, ale na druhú stranu to viac vyhovuje neurónovej
-sieti, pretože situácie s podobnými vstupmi (napríklad len o jednu budovu viac na mojej
-strane) si budú i veľmi blízke hodnotou výstupu.
+statistics as mentioned above, but in the global version, and finally also the amount of food, energy
+(both supplied and consumed) and the current amount of the individual raw materials. Together, therefore,
+98 +21 + 4 + 4 = 127 inputs. The output of this network is again a number between 0 and 0.5, this time
+however indicating what phase the game has reached from the point of view of the computer player. A number close to 0 indicates
+the very beginning of the game, when it is still only necessary to build a base, and conversely a number around 0.5 should
+already indicate my complete superiority and just finishing off the enemies. With this view it is admittedly
+not entirely clear what each number means, but on the other hand it suits the neural
+network better, because situations with similar inputs (for example just one more building on my
+side) will also be very close in output value.
 
 
-Keď je jasný globálny stav, vracia sa opäť vyhodnocovací cyklus na úroveň jednotlivých
-plôch. Pomocou piatich rôznych neurónových sietí sa spočíta päť rôznych hodnôt pre každú
-sieť. Najprv sa spočíta potreba aktívnych alebo útočných budova tejto ploche. Tá má
-nasledujúce vstupy:
+When the global state is clear, the evaluation cycle returns again to the level of the individual
+areas. Using five different neural networks, five different values are computed for each
+network. First the need for active or attack buildings in this area is computed. It has
+the following inputs:
 •
 
-moja sila v podzemí na ploche,
+my strength underground in the area,
 
 •
 
-moja sila na zemi na ploche,
+my strength on the ground in the area,
 
 •
 
-moja sila vo vzduchu,
+my strength in the air,
 
 •
 
-súperova sila v podzemí,
+the opponent's strength underground,
 
 •
 
-súperova sila na zemi,
+the opponent's strength on the ground,
 
 •
 
-súperova sila vo vzduchu,
+the opponent's strength in the air,
 
 •
 
-počet mojich útočných jednotiek,
+the number of my attack units,
 
 •
 
-počet mojich práve stavaných útočných jednotiek,
+the number of my attack units currently being built,
 
 •
 
-počet mojich pracovných jednotiek,
+the number of my worker units,
 
 •
 
-počet mojich práve stavaných pracovných jednotiek,
+the number of my worker units currently being built,
 
 •
 
-počet mojich budov,
+the number of my buildings,
 
 •
 
-počet mojich práve stavaných budov,
+the number of my buildings currently being built,
 
 •
 
-počet cudzích útočných jednotiek,
+the number of foreign attack units,
 
 •
 
-počet cudzích pracovných jednotiek,
+the number of foreign worker units,
 
 •
 
-počet cudzích budov,
+the number of foreign buildings,
 
 •
 
-moja aktivita na ploche,
+my activity in the area,
 
 •
 
-cudzia aktivita na ploche,
+foreign activity in the area,
 
 •
 
-globálny stav,
+the global state,
 
 •
 
-lokálny stav na ploche.
+the local state in the area.
 
-Výstupom siete, ktorá je uložená v súbore network_for_phaze_a_b, je číslo medzi 0
-a 0.5, kde 0 označuje nulovú potrebu postaviť útočnú budovu na tejto ploche a 0.5
-bezpodmienečnú nutnosť postaviť tu takýto typ budovy.
-Veľmi podobná je aj sieť pre ekonomické budovy. Odlišuje sa však vstupmi, ktoré sú v jej
-prípade:
+The output of the network, which is stored in the file network_for_phaze_a_b, is a number between 0
+and 0.5, where 0 denotes zero need to build an attack building in this area and 0.5
+an unconditional necessity to build such a type of building here.
+The network for economic buildings is also very similar. It differs, however, in its inputs, which in its
+case are:
 •
 
-počet mojich budov,
+the number of my buildings,
 
 •
 
-počet mojich práve stavaných budov,
+the number of my buildings currently being built,
 
 •
 
-moja aktivita na ploche,
+my activity in the area,
 
 •
 
-cudzia aktivita na ploche,
+foreign activity in the area,
 
 •
 
-množstvo zdrojov 1. typu na ploche,
+the amount of sources of the 1st type in the area,
 
 •
 
-množstvo zdrojov 2. typu na ploche,
+the amount of sources of the 2nd type in the area,
 
 •
 
-množstvo zdrojov 3. typu na ploche,
+the amount of sources of the 3rd type in the area,
 
 •
 
-množstvo zdrojov 4. typu na ploche,
+the amount of sources of the 4th type in the area,
 
 
 •
 
-množstvo dodávanej energie,
+the amount of supplied energy,
 
 •
 
-množstvo spotrebovávanej energie,
+the amount of consumed energy,
 
 •
 
-množstvo dodávaného jedla,
+the amount of supplied food,
 
 •
 
-množstvo spotrebovávaného jedla,
+the amount of consumed food,
 
 •
 
-moje množstvo materiálu typu 1,
+my amount of material of type 1,
 
 •
 
-moje množstvo materiálu typu 2,
+my amount of material of type 2,
 
 •
 
-moje množstvo materiálu typu 3,
+my amount of material of type 3,
 
 •
 
-moje množstvo materiálu typu 4,
+my amount of material of type 4,
 
 •
 
-globálny stav,
+the global state,
 
 •
 
-lokálny stav na ploche.
+the local state in the area.
 
 
-Táto sieť tvorí obsah súboru network_for_phaze_s_b, výstupom je číslo 0-0.5
-s podobným významom ako v predchádzajúcom prípade.
-Tretia a čo do počtu vstupov najväčšia sieť je sieť zo súboru network_for_phaze_a_u,
-ktorá slúži na vyhodnotenie potreby výroby útočných jednotiek. Tá svoj výsledok počíta
-z nasledujúcich štatistík.
+This network forms the content of the file network_for_phaze_s_b; its output is a number 0-0.5
+with a similar meaning as in the previous case.
+The third network, and the largest in terms of number of inputs, is the network from the file network_for_phaze_a_u,
+which serves to evaluate the need to produce attack units. It computes its result
+from the following statistics.
 •
 
-moja sila v podzemí,
+my strength underground,
 
 •
 
-moja sila na zemi,
+my strength on the ground,
 
 •
 
-moja sila vo vzduchu,
+my strength in the air,
 
 •
 
-cudzia sila v podzemí,
+foreign strength underground,
 
 •
 
-cudzia sila na zemi,
+foreign strength on the ground,
 
 •
 
-cudzia sila v podzemí,
+foreign strength underground,
 
 •
 
-počet mojich útočných jednotiek,
+the number of my attack units,
 
 •
 
-počet mojich práve stavaných jednotiek,
+the number of my units currently being built,
 
 •
 
-počet mojich pracovných jednotiek,
+the number of my worker units,
 
 •
 
-počet mojich budov,
+the number of my buildings,
 
 •
 
-stav plochy, ktorá je SZ smerom (v rovnakej vrstve plôch),
+the state of the area in the NW direction (in the same layer of areas),
 
 •
 
-stav plochy, ktorá je S smerom,
+the state of the area in the N direction,
 
 •
 
-stav plochy, ktorá je SV smerom,
+the state of the area in the NE direction,
 
 •
 
-stav plochy, ktorá je Z smerom,
+the state of the area in the W direction,
 
 •
 
-stav plochy, ktorá je V smerom,
+the state of the area in the E direction,
 
 •
 
-stav plochy, ktorá je JZ smerom,
+the state of the area in the SW direction,
 
 •
 
-stav plochy, ktorá je J smerom,
+the state of the area in the S direction,
 
 •
 
-stav plochy, ktorá je JV smerom,
+the state of the area in the SE direction,
 
 •
 
-moja aktivita,
+my activity,
 
 •
 
-cudzia aktivita,
+foreign activity,
 
 
 •
 
-moje množstvo materiálu typu 1,
+my amount of material of type 1,
 
 •
 
-moje množstvo materiálu typu 2,
+my amount of material of type 2,
 
 •
 
-moje množstvo materiálu typu 3,
+my amount of material of type 3,
 
 •
 
-moje množstvo materiálu typu 4,
+my amount of material of type 4,
 
 •
 
-globálny stav,
+the global state,
 
 •
 
-lokálny stav na ploche.
+the local state in the area.
 
 
-Posledná zo sietí z tejto skupiny je uložená v súbore network_for_phaze_w, má rovnaký
-účel ako predchádzajúca, ale namiesto útočných jednotiek sa vzťahuje k pracovným
-jednotkám a na vstupe má tieto hodnoty:
+The last of the networks in this group is stored in the file network_for_phaze_w; it has the same
+purpose as the previous one, but instead of attack units it relates to worker
+units, and it has these values on input:
 •
 
-počet mojich pracovných jednotiek,
+the number of my worker units,
 
 •
 
-počet mojich práve stavaných pracovných jednotiek,
+the number of my worker units currently being built,
 
 •
 
-počet mojich práve stavaných budov,
+the number of my buildings currently being built,
 
 •
 
-počet cudzích útočných jednotiek,
+the number of foreign attack units,
 
 •
 
-moja aktivita,
+my activity,
 
 •
 
-cudzia aktivita,
+foreign activity,
 
 •
 
-množstvo zdrojov typu 1 na ploche,
+the amount of sources of type 1 in the area,
 
 •
 
-množstvo zdrojov typu 2 na ploche,
+the amount of sources of type 2 in the area,
 
 •
 
-množstvo zdrojov typu 3 na ploche,
+the amount of sources of type 3 in the area,
 
 •
 
-množstvo zdrojov typu 4 na ploche,
+the amount of sources of type 4 in the area,
 
 •
 
-množstvo dodávanej energie,
+the amount of supplied energy,
 
 •
 
-množstvo spotrebovanej energie,
+the amount of consumed energy,
 
 •
 
-množstvo dodávaného jedla,
+the amount of supplied food,
 
 •
 
-množstvo spotrebovávaného jedla,
+the amount of consumed food,
 
 •
 
-moje množstvo materiálu typu 1,
+my amount of material of type 1,
 
 •
 
-moje množstvo materiálu typu 2,
+my amount of material of type 2,
 
 •
 
-moje množstvo materiálu typu 3,
+my amount of material of type 3,
 
 •
 
-moje množstvo materiálu typu 4,
+my amount of material of type 4,
 
 •
 
-globálny stav,
+the global state,
 
 •
 
-lokálny stav na ploche,
+the local state in the area,
 
-Posledné dve majú tiež výstup medzi 0 a 0.5, ale čísla menšie ako 0.25 značia, že tu mám viac
-príslušných jednotiek, než je potrebné. Hodnota 0.25 označuje „spokojnosť“ s počtom
-jednotiek a väčšie hodnoty potrebu privolania ďalších.
-Trochu stranou od týchto sietí je sieť pre zistenie dôležitosti plochy, súbor
-network_for_importance. Jej cieľom je usporiadať plochy tak, ako je nutné vyhovieť ich
-požiadavkám. Pre ňu sú dôležitejšie skôr počty jednotiek než presne druhy a preto má
-nasledujúce vstupy:
+The last two also have an output between 0 and 0.5, but numbers smaller than 0.25 indicate that I have more
+of the corresponding units here than necessary. The value 0.25 denotes "satisfaction" with the number of
+units and greater values the need to call in more.
+Somewhat apart from these networks is the network for determining the importance of an area, the file
+network_for_importance. Its goal is to order the areas in the way their requirements need to be
+satisfied. For it, the numbers of units are more important than their exact kinds, and therefore it has
+the following inputs:
 
 
 •
 
-priemer mojich síl v jednotlivých segmentoch,
+the average of my strengths in the individual segments,
 
 •
 
-priemer cudzích síl v jednotlivých segmentoch,
+the average of foreign strengths in the individual segments,
 
 •
 
-celkový počet mojich jednotiek (vrátane tých, ktoré sú ešte len stavané),
+the total number of my units (including those that are still only being built),
 
 •
 
-celkový počet cudzích jednotiek,
+the total number of foreign units,
 
 •
 
-moja aktivita,
+my activity,
 
 •
 
-cudzia aktivita,
+foreign activity,
 
 •
 
-množstvo zdrojov typu 1 na ploche,
+the amount of sources of type 1 in the area,
 
 •
 
-množstvo zdrojov typu 2 na ploche,
+the amount of sources of type 2 in the area,
 
 •
 
-množstvo zdrojov typu 3 na ploche,
+the amount of sources of type 3 in the area,
 
 •
 
-množstvo zdrojov typu 4 na ploche,
+the amount of sources of type 4 in the area,
 
 •
 
-moje množstvo materiálu typu 1,
+my amount of material of type 1,
 
 •
 
-moje množstvo materiálu typu 2,
+my amount of material of type 2,
 
 •
 
-moje množstvo materiálu typu 3,
+my amount of material of type 3,
 
 •
 
-moje množstvo materiálu typu 4,
+my amount of material of type 4,
 
 •
 
-globálny stav,
+the global state,
 
 •
 
-lokálny stav na ploche.
+the local state in the area.
 
-Výsledné číslo je opäť medzi 0 a 0.5 a jeho interpretácia je jasná: čím vyššie číslo, tým
-dôležitejšia plocha.
+The resulting number is again between 0 and 0.5 and its interpretation is clear: the higher the number, the
+more important the area.
 
-### 7.5 Vlastné pohyby jednotiek
+### 7.5 The units' own movements
 
-Tento ohodnocovací cyklus prebieha opakovane dokola pre všetkých počítačových hráčov
-v aktuálnej hre. Časový interval medzi dvomi ohodnoteniami jednotiek toho istého hráča je
-pevne daný a ohodnotenia ostatných hráčov sa rozplánujú rovnomerne do toho intervalu.
-Zároveň s tým prebieha počítanie aktivity jednotlivých políčok. Každé políčko mapy má
-vlastné počítadla aktivity pre každého hráča, do ktorých sa pravidelne pripočítava 0, pokiaľ na
-tomto políčku nie je žiadna jednotka príslušného hráča a nenulové číslo v opačnom prípade.
-Toto číslo ešte závisí na akcii, ktorú jednotka práve vykonáva, pretože napríklad útočenie je
-považované za dôležitejšiu činnosť ako státie.
-Celý priebeh vyhodnocovania z pohľadu počítačového hráča vyzerá tak, že sa najprv
-prepočítajú všetky hodnoty plôch (najprv všetky štatistiky, potom všetky lokálne stavy plôch,
-globálny stav a nakoniec potreby jednotlivých druhov jednotiek a dôležitosť každej plochy),
-potom sa vyriešia všetky potreby (napr. budovy, ktoré nemôžu stavať jednotky, pretože im
-chýba jedlo, energia alebo suroviny), nasleduje uspokojenie niekoľkých plôch s najväčšou
-dôležitosťou a nakoniec sa prejdú zostávajúce jednotky, ktoré ešte nedostali žiaden príkaz
-(pracovníci sa pošlú ťažiť a útočné jednotky sa postavia do obranných pozícií).
+This evaluation cycle runs repeatedly over and over for all computer players
+in the current game. The time interval between two evaluations of the units of the same player is
+fixed, and the evaluations of the other players are scheduled evenly within that interval.
+At the same time, the activity of the individual fields is computed. Each map field has
+its own activity counters for each player, to which 0 is regularly added if on
+this field there is no unit of the corresponding player, and a non-zero number otherwise.
+This number also depends on the action the unit is currently performing, because, for example, attacking is
+considered a more important activity than standing.
+The whole course of evaluation from the point of view of the computer player looks like this: first
+all area values are recomputed (first all statistics, then all local states of the areas,
+the global state and finally the needs of the individual kinds of units and the importance of each area),
+then all needs are resolved (e.g. buildings that cannot build units because they
+lack food, energy or raw materials), followed by satisfying several areas with the greatest
+importance, and finally the remaining units that have not yet received any command are gone through
+(workers are sent to mine and attack units are placed in defensive positions).
 
 
-## 8 Grafika
+## 8 Graphics
 Peter Knut
 
 
-### 8.1 Úvod
+### 8.1 Introduction
 
-Hra Dark Oberon používa pre zobrazovanie grafiky technológiu OpenGL. Tá je síce primárne
-určená pre 3D aplikácie, no poskytuje široké možnosti aj pre programy založené na
-dvojrozmernej grafike. Výhodou je hardwarová podpora zobrazovania s priehľadnosťou (alfablending), projekcií a riešenia viditeľnosti.
+The game Dark Oberon uses OpenGL technology for displaying graphics. Although it is primarily
+intended for 3D applications, it also provides broad possibilities for programs based on
+two-dimensional graphics. The advantage is hardware support for rendering with transparency (alpha blending), projections and visibility resolution.
 
-### 8.2 Projekcie
+### 8.2 Projections
 
-Aplikácia používa v menu i v hre výhradne ortografické zobrazenie, pri ktorom je veľkosť
-vykreslených polygónov nezávislá na vzdialenosti od pomyslenej kamery. V menu je kváder
-zobrazenia nastavený podľa veľkosti okna. V hre je vždy použitá rovnaká veľkosť nezávisle
-na okne. Tým sa dosiahne efekt toho, že pri rôznych rozlíšeniach obrazovky a aplikácii
-pustenej na celú obrazovku je veľkosť jednotiek rovnaká. Týmto interným rozlíšením je
-1024x768. V prípade priblíženia (oddialenia) mapy je kváder zobrazenia zmenšený
-(zväčšený).
+The application uses exclusively orthographic projection both in the menu and in the game, in which the size
+of the rendered polygons is independent of the distance from the imaginary camera. In the menu the view
+volume is set according to the window size. In the game the same size is always used, independently
+of the window. This achieves the effect that at different screen resolutions and with the application
+running full screen, the size of units is the same. This internal resolution is
+1024x768. When the map is zoomed in (out), the view volume is reduced
+(enlarged).
 
-Mapa
+Map
 
-Obrazovka
+Screen
 
-Kváder zobrazenia
+View volume
 
-### 8.3 Zobrazenie mapy
+### 8.3 Map display
 
-Každá mapa obsahuje tri povrchové úrovne – segmenty. Každý segment je reprezentovaný
-ako dvojrozmerné pole a skladá sa zo štvorcových kusov povrchu – fragmentov. Segmenty sú
-zobrazované v izometrickom pohľade, takže fragmenty sa javia ako kosoštvorce so šírkou
-dvakrát väčšou ako je ich výška. Spolu s vhodnými textúrami tento pohľad vyvoláva dojem
-priestoru.
-Je možné prepínať medzi zobrazením jedného segmentu a zobrazením všetkých segmentov
-naraz. Pri tomto kombinovanom móde sú segmenty vykresľované postupne od spodného
-k vrchnému. Môžu teda obsahovať i priehľadné textúry, cez ktoré bude vidno do nižšieho
-segmentu. To sa využíva predovšetkým v najvyššom segmente reprezentujúcom oblohu.
-V hre sa používa tzv. warfog pre vyznačenie jednak neobjavených miest (čierna nepriehľadná
-farba) a potom miest, ktoré sú objavené ale žiadna jednotka na ne momentálne nevidí (farbu
-a intenzitu je možné zvoliť). Warfog nie je nič iné ako textúra generovaná priebežne podľa
+Each map contains three surface levels – segments. Each segment is represented
+as a two-dimensional array and consists of square pieces of surface – fragments. Segments are
+displayed in isometric view, so fragments appear as rhombuses with a width
+twice their height. Together with suitable textures this view creates an impression of
+space.
+It is possible to switch between displaying one segment and displaying all segments
+at once. In this combined mode the segments are rendered successively from the bottom one
+to the top one. They can therefore also contain transparent textures through which the lower
+segment will be visible. This is used above all in the highest segment representing the sky.
+The game uses a so-called warfog to mark both undiscovered places (black opaque
+colour) and places that have been discovered but which no unit currently sees (the colour
+and intensity can be chosen). The warfog is nothing other than a texture generated continuously according to the
 
 
-aktuálnej situácie na mape. Jeden bod textúry predstavuje jedno políčko na mape. Pri
-vykreslení warfogu sa jeho textúra roztiahne na celú mapu. Týmto vznikne efekt rozmazania
-na prechodoch medzi rôznymi typmi oblastí.
-Priebežne sa udržiavajú štyri takéto textúry. Tri sú pre jednotlivé segmenty, jedna pre
-kombinované zobrazenie všetkých segmentov.
-K zaujímavej situácii dochádza pri kombinovanom zobrazení ak je čiastočne objavený nižší
-segment na miestach kde nie je objavený vyšší segment. V tomto prípade vidno priamo do
-nižšieho segmentu. Vyšší segment je použitím Z-bufferu orezaný.
+current situation on the map. One texel represents one field on the map. When
+rendering the warfog, its texture is stretched over the whole map. This creates a blurring effect
+at the transitions between different types of areas.
+Four such textures are maintained continuously. Three are for the individual segments, one for the
+combined display of all segments.
+An interesting situation occurs in the combined display if a lower segment is partially discovered
+in places where the higher segment is not discovered. In this case one sees directly into the
+lower segment. The higher segment is clipped using the Z-buffer.
 
-Obrázok 9: Rozloženie fragmentov na mape vytvára
-dojem priestoru.
+Figure 9: The layout of fragments on the map creates
+an impression of space.
 
-### 8.4 Obrázok 8: Kombinované zobrazenie segmentov spolu s
-warfogom.
+### 8.4 Figure 8: Combined display of segments together with
+the warfog.
 
-Jednotky
+Units
 
-Jednoty sú vykresľované spolu so segmentom na ktorom stoja. Pre každý segment sa najprv
-vykreslia fragmenty a následne jednotky. Špeciálny prípad nastáva iba pri zobrazení všetkých
-segmentov naraz. Predpokladá, že textúry stredného segmentu sú nepriehľadné. Preto sa
-jednotky zo spodného segmentu vykreslia dvakrát. Jednak spolu so spodným segmentom
-a potom polopriehľadne spolu so stredným segmentom a to ešte pred vykreslením jednotiek
-zo stredného segmentu. Tým sa zabezpečí aby ich bolo vždy vidno.
+Units are rendered together with the segment on which they stand. For each segment, first
+the fragments are rendered and then the units. A special case occurs only when displaying all
+segments at once. It is assumed that the textures of the middle segment are opaque. Therefore
+the units from the bottom segment are rendered twice. Once together with the bottom segment
+and then semi-transparently together with the middle segment, before rendering the units
+from the middle segment. This ensures that they are always visible.
 
-#### 8.4.1 Zoraďovanie jednotiek
+#### 8.4.1 Sorting units
 
-Jednotky je potrebné v každom segmente vykresľovať zozadu dopredu aby sa prirodzene
-prekrývali. Za týmto účelom sa zoznamy jednotiek pre každý segment udržiavajú zoradené.
-Keďže súradnice jednotiek neodpovedajú zobrazeniu mapy na obrazovke, je podmienka pre
-zoraďovanie pomerne zložitá. Predpokladom je, že sa jednotky svojimi podstavami
-neprekrývajú.
-Základný prípad nastáva keď sa súradnice jednotky A nachádzajú vo vyznačenej oblasti
-jednotky B podľa obrázka. Vtedy sa jednotka A nachádza pred jednotkou B.
+Units in each segment need to be rendered from back to front so that they naturally
+overlap. For this purpose the unit lists for each segment are kept sorted.
+Since unit coordinates do not correspond to the display of the map on the screen, the condition for
+sorting is rather complicated. The assumption is that units do not overlap with their
+bases.
+The basic case occurs when the coordinates of unit A lie in the marked area
+of unit B according to the figure. Then unit A is in front of unit B.
 
 B
 A’’
@@ -2211,10 +2207,10 @@ A
 y
 
 
-Takáto podmienka však ešte nestačí. Existujú vzájomné polohy jednotiek u ktorých by sme
-nevedeli rozhodnúť ktorá jednotka je bližšie. V takýchto prípadoch sa berie do úvahy poloha
-krajných rohov jednotiek vzhľadom na súradnice obrazovky. Na nasledujúcom obrázku je
-jednotka A pred jednotkou B.
+Such a condition, however, is not yet sufficient. There are mutual positions of units for which we
+could not decide which unit is closer. In such cases the position of the
+outermost corners of the units with respect to screen coordinates is taken into account. In the following figure
+unit A is in front of unit B.
 
 y
 
@@ -2222,278 +2218,278 @@ B
 A
 
 
-Jednotka môže mať naviac nastavený jeden z príznakov: lying_down alebo flying_up.
-Jednotky s príznakom lying_down ležia pod jednotkami bez tohto príznaku. Znamená to
-teda, že pri zoraďovaní sú prednostne radené dozadu. Príznak sa používa napríklad pre trosky
-zničenej budovy. Naopak flying_up znamená, že sa jednotky nachádzajú nad ostatnými
-a sú radené dopredu. Využívajú ho najmä letiace náboje. Je zrejmé, že sa jednotky s jedným
-z príznakov môžu prekrývať s jednotkami bez tohoto príznaku.
+A unit can additionally have one of the flags set: lying_down or flying_up.
+Units with the lying_down flag lie below units without this flag. This
+means that when sorting they are preferentially placed towards the back. The flag is used, for example, for the debris
+of a destroyed building. Conversely, flying_up means that the units are above the others
+and are placed towards the front. It is used mainly by flying projectiles. It is evident that units with one
+of the flags can overlap with units without this flag.
 
-#### 8.4.2 Označovanie jednotiek
+#### 8.4.2 Selecting units
 
-Jednotky je možné označiť myšou prostredníctvom ich textúry. Detekcia textúr prebieha tak,
-že sa na pozadí vykresľujú jednotky ako čierne siluety. Postup je nasledovný:
-1. pod kurzor myši sa vykreslí biely štvorec,
-2. postupne sa prechádzajú jednotky stojace pod kurzorom zdola nahor (vzhľadom na
-obrazovku) a kreslia sa ich čierne siluety. Zakaždým sa otestuje, či je bod pod
-kurzorom stále biely. Ak nie je, jednotka sa označí a testovanie končí.
-Na obrázku je znázornený zvislý pás mapy pod kurzorom myši. Jednotky zasahujúce svojou
-podstavou do tohto pásu prichádzajú do úvahy pre testovanie. Dĺžka pásu je ohraničená.
-Kurzor
+Units can be selected with the mouse via their texture. Texture detection works
+by rendering units in the background as black silhouettes. The procedure is as follows:
+1. a white square is rendered under the mouse cursor,
+2. the units standing under the cursor are gone through successively from bottom to top (with respect to the
+screen) and their black silhouettes are drawn. Each time it is tested whether the point under the
+cursor is still white. If it is not, the unit is selected and testing ends.
+The figure shows a vertical strip of the map under the mouse cursor. Units reaching with their
+base into this strip come into consideration for testing. The length of the strip is limited.
+Cursor
 
-Mapa
+Map
 
-Pás testovania
+Testing strip
 
 ### 8.5 Radar
 
-Radar zobrazuje náhľad na odkryté časti mapy spolu s viditeľnými jednotkami. Pre každý
-segment existuje textúra s celkovým pohľadom na mapu. Tieto textúry sa získavajú
-automaticky pred spustením hry. Každý segment sa na pozadí vykreslí tak aby presne pasoval
-do štvorca s veľkosťou 256x256 bodov. Táto oblasť sa uloží ako textúra.
-Do radaru sa teda vykreslí vždy textúra celého segmentu, následne warfog rovnako ako na
-mape a nakoniec viditeľné jednotky v podobe farebných kosoštvorcov. Pri zobrazení všetkých
-segmentov naraz sa v radare zobrazuje iba stredný segment (jednotky samozrejme zo
-všetkých segmentov).
+The radar displays a preview of the uncovered parts of the map together with visible units. For each
+segment there is a texture with an overall view of the map. These textures are obtained
+automatically before the game starts. Each segment is rendered in the background so that it exactly fits
+into a square of size 256x256 pixels. This area is stored as a texture.
+So the texture of the whole segment is always rendered into the radar, then the warfog in the same way as on the
+map, and finally the visible units in the form of coloured rhombuses. When displaying all
+segments at once, only the middle segment is displayed in the radar (units, of course, from
+all segments).
 
 
-## 9 Grafické rozhranie
+## 9 Graphical interface
 Peter Knut
 
 
-### 9.1 Úvod
+### 9.1 Introduction
 
-Grafické užívateľské rozhranie (GUI) vzniklo pôvodne ako súčasť hry Dark Oberon, neskôr
-sa z neho stala samostatná knižnica nezávislá na zvyšku projektu. Ide o nadstavbu knižnice
-GLWF (An OpenGL Framework) používanej v projekte. Jej základom je jednak práca
-s animovanými textúrami a potom systém panelov vytvárajúci variabilné grafické rozhranie.
-Tento systém je zameraný na jednoduchosť a potreby hry, takže neposkytuje úplné možnosti
-na ktoré sme zvyknutí z bežných aplikácií.
-Zdrojový kód knižnice sa nachádza v súboroch glgui.*.
+The graphical user interface (GUI) was originally created as part of the game Dark Oberon; later
+it became a separate library independent of the rest of the project. It is an extension of the
+GLWF library (An OpenGL Framework) used in the project. Its basis is, on the one hand, working
+with animated textures and, on the other, a panel system creating a variable graphical interface.
+This system is focused on simplicity and the needs of the game, so it does not provide the full possibilities
+we are used to from ordinary applications.
+The source code of the library is located in the files glgui.*.
 
-### 9.2 Textúry a animácie
+### 9.2 Textures and animations
 
-O textúru načítanú z dátového súboru sa stará strieda TGUI_TEXTURE. Tu sú uložené všetky
-jej vlastnosti ako rozmery, počty snímkov, dĺžka animácie a podobne (viď dokumentáciu
-k Data Editoru). Naviac vie táto trieda metódou DrawFrame() vykresliť zvolený snímok.
-Inštancie týchto tried sú typicky usporiadané v poli.
-Riadenie samotnej animácie má na starosti trieda TGUI_ANIMATION, ktorá sa odkazuje na
-textúru TGUI_TEXTURE. Jej hlavnými metódami sú:
+A texture loaded from a data file is managed by the class TGUI_TEXTURE. All
+its properties are stored here, such as dimensions, number of frames, animation length and the like (see the documentation
+of the Data Editor). In addition, this class can render a chosen frame with the method DrawFrame().
+Instances of these classes are typically arranged in an array.
+Control of the animation itself is the responsibility of the class TGUI_ANIMATION, which refers to
+a TGUI_TEXTURE texture. Its main methods are:
 •
 •
 •
 •
 
-### 9.3 Update() – posúva animáciu v čase,
-Draw() – vykreslí aktuálny snímok,
-Play(), Pause() a Stop() – slúžia pre spúšťanie a zastavenie animácie,
-Hide(), Show() a SetVisible() – nastavujú viditeľnosť animácie.
+### 9.3 Update() – advances the animation in time,
+Draw() – renders the current frame,
+Play(), Pause() and Stop() – serve for starting and stopping the animation,
+Hide(), Show() and SetVisible() – set the visibility of the animation.
 
-Systém panelov
+Panel system
 
-Samotné grafické rozhranie je tvorené systémom panelov na čele s triedou TGUI. Po
-vytvorení rozhrania je možné do neho pridávať rôzne aktívne či pasívne komponenty ako sú
-panely, tlačidlá, zoznamy, zaškrtávacie políčka a pod. Všetky komponenty sa vedia bez
-zásahu samé vykresliť s využitím štandartnej palety farieb. V prípade potreby je možné
-každému prvku nastaviť vlastné farby či priesvitnosť. Viaceré z nich podporujú užívateľské
-textúry.
-Prepojením grafického rozhrania s aplikáciou sú okrem triedy TGUI hlavne tzv. callback
-funkcie obsiahnuté vo všetkých komponentoch. Tie umožňujú informovanie aplikácie
-o udalostiach vznikajúcich v danom komponente (napr. stlačenie alebo pustenie tlačidla myši,
-stlačenie klávesu, vykreslenie alebo získanie aktivity).
-Hierarchia jednotlivých tried je zobrazená v diagrame na konci dokumentu.
+The graphical interface itself is formed by a panel system headed by the class TGUI. After
+the interface is created, various active or passive components can be added to it, such as
+panels, buttons, lists, checkboxes, etc. All components can render themselves without
+intervention using the standard colour palette. If needed, it is possible to set
+custom colours or transparency for each element. Several of them support user
+textures.
+Besides the class TGUI, the connection of the graphical interface with the application consists mainly of the so-called callback
+functions contained in all components. These allow the application to be informed
+about events arising in the given component (e.g. pressing or releasing a mouse button,
+pressing a key, rendering or gaining focus).
+The hierarchy of the individual classes is shown in the diagram at the end of the document.
 
-#### 9.3.1 Trieda TGUI_BOX
+#### 9.3.1 The TGUI_BOX class
 
-Základná trieda, ktorá tvorí spoločného predka pre všetky komponenty rozhrania. Definuje
-pravouhlú oblasť s vlastnosťami ako sú: pozícia, veľkosť, okraj a rôzne typy farieb. Pozícia
-vychádza z ľavého dolného rohu obrazovky. Okraj zmenšuje oblasť na tzv. klientskú oblasť.
+The base class forming the common ancestor for all interface components. It defines
+a rectangular area with properties such as: position, size, border and various types of colours. The position
+is measured from the lower-left corner of the screen. The border reduces the area to the so-called client area.
 
 
-Ďalej je možné nastaviť, či je oblasť viditeľná, použiteľná prípadne aktívna. Naviac môže byť
-k oblasti priradená rýchla nápoveda (tzv. tooltip), ktorá sa automaticky zobrazí pri podržaní
-kurzoru myši nad oblasťou.
-Je tu možné nastaviť väčšinu callback funkcií. TGUI_BOX obsahuje voliteľný celočíselný
-kľúč, pomocou ktorého sa dá v callback funkciách objekt identifikovať.
+It is further possible to set whether the area is visible, usable or active. In addition,
+a quick help (a so-called tooltip) can be assigned to the area, which is automatically displayed when the
+mouse cursor is held over the area.
+Most callback functions can be set here. TGUI_BOX contains an optional integer
+key, by which the object can be identified in callback functions.
 
-okraj
+border
 
-klientská oblasť
+client area
 
-výška
+height
 
-šírka
+width
 
-#### 9.3.2 Trieda TGUI_LABEL
+#### 9.3.2 The TGUI_LABEL class
 
-Slúži pre vykreslenie, zadaného textu či animácie. Text môže byť
-i viacriadkový. V takomto prípade je potrebné zadať reťazec,
-v ktorom sú jednotlivé riadky oddelené znakom ’\n’. Užitočnou
-vlastnosťou je automatická zmena veľkosti komponenty podľa
-jej obsahu.
+Serves for rendering a given text or animation. The text can
+also be multi-line. In that case it is necessary to specify a string
+in which the individual lines are separated by the character ’\n’. A useful
+property is the automatic resizing of the component according to
+its content.
 
-#### 9.3.3 Obrázok 10: TGUI_LABEL
+#### 9.3.3 Figure 10: TGUI_LABEL
 
-Trieda TGUI_LIST
+The TGUI_LIST class
 
-Táto trieda je odvodená od TGUI_LABEL, ku ktorej pridáva
-možnosť označovať jednotlivé riadky textu myšou a pristupovať
-k označenému riadku. Obsahuje tiež callback funkciu pre zmenu
-označeného riadku.
-Obrázok 11: TGUI_LIST
+This class is derived from TGUI_LABEL, to which it adds
+the ability to select individual lines of text with the mouse and to access
+the selected line. It also contains a callback function for a change of
+the selected line.
+Figure 11: TGUI_LIST
 
-#### 9.3.4 Trieda TGUI_BUTTON
+#### 9.3.4 The TGUI_BUTTON class
 
-Reprezentuje tlačidlo s popisom. Tlačidlo sa môže nachádzať
-v rôznych stavoch (stlačené, nestlačené, stlačené aktívne,
-nestlačené aktívne). Pre každý tento stav je možné definovať
-vlastnú textúru.
-Existujú tri typy tlačidiel, ktoré sa od seba líšia správaním:
+Represents a button with a caption. The button can be
+in various states (pressed, not pressed, pressed active,
+not pressed active). For each of these states it is possible to define
+a custom texture.
+There are three types of buttons, which differ from each other in behaviour:
 
-Obrázok 12:
+Figure 12:
 TGUI BUTTON
 
 •
 
-obyčajné tlačidlo – po stlačení sa vráti do pôvodnej polohy (stavu),
+ordinary button – after being pressed it returns to its original position (state),
 
 •
 
-zaškrtávacie tlačidlo – po stlačení ostane v stlačenej polohe. Do pôvodnej polohy sa
-vráti po opätovnom stlačení.
+check button – after being pressed it remains in the pressed position. It returns to the original position
+when pressed again.
 
 •
 
-skupinové tlačidlo – funguje podobne ako zaškrtávacie tlačidlo. Naviac spolupracuje
-s ostatnými skupinovými tlačidlami, ktoré sú priradené do tej istej skupiny. V jednej
-skupine môže byť stlačené najviac jedno tlačidlo. Teda po stlačení skupinového
-tlačidla sa aktuálne stlačené tlačidlo v jeho skupine vráti automaticky do pôvodnej
-polohy.
+group button – works similarly to a check button. In addition it cooperates
+with the other group buttons that are assigned to the same group. In one
+group at most one button can be pressed. So after a group
+button is pressed, the currently pressed button in its group automatically returns to its original
+position.
 
 
-Obsahuje callback funkciu pre zaškrtávanie.
+It contains a callback function for checking.
 
-#### 9.3.5 Trieda TGUI_CHECKBOX
+#### 9.3.5 The TGUI_CHECKBOX class
 
-Toto je špecializovaná trieda, ktorá funguje presne tak
-isto ako zaškrtávacie tlačidlo. Jediný rozdiel je vo
-výzore komponenty.
-Obrázok 13: TGUI_CHECK_BOX
+This is a specialized class that works exactly
+like a check button. The only difference is in the
+appearance of the component.
+Figure 13: TGUI_CHECK_BOX
 
-#### 9.3.6 Trieda TGUI_EDIT_BOX
+#### 9.3.6 The TGUI_EDIT_BOX class
 
-Definuje pole do ktorého môže užívateľ napísať
-jednoriadkový text. Je možné zadať maximálnu dĺžku
-textu. V aktívnom poli sa vykreslí kurzor označujúci
-aktuálnu pozíciu. V tomto okamihu komponent prijíma
-vstup z klávesnice. Kurzor sa dá pomocou štandartných
-kláves presúvať.
+Defines a field into which the user can type
+single-line text. It is possible to specify the maximum length
+of the text. In the active field a cursor marking the
+current position is rendered. At that moment the component receives
+keyboard input. The cursor can be moved using the standard
+keys.
 
-Obrázok 14: TGUI_EDIT_BOX
+Figure 14: TGUI_EDIT_BOX
 
-Obsahuje callback funkciu pre zmenu textu.
+It contains a callback function for a text change.
 
-#### 9.3.7 Trieda TGUI_SLIDER
+#### 9.3.7 The TGUI_SLIDER class
 
-Zastupuje horizontálny, prípadne vertikálny posuvník.
-Krajné pozície posuvníka sú vždy 0 a 1.
+Represents a horizontal or vertical slider.
+The end positions of the slider are always 0 and 1.
 
-Obrázok 15: TGUI_SLIDER
+Figure 15: TGUI_SLIDER
 
-Obsahuje callback funkciu pre zmenu pozície.
+It contains a callback function for a position change.
 
-#### 9.3.8 Trieda TGUI_PANEL
+#### 9.3.8 The TGUI_PANEL class
 
-Panel je vizualizovaná pravouhlá oblasť, do ktorej je
-možné pridávať ľubovoľné iné komponenty (okrem
-TGUI). Pozície všetkých komponentov v paneli sú
-relatívne vzhľadom na ľavý dolný roh klientskej oblasti
-panelu. Naviac sú komponenty orezané tak aby
-neprečnievali.
+A panel is a visualized rectangular area into which
+arbitrary other components (except
+TGUI) can be added. The positions of all components in the panel are
+relative to the lower-left corner of the client area of the
+panel. In addition, components are clipped so that they do not
+protrude.
 
-Obrázok 16: TGUI_PANEL
+Figure 16: TGUI_PANEL
 
-Panel podporuje užívateľské textúry.
+The panel supports user textures.
 
-#### 9.3.9 Trieda TGUI_SCROLL_BOX
+#### 9.3.9 The TGUI_SCROLL_BOX class
 
-Scroll box je panel, ktorý automaticky obhospodaruje
-vstavané posuvníky.
-Ak niektorý z komponentov
-prečnieva mimo klientskú oblasť, je možné posunúť
-všetky
-komponenty
-a zobraziť
-prečnievajúci
-komponent.
+A scroll box is a panel that automatically manages
+built-in scrollbars.
+If any of the components
+protrudes outside the client area, it is possible to scroll
+all
+components
+and display
+the protruding
+component.
 
-Obrázok 17: TGUI_SCROLL_BOX
+Figure 17: TGUI_SCROLL_BOX
 
-Posuvníky sa dajú podľa potreby zobraziť či skryť.
+The scrollbars can be shown or hidden as needed.
 
-#### 9.3.10 Trieda TGUI_LIST_BOX
-Táto trieda zobrazuje zoznam textových položiek,
-z ktorých je možné jednu označiť. Obsahuje vstavané
-posuvníky podobne ako TGUI_SCROLL_BOX. Pre svoju
-
-
-Obrázok 18: TGUI_LIST_BOX
+#### 9.3.10 The TGUI_LIST_BOX class
+This class displays a list of text items,
+of which one can be selected. It contains built-in
+scrollbars similarly to TGUI_SCROLL_BOX. For its
 
 
-prácu využíva triedu TGUI_LIST.
-Obsahuje callback funkciu pre zmenu položky.
+Figure 18: TGUI_LIST_BOX
 
-#### 9.3.11 Trieda TGUI_COMBO_BOX
-Combo
+
+work it uses the class TGUI_LIST.
+It contains a callback function for an item change.
+
+#### 9.3.11 The TGUI_COMBO_BOX class
+The combo
 
 box
 
-pracuje
+works
 
-podobne
+similarly
 
-ako
+to
 
-trieda
+the class
 
-TGUI_LIST_BOX, ktorú využíva pre svoju prácu.
+TGUI_LIST_BOX, which it uses for its work.
 
-Nezobrazuje však všetky položky ale iba aktuálne
-označenú. Na kraji sa nachádza tlačidlo, ktoré po
-stlačení zobrazí celý zoznam.
+However, it does not display all items but only the currently
+selected one. At the edge there is a button which, when
+pressed, displays the whole list.
 
-Obrázok 19: TGUI_COMBO_BOX
+Figure 19: TGUI_COMBO_BOX
 
-Obrázok 20: TGUI_MESSAGE_BOX
+Figure 20: TGUI_MESSAGE_BOX
 
-#### 9.3.12 Trieda TGUI_MESSAGE_BOX
-Ide
+#### 9.3.12 The TGUI_MESSAGE_BOX class
+This is
 
-o špecifickú
+a specific
 
-triedu,
+class,
 
-ktorá
+which
 
-vychádza
+is based
 
-z triedy
+on the class
 
-TGUI_PANEL. Dokáže zobraziť zadaný text vo forme
+TGUI_PANEL. It can display a given text in the form of
 
-dialógu. Obsahuje viacero vstavaných tlačidiel (OK, Yes,
-No, Cancel), ktoré je možné navzájom kombinovať.
-Veľkosť dialógu sa vypočíta automaticky podľa veľkosti
-použitých tlačidiel a dĺžky textu. Pozícia dialógu je vždy
-uprostred obrazovky.
+a dialog. It contains several built-in buttons (OK, Yes,
+No, Cancel), which can be combined with each other.
+The size of the dialog is computed automatically according to the size
+of the buttons used and the length of the text. The position of the dialog is always
+in the middle of the screen.
 
-#### 9.3.13 Trieda TGUI
-TGUI je základnou triedou pre prácu s grafickým
+#### 9.3.13 The TGUI class
+TGUI is the base class for working with the graphical
 
-užívateľským rozhraním. Predpokladá sa existencia práve
-jednej inštancie tejto triedy. Ide vlastne o neviditeľný
-panel roztiahnutý cez celú obrazovku. Základnými
-funkciami sú:
+user interface. The existence of exactly
+one instance of this class is assumed. It is actually an invisible
+panel stretched over the whole screen. The basic
+functions are:
 •
 •
 •
@@ -2501,30 +2497,30 @@ funkciami sú:
 •
 •
 
-Update() – túto funkciu je potrebné zavolať
+Update() – this function must be called
 
-vždy pred vykreslením. Parametrom je časový
-posun od posledného volania tejto funkcie,
-Draw() – vykreslí všetky viditeľné komponenty,
-MouseMove() – potrebné zavolať vždy pri
-zmene polohy myši,
-MouseDown() – potrebné zavolať po každom
-stlačení tlačidla myši,
-MouseUp() – potrebné zavolať po každom
-pustení tlačidla myši,
-KeyDown() – potrebné zavolať po každom
-stlačení klávesu.
-
-
-Obrázok 21: Ukážka grafického
-rozhrania s použitím užívateľských
-textúr a farieb.
+always before rendering. The parameter is the time
+shift since the last call of this function,
+Draw() – renders all visible components,
+MouseMove() – must be called on every
+change of mouse position,
+MouseDown() – must be called after every
+press of a mouse button,
+MouseUp() – must be called after every
+release of a mouse button,
+KeyDown() – must be called after every
+key press.
 
 
-Trieda tiež umožňuje nastaviť typ a farbu písma globálne pre všetky komponenty
-a zobrazovať dialóg s odkazom (s využitím TGUI_MESSAGE_BOX).
-Podrobný popis všetkých tried a funkcií sa nachádza v zdrojovom kóde programu.
-Hierarchia tried grafického rozhrania:
+Figure 21: Example of the graphical
+interface using user
+textures and colours.
+
+
+The class also allows setting the font type and colour globally for all components
+and displaying a dialog with a message (using TGUI_MESSAGE_BOX).
+A detailed description of all classes and functions can be found in the source code of the program.
+Class hierarchy of the graphical interface:
 TGUI BOX
 TGUI_LABEL
 
@@ -2544,184 +2540,184 @@ TGUI_MASSAGE_BOX
 TGUI
 
 
-## 10 Sieť
+## 10 Network
 Marián Černý
 
 
-### 10.1 Úvod
-Projekt Dark Oberon používa na komunikáciu po sieti protokol TCP/IP s architektúrou peerto-peer, pričom každý počítač má vytvorené spojenia so všetkými počítačmi, ktoré sa
-zúčastňujú hry. Trochu odlišné je začatie hry, kedy sa používa architektúra klient-server.
-Počítač, ktorý vytvára hru, sa nazýva leader. Ostatné počítače, ktoré sa k nemu pripájajú, sa
-nazývajú follower.
-Komunikácia prebieha vo forme správ, ktoré majú svoju hlavičku a vlastný obsah (data).
-Každá správa má príjemcu. Príjemca je číselný identifikátor hráča, prípadne špeciálna
-hodnota, ktorá znamená všetkých hráčov. Správa určená všetkým hráčom je na každý počítač
-doručená iba raz, aj keď na niektorom počítači beží naraz viacero hráčov (na leadrovi beží
-hyper hráč, ľudský hráč a prípadne ešte počítačoví hráči).
-Všetky triedy a funkcie, ktoré majú na starosti sieťovú komunikáciu, sú implementované v
-súboroch donet.h, dohost.h, dofollower.h, doleader.h a príslušných .cpp
-súboroch.
+### 10.1 Introduction
+The Dark Oberon project uses the TCP/IP protocol with a peer-to-peer architecture for network communication, where each computer has connections established with all computers that
+participate in the game. Starting the game is somewhat different, when a client-server architecture is used.
+The computer that creates the game is called the leader. The other computers that connect to it are
+called followers.
+Communication takes place in the form of messages, which have their header and their own content (data).
+Each message has a recipient. The recipient is a numeric player identifier, or a special
+value meaning all players. A message intended for all players is delivered to each computer
+only once, even if several players run at once on some computer (the leader runs the
+hyper player, the human player and possibly also computer players).
+All classes and functions responsible for network communication are implemented in
+the files donet.h, dohost.h, dofollower.h, doleader.h and the corresponding .cpp
+files.
 
-### 10.2 Základné triedy pre prácu so sieťou
-Základne triedy pre prácu so sieťou sú implementované v súboroch donet.h a donet.cpp.
-Medzi tieto triedy patria triedy:
+### 10.2 Basic classes for working with the network
+The basic classes for working with the network are implemented in the files donet.h and donet.cpp.
+These classes include:
 •
 
-TNET_MESSAGE – reprezentujúca správu posielanú alebo prijatú zo siete,
-
-•
-
-TNET_MESSAGE_QUEUE – fronta správ, do ktorej je možné vkladať a z ktorej je
-
-možné vyberať správy,
-•
-
-TNET_LISTENER - trieda čakajúca na prichádzajúce spojenia a vkladajúca sieťové
-
-správy do fronty prichádzajúcich správ,
-•
-
-TNET_TALKER - trieda, ktorá odosiela sieťové správy z fronty odchádzajúcich správ
-
-jednotlivým príjemcom,
-•
-
-TNET_DISPATCHER - doručovateľ prichádzajúcich správ.
-
-#### 10.2.1 Trieda TNET_MESSAGE
-Trieda TNET_MESSAGE reprezentuje sieťovú správu. Sieťová správa je postupnosť bajtov
-skladajúca sa z hlavičky a tela správy (dát). Hlavička správy obsahuje veľkosť správy, typ
-správy, podtyp správy a príjemcu správy. Potom nasledujú samotné dáta.
-veľkosť
-
-typ
-
-podtyp
-
-príjemca
-
-telo správy
-
-správy
-
-správy
-
-správy
-
-správy
-
-(dáta)
-
-
-#### 10.2.2 Trieda TNET_MESSAGE_QUEUE
-Sieťové správy sú pred odoslaním a pri prijatí zo siete ukladané do fronty. Táto fronta je
-reprezentovaná objektom triedy TNET_MESSAGE_QUEUE. Fronta má určitú veľkosť, ktorá sa
-zadáva ako parameter konštruktoru.
-Trieda TNET_MESSAGE_QUEUE poskytuje dve základné funkcie:
-•
-
-PutMessage() - vkladanie správy do fronty,
+TNET_MESSAGE – representing a message sent to or received from the network,
 
 •
 
-GetMessage() - vyberanie správy z fronty.
+TNET_MESSAGE_QUEUE – a message queue into which messages can be inserted and from which
 
-Obidve funkcie môžu byť blokujúce. Funkcia PutMessage() sa blokuje pri vkladaní správy
-do plnej fronty a funkcie GetMessage() pri vyberaní správy z prázdnej fronty. Toto
-blokovanie zabezpečujú podmienené premenné a celá trieda je bezpečná na používanie
-viacerými vláknami.
-Fronta je implementovaná ako cyklické pole s hlavou.
+messages can be taken,
+•
 
-#### 10.2.3 Triedy TNET_LISTENER a TNET_DISPATCHER
-TNET_LISTENER je trieda, ktorá reprezentuje prijímač sieťových správ. Trieda obsahuje
+TNET_LISTENER - a class waiting for incoming connections and inserting network
 
-frontu prichádzajúcich správ. Objekt tejto triedy vytvára v konštruktore nové vlákno, ktoré
-čaká na prichádzajúce TCP spojenia. Pri každom novom prichádzajúcom spojení sa vytvorí
-nové vlákno, ktoré prijíma správy zo siete a vkladá ich do fronty.
-TNET_DISPATCHER je trieda, ktorá má za úlohu doručovať prijaté správy. Obsahuje ukazateľ
+messages into the queue of incoming messages,
+•
 
-na frontu správ, z ktorej vyberá jednotlivé správy a podľa ich typu na nich vykoná príslušné
-zaregistrované funkcie. Túto úlohu vykonáva pomocná trieda TNET_HANDLER. Všetka
-činnosť triedy TNET_DISPATCHER beží autonómne v samostatnom vlákne, ktoré je vytvorené
-v konštruktore.
+TNET_TALKER - a class that sends network messages from the queue of outgoing messages
 
-#### 10.2.4 Trieda TNET_TALKER
-Odosielanie sieťových správ má na starosti trieda TNET_TALKER. Trieda obsahuje frontu
-odosielaných správ. Inštancia objektu si v konštruktore vytvorí nové vlákno, ktoré v
-nekonečnom cykle vyberá nové správy z fronty odosielaných správ a posiela ich po sieti
-udaným príjemcom. V prípade, že je príjemca špeciálna hodnota, správa je doručená všetkým
-príjemcom, na každú adresu však iba raz. Adresy príjemcov sa zadávajú pomocou funkcie
-AddAddress(). Pri pridaní adresy sa automaticky vytvorí TCP spojenie.
+to the individual recipients,
+•
 
-### 10.3 Sieťové rozhranie - trieda THOST
-Trieda THOST reprezentuje jednoduché sieťové rozhranie obsahujúce všetko potrebné pre
-sieťovú komunikáciu. Integruje všetky základné sieťové triedy do jednej. Jej štruktúra je
-zobrazená na obrázku č.2:
-Okrem základnej funkcie na posielanie správ SendMessage() a funkcie na vytvorenie
-sieťového
-spojenia
+TNET_DISPATCHER - the deliverer of incoming messages.
+
+#### 10.2.1 The TNET_MESSAGE class
+The class TNET_MESSAGE represents a network message. A network message is a sequence of bytes
+consisting of a header and a message body (data). The message header contains the message size, the message
+type, the message subtype and the message recipient. Then the data itself follows.
+message
+
+message
+
+message
+
+message
+
+message body
+
+size
+
+type
+
+subtype
+
+recipient
+
+(data)
+
+
+#### 10.2.2 The TNET_MESSAGE_QUEUE class
+Network messages are stored in a queue before sending and upon receipt from the network. This queue is
+represented by an object of the class TNET_MESSAGE_QUEUE. The queue has a certain size, which is
+given as a constructor parameter.
+The class TNET_MESSAGE_QUEUE provides two basic functions:
+•
+
+PutMessage() - inserting a message into the queue,
+
+•
+
+GetMessage() - taking a message from the queue.
+
+Both functions can be blocking. The function PutMessage() blocks when inserting a message
+into a full queue and the function GetMessage() when taking a message from an empty queue. This
+blocking is ensured by condition variables, and the whole class is safe for use by
+multiple threads.
+The queue is implemented as a circular array with a head.
+
+#### 10.2.3 The TNET_LISTENER and TNET_DISPATCHER classes
+TNET_LISTENER is a class that represents a receiver of network messages. The class contains
+
+a queue of incoming messages. An object of this class creates a new thread in its constructor, which
+waits for incoming TCP connections. For each new incoming connection a
+new thread is created, which receives messages from the network and inserts them into the queue.
+TNET_DISPATCHER is a class whose task is to deliver received messages. It contains a pointer
+
+to a message queue, from which it takes the individual messages and, according to their type, executes the corresponding
+registered functions on them. This task is performed by the auxiliary class TNET_HANDLER. All
+activity of the class TNET_DISPATCHER runs autonomously in a separate thread, which is created
+in the constructor.
+
+#### 10.2.4 The TNET_TALKER class
+Sending network messages is the responsibility of the class TNET_TALKER. The class contains a queue
+of messages to be sent. The object instance creates a new thread in its constructor, which in an
+infinite loop takes new messages from the queue of messages to be sent and sends them over the network
+to the given recipients. If the recipient is the special value, the message is delivered to all
+recipients, but only once to each address. Recipient addresses are specified using the function
+AddAddress(). When an address is added, a TCP connection is created automatically.
+
+### 10.3 Network interface - the THOST class
+The class THOST represents a simple network interface containing everything needed for
+network communication. It integrates all the basic network classes into one. Its structure is
+shown in figure no. 2:
+Besides the basic function for sending messages SendMessage() and the function for creating
+a network
+connection
 AddRemoteAddress(),
-trieda
-obsahuje
-ešte
-funkcie
-RegisterSimpleFunction() a RegisterExtendedFunction(), pomocou ktorých je
-možné určiť, ktorá funkcia sa zavolá pri príjme jednotlivých typov správ.
-Trieda host je implementovaná v súboroch dohost.h a dohost.cpp.
+the class
+also
+contains
+the functions
+RegisterSimpleFunction() and RegisterExtendedFunction(), by which it is
+possible to determine which function will be called upon receipt of the individual message types.
+The host class is implemented in the files dohost.h and dohost.cpp.
 
 
 THOST
-vlákno
+thread
 TNET_TALKER
 TNET_MESSAGE_QUEUE
 incoming messages
 
-vlákno
-vlákno
+thread
+thread
 
 TNET_LISTENER
 
-vlákno
+thread
 
-vlákno
+thread
 TNET_HANDLER
 TNET_MESSAGE_QUEUE
 outgoing messages
 
-vlákno
+thread
 
 TNET_DISPATCHER
 
-Obrázok č.2: Trieda THOST
+Figure no. 2: The THOST class
 
-### 10.4 Začatie hry
-Ako už bolo spomenuté vyššie, pri začínaní hry sa používa architektúra klient-server. Počítač,
-ktorý začína hru sa nazýva leader. Jeho úlohou je prijímať spojenia od ostatných počítačov a
-predávať im informácie o aktuálne pripojených počítačoch - ip adresy, mená hráčov a zvolené
-rasy. Leader ako jediný vyberá mapu, ktorá sa bude hrať a tiež na ňom beží hyper hráč - hráč,
-ktorý vlastní zdroje. Taktiež ako jediný môže pridávať počítačových hráčov. Leader používa
-ako sieťové rozhranie objekt triedy TLEADER, ktorá je potomkom triedy THOST. Oproti
-THOST má naviac funkcie, ktoré odosielajú sieťové správy, ktoré sú špecifické pre tento typ
-počítača (viď. Typy správ nižsie).
-Pripojenie ďalšieho počítača sa vykoná vytvorením TCP spojenia na port, na ktorom počúva
-leader a poslaním sieťovej správy net_protocol_connect, ktorá obsahuje informácie o
-pripájanom počítači: port, na ktorom bude prijímať spojenia od ostatných followerov a meno
-pripájaného hráča. Leader si ho pridá do poľa pripojených hráčov a odpovedá správou
-net_protocol_hello obsahujúcu IP adresu pripájaného followera a aktuálny čas. IP
-adresa je potrebná na to, aby follower vedel určiť ktorý hráč v poli hráčov je jeho. K
-prijatému aktuálnemu času sa pripočíta polovička toho, za koľko prišla odpoveď od leadera.
-Takto sa vykoná prvá hrubá synchronizácia času. Ďalšie synchronizácie času sa vykonávajú
-opakovaným zasielaním sieťovej správy net_protocol_ping. Vždy, keď je odpoveď
-rýchlejšia než ľubovoľná z predchádzajúcich odpovedí, čas sa upraví podľa danej odpovede.
-Pri každej zmene informácii o pripojených hráčoch leader pošle všetkým pripojeným
-počítačom sieťovú správu net_protocol_player_array obsahujúcu informácie o
+### 10.4 Starting the game
+As already mentioned above, a client-server architecture is used when starting the game. The computer
+that starts the game is called the leader. Its task is to accept connections from the other computers and
+pass them information about the currently connected computers - IP addresses, player names and chosen
+races. The leader alone selects the map that will be played, and the hyper player also runs on it - the player
+who owns the sources. It is also the only one that can add computer players. The leader uses
+as its network interface an object of the class TLEADER, which is a descendant of the class THOST. Compared to
+THOST it additionally has functions that send network messages specific to this type of
+computer (see Message types below).
+Connecting another computer is done by creating a TCP connection to the port on which the
+leader listens and sending the network message net_protocol_connect, which contains information about
+the connecting computer: the port on which it will accept connections from the other followers, and the name
+of the connecting player. The leader adds it to the array of connected players and answers with the message
+net_protocol_hello containing the IP address of the connecting follower and the current time. The IP
+address is needed so that the follower can determine which player in the player array is its own. To
+the received current time, half of the time it took for the answer from the leader to arrive is added.
+This performs the first rough time synchronization. Further time synchronizations are performed by
+repeatedly sending the network message net_protocol_ping. Whenever an answer is
+faster than any of the previous answers, the time is adjusted according to that answer.
+On every change of information about the connected players, the leader sends to all connected
+computers the network message net_protocol_player_array containing information about
 
 
-všetkých hráčoch vrátane mena hráča, zvolenej rasy a ďalších doplnkových informácií, ako
-to, či ide o počítačového hráča alebo či ide o hráča, ktorý beží na leaderovi, a štartovacie pole
-(start_point), kde bude daný hráč začínať na mape. Okrem toho sa posiela informácia o
-aktuálne zvolenej mape. V prípade, že si hráč na followerovi zmení rasu, pošle leaderovi
-správu net_protocol_change_race s názvom novej rasy.
+all players including the player's name, the chosen race and further supplementary information, such as
+whether it is a computer player or a player running on the leader, and the starting field
+(start_point) where the given player will start on the map. In addition, information about the
+currently selected map is sent. If a player on a follower changes race, it sends the leader
+the message net_protocol_change_race with the name of the new race.
 LEADER
 
 FOLOWER1
@@ -2730,12 +2726,12 @@ FOLOWER3
 
 FOLOWER2
 
-Hra sa začne klepnutím na tlačidlo Play na leaderovi. Vtedy sa pošle finálna podoba poľa
-pripojených hráčov sieťovou správou net_protocol_player_array, tentokrát však s
-podtypom 1, ktorý informuje všetky počítače, že sa má spustiť hra na zvolenej mape s danými
-hráčmi. Pre vytvorenie architektúry peer-to-peer je prípadne potrebné vytvoriť ďalšie spojenia
-medzi pripojenými followermi. Spojenie vytvára vždy follower, ktorý má hráča s nižším
-číslom, na followera, ktorý má hráča s vyšším číslom.
+The game is started by clicking the Play button on the leader. Then the final form of the array
+of connected players is sent in the network message net_protocol_player_array, this time however with
+subtype 1, which informs all computers that the game is to be started on the selected map with the given
+players. To create the peer-to-peer architecture it may be necessary to create further connections
+between the connected followers. The connection is always created by the follower that has the player with the lower
+number, to the follower that has the player with the higher number.
 LEADER
 
 FOLOWER1
@@ -2749,66 +2745,66 @@ FOLOWER3
 
 FOLOWER2
 
-### 10.5 Typy správ
-V súbore dohost.h sú deklarované jednotlivé typy sieťových správ, ktoré môžu byť
-posielané po sieti. Najdôležitejším typom správy je správa net_protocol_event, ktorá
-obsahuje štruktúru TEVENT popisujúcu nejakú akčnú správu, ktorú je potrebné naplánovať vo
-fronte vzdialeného počítača. Tieto správy popisujú všetky udalosti, ktoré môžu počas hry
-nastať - chodenie, útočenie, taženie, stavanie a opravovanie, vyrábanie jednotiek a regenerácia
-zdrojov. Preto ďalšie typy správ sú už len správy potrebné na synchronizáciu hráčov počas
-pripájania v menu a prípadné ďalšie udalosti:
+### 10.5 Message types
+The file dohost.h declares the individual types of network messages that can be
+sent over the network. The most important message type is the message net_protocol_event, which
+contains a TEVENT structure describing some action event that needs to be scheduled in the
+queue of the remote computer. These messages describe all events that can occur during the game
+- walking, attacking, mining, building and repairing, producing units and regeneration
+of sources. Therefore the other message types are only messages needed to synchronize players during
+connection in the menu and possible further events:
 •
 
-Spoločné správy:
-o net_protocol_chat_message – správa s textom, ktorá sa zobrazí ostatným
-hráčom,
-o net_protocol_synchronise – správa informujúca ostatných, že daný hráč
-je pripravený začať hru.
+Common messages:
+o net_protocol_chat_message – a message with text that is displayed to the other
+players,
+o net_protocol_synchronise – a message informing the others that the given player
+is ready to start the game.
 
 •
 
-Správy, ktoré posiela leader:
-o net_protocol_player_array – správa obsahujúca informácie o všetkých
-hráčoch a názov zvolenej mapy,
+Messages sent by the leader:
+o net_protocol_player_array – a message containing information about all
+players and the name of the selected map,
 
 
-o net_protocol_hello – správa, ktorá sa posiela ako odpoveď na
+o net_protocol_hello – a message sent as a reply to
 net_protocol_connect.
 •
 
-Správy, ktoré posiela follower:
-o net_protocol_connect – správa posielaná pri pripojení,
-o net_protocol_change_race – zmena rasy daného hráča,
-o net_protocol_ping – zistenie aktuálneho času.
+Messages sent by a follower:
+o net_protocol_connect – a message sent upon connecting,
+o net_protocol_change_race – change of the given player's race,
+o net_protocol_ping – determining the current time.
 
 
-## 11 Konfiguračné súbory
+## 11 Configuration files
 Peter Knut
 
 
-### 11.1 Úvod
-Konfiguračné súbory vznikli už v počiatkoch projektu pre nastavovania základných vlastností
-aplikácie ako sú veľkosť okna, citlivosť myši a pod. Postupne ako sa menili požiadavky na
-tieto súbory, menila sa aj ich forma od jednoduchej riadkovej až po štruktúrovanú. Takto
-vznikol univerzálny systém pre prácu s konfiguračnými súbormi, ktorý sa požíva ako pre
-nastavenie vlastností aplikácie, tak pre definície jednotlivých máp, schém a rás. Poskytujú
-vysokú variabilitu pri zachovaní jednoduchosti zápisu. Vďaka textovej podobe môže užívateľ
-tieto súbory upravovať bez použitia špeciálneho editora.
+### 11.1 Introduction
+Configuration files arose already at the beginning of the project for setting the basic properties
+of the application such as window size, mouse sensitivity, etc. Gradually, as the requirements on
+these files changed, their form also changed from a simple line-based one to a structured one. In this way
+a universal system for working with configuration files arose, which is used both for
+setting application properties and for the definitions of individual maps, schemes and races. They provide
+high variability while keeping the notation simple. Thanks to the textual form, the user can
+edit these files without using a special editor.
 
-### 11.2 Štruktúra súborov
-Súbory rozpoznávajú štyri základné zložky: položky, sekcie, komentáre a prázdne riadky.
-Tieto zložky môžu byť pri zachovaní istých pravidiel navzájom kombinované.
+### 11.2 File structure
+The files recognize four basic components: items, sections, comments and empty lines.
+These components can be combined with each other while observing certain rules.
 
-#### 11.2.1 Položky
-Každá položka sa nachádza na samostatnom riadku súboru. Položky majú tvar:
-"názov položky" ["hodnota" ["hodnota" …]]
-Názov položky je ľubovoľný reťazec znakov. V prípade, že názov neobsahuje prázdne znaky
-(medzery alebo tabulátory), úvodzovky nie sú potrebné.
-Za názvom môže byť uvedený rôzny počet hodnôt. Opäť platí, že ak hodnota neobsahuje
-prázdne znaky, úvodzovky nie sú potrebné. Jednotlivé hodnoty sú od seba a od názvu
-oddelené prázdnymi znakmi. Konfiguračné súbory podporujú niekoľko typov hodnôt. Naviac
-môže byť od užívateľa požadované aby niektoré hodnoty zadával v ohraničenom intervale.
-Typy hodnôt:
+#### 11.2.1 Items
+Each item is on a separate line of the file. Items have the form:
+"item name" ["value" ["value" …]]
+The item name is an arbitrary string of characters. If the name contains no whitespace characters
+(spaces or tabs), quotation marks are not necessary.
+The name may be followed by a varying number of values. Again, if a value contains no
+whitespace characters, quotation marks are not necessary. The individual values are separated from each other and from the name
+by whitespace characters. Configuration files support several types of values. In addition,
+the user may be required to enter some values within a bounded interval.
+Value types:
 •
 •
 •
@@ -2816,16 +2812,16 @@ Typy hodnôt:
 •
 •
 
-string – ľubovoľný reťazec znakov,
-byte – celé číslo v intervale <0, 255>,
-integer – celé číslo v intervale <–2 147 483 648, 2 147 483 647>,
-bool – povolené hodnoty sú: true, false, yes, no, 0, 1,
-float – reálne číslo v rozsahu 3.4E +/- 38,
-double – reálne číslo v rozsahu 1.7E +/- 308.
+string – an arbitrary string of characters,
+byte – an integer in the interval <0, 255>,
+integer – an integer in the interval <–2 147 483 648, 2 147 483 647>,
+bool – allowed values are: true, false, yes, no, 0, 1,
+float – a real number in the range 3.4E +/- 38,
+double – a real number in the range 1.7E +/- 308.
 
-Jednotlivé položky musia mať v rámci sekcie navzájom odlišné názvy. Ak toto nie je
-dodržané, bude dostupná iba prvá položka.
-Príklady položiek:
+The individual items must have mutually different names within a section. If this is not
+observed, only the first item will be accessible.
+Examples of items:
 fullscreen false
 show_fps yes
 resolution "800x600"
@@ -2833,17 +2829,17 @@ resolution "800x600"
 sensitivity 0.6
 
 
-#### 11.2.2 Sekcie
-Sekcie slúžia na združovanie významovo príbuzných zložiek súboru. Majú tvar:
-<"názov sekcie">
-</[reťazec znakov]>
+#### 11.2.2 Sections
+Sections serve to group semantically related components of the file. They have the form:
+<"section name">
+</[character string]>
 
-Názov sekcie je ľubovoľná postupnosť znakov. Úvodzovky nie sú povinné. Reťazec znakov
-sa pri spracovaní ignoruje. Je však vhodné využiť ho pre sprehľadnenie súboru. Začiatok
-i koniec sekcie musí byť uvedený na samostatnom riadku. Sekcia môže obsahovať ľubovoľné
-zložky súboru vrátane ďalších sekcií. Názvy sekcií na rovnakej úrovni sa nesmú zhodovať,
-inak bude prístupná iba prvá z nich.
-Príklad použitia sekcií:
+The section name is an arbitrary sequence of characters. Quotation marks are not mandatory. The character string
+is ignored during processing. However, it is advisable to use it to make the file clearer. The beginning
+and end of a section must be given on a separate line. A section can contain arbitrary
+file components including further sections. Section names at the same level must not be identical,
+otherwise only the first of them will be accessible.
+Example of using sections:
 <players>
 max_count 2
 <player 0>
@@ -2856,15 +2852,15 @@ position 200 53
 </player>
 </players>
 
-#### 11.2.3 Komentáre a prázdne riadky
-Pre zvýšenie prehľadnosti zápisu je dobré používať prázdne riadky a odsadenie riadkov.
-Nasledujúci príklad ukazuje typické použitie všetkých zložiek:
-# Definicia hracov
+#### 11.2.3 Comments and empty lines
+To improve the clarity of the notation it is good to use empty lines and line indentation.
+The following example shows typical use of all components:
+# Player definitions
 <players>
-# Maximalny pocet hracov
+# Maximum number of players
 max_count 2
-# Kazdy hrac obashuje rasu a startovnu poziciu.
-# Pozicie su v rozsahu od 0 do 255.
+# Each player contains a race and a starting position.
+# Positions are in the range from 0 to 255.
 <player 0>
 race "humans"
 position 10 125
@@ -2876,24 +2872,24 @@ position 200 53
 </players>
 
 
-### 11.3 Triedy a metódy
-Pre prácu s konfiguračnými súbormi slúžia triedy a metódy z modulu dofile.*. So samotným
-súborom pracuje trieda TCONF_FILE. Pri vytváraní inštancie tejto triedy stačí zadať cestu
-k súboru a následne metódou Reload() načítať jeho obsah. Obsah sa načíta celý do
-stromovej štruktúry tvorenej inštanciami tried TFE_SECTION, TFE_ITEM a TFE_LINE.
-Trieda TCONF_FILE obsahuje sadu funkcií pre pohyb v sekciách a samozrejme funkcie pre
-čítanie a zapisovanie položiek do súboru. Do sekcie sa vstúpi zavolaním funkcie
+### 11.3 Classes and methods
+For working with configuration files, the classes and methods from the module dofile.* are used. The file
+itself is handled by the class TCONF_FILE. When creating an instance of this class it is enough to give the path
+to the file and then load its content with the method Reload(). The whole content is loaded into
+a tree structure formed by instances of the classes TFE_SECTION, TFE_ITEM and TFE_LINE.
+The class TCONF_FILE contains a set of functions for moving among sections and of course functions for
+reading and writing items to the file. A section is entered by calling the function
 SelectSecion()
-s názvom
-sekcie
-ako
-parametrom
-a vystúpi
-zavolaním
-UnselectSection(). To znamená, že k sekcii nachádzajúcej sa v hlbšej úrovni pristúpime
-viacnásobným volaním SelectSection() – postupne s názvami jednotlivých sekcií.
-Z aktuálnej sekcie je potom možné čítať hodnoty jednotlivých položiek funkciami
-Read<typ>() a zapisovať funkciami Write<typ>(), kde typ je:
+with the name
+of the section
+as
+a parameter
+and left
+by calling
+UnselectSection(). This means that a section located at a deeper level is accessed by
+calling SelectSection() multiple times – successively with the names of the individual sections.
+From the current section it is then possible to read the values of the individual items with the functions
+Read<type>() and write them with the functions Write<type>(), where type is:
 •
 •
 •
@@ -2902,70 +2898,70 @@ Read<typ>() a zapisovať funkciami Write<typ>(), kde typ je:
 •
 •
 
-Str – pre položky typu string,
-Byte – pre položky typu byte,
-Int – pre položky typu integer,
-Bool – pre položky typu bool,
-Float – pre položky typu float,
-Double – pre položky typu double,
-Simple – tato verzia je totožná s Byte. Používa sa vždy v súvislosti s rozmermi a
+Str – for items of type string,
+Byte – for items of type byte,
+Int – for items of type integer,
+Bool – for items of type bool,
+Float – for items of type float,
+Double – for items of type double,
+Simple – this version is identical to Byte. It is always used in connection with dimensions and
 
-pozíciami na mape.
-Pre číselné typy existujú naviac funkcie: Read<typ>GE() – pre určenie spodnej hranice
-načítavanej hodnoty a Read<typ>Range() – pre určenie spodnej a hornej hranice
-načítavanej hodnoty.
-Pri viacnásobnom volaní čítacích či zapisovacích funkcií na tú istú položku sa postupne čítajú
-/ zapisujú jednotlivé hodnoty. Vo všetkých funkciách pre čítanie sa nachádza ako jeden
-z parametrov prednastavená hodnota, ktorá sa použije ako výsledok čítania v prípade, že
-dôjde k chybe (napríklad keď položka neexistuje).
-Pre jednoduchšie otváranie a zatváranie konfiguračných súborov existujú globálne funkcie:
-CreateConfFile(), OpenConfFile() a CloseConfFile().
-Podrobný popis tried a funkcií sa nachádza v zdrojovom kóde.
+positions on the map.
+For numeric types there are additionally the functions: Read<type>GE() – for specifying the lower bound
+of the value being read, and Read<type>Range() – for specifying the lower and upper bound
+of the value being read.
+When the reading or writing functions are called repeatedly on the same item, the individual values are successively read
+/ written. All reading functions have, as one
+of the parameters, a default value which is used as the result of reading in case
+an error occurs (for example when the item does not exist).
+For simpler opening and closing of configuration files there are global functions:
+CreateConfFile(), OpenConfFile() and CloseConfFile().
+A detailed description of the classes and functions can be found in the source code.
 
 
-## 12 Logovanie
+## 12 Logging
 Peter Knut
 
 
-### 12.1 Úvod
-Zápis do logov sa používa jednak pre výpis prípadných chýb pri načítavaní konfiguračných
-súborov a v neposlednom rade pre ladiace výpisy. Všetky záznamy sú uložené v súbore
-logs/full.log, chybové záznamy sú naviac vypísané v súbore logs/error.log. Záznamy sa
-vypisujú i na štandardný výstup. Tiež je možné registrovať vlastnú callback funkciu pre
-spracovanie záznamov. To sa využíva napr. pre výpis logov na obrazovku.
+### 12.1 Introduction
+Writing to logs is used both for printing possible errors when loading configuration
+files and, last but not least, for debug output. All records are stored in the file
+logs/full.log; error records are additionally written to the file logs/error.log. Records are
+also printed to standard output. It is also possible to register a custom callback function for
+processing records. This is used e.g. for printing logs on the screen.
 
-### 12.2 Typy záznamov
-Logy môžu byť rôzneho typu podľa významu. Pre jednotlivé typy sú definované nasledovné
-makrá:
+### 12.2 Record types
+Logs can be of various types according to their meaning. The following macros are defined for the individual
+types:
 •
 •
 •
 •
 •
 
-Info() – informácia o prevádzanej akcii.
-Warning() – varovanie pri nepodstatnej chybe, ktorá nespôsobí zastavenie akcie.
-Error() – chyba vo vykonávaní akcie. Akcia je zrušená, no aplikácia beží ďalej.
-Critical() – kritická chyba, ktorá spôsobí ukončenie celej aplikácie.
-Debug() – ladiaci výpis. Pri skompilovaní Release verzie programu sa tieto výpisy
+Info() – information about the action being performed.
+Warning() – a warning about an insignificant error that does not cause the action to stop.
+Error() – an error in performing an action. The action is cancelled, but the application keeps running.
+Critical() – a critical error that causes the whole application to terminate.
+Debug() – debug output. When the Release version of the program is compiled, these outputs are
 
-ignorujú.
+ignored.
 
-### 12.3 Formát záznamov
-Formát záznamov sa líši podľa systému na ktorom je program skompilovaný a tiež podľa
-toho, či ide o Debug alebo Release verziu.
-Záznamy sú všeobecne nasledujúceho tvaru:
-[meno_súboru:číslo_riadku] <hlavička> <text záznamu>
+### 12.3 Record format
+The format of the records differs according to the system on which the program is compiled and also according to
+whether it is a Debug or Release version.
+Records are generally of the following form:
+[file_name:line_number] <header> <record text>
 
-Prvý stĺpec obsahuje v hranatých zátvorkách meno zdrojového súboru a riadok z ktorého bol
-záznam zapísaný. Tento stĺpec sa vypisuje iba v Debug konfigurácii. Hlavička sa líši podľa
-systému. Prehľad zobrazuje nasledujúca tabuľka:
+The first column contains in square brackets the name of the source file and the line from which the
+record was written. This column is printed only in the Debug configuration. The header differs according to the
+system. The following table gives an overview:
 
-Typ záznamu (makro)
+Record type (macro)
 
 Windows
 
-Unix a iné
+Unix and others
 
 Info()
 
@@ -2997,23 +2993,23 @@ Debug()
 
 DBG:
 
-Podrobný popis jednotlivých makier a funkcií sa nachádza v zdrojovom kóde programu
-(súbory dologs.*).
+A detailed description of the individual macros and functions can be found in the source code of the program
+(files dologs.*).
 
 
 ## 13 Data Editor
 Peter Knut
 
 
-### 13.1 Úvod
-Program Data Editor umožňuje vytvárať a upravovať dátové súbory používané v hre Dark
-Oberon. Dátový súbor obsahuje dva základné typy záznamov: textúry (obrazové dáta)
-a zvuky.
-Aplikácia je naprogramovaná v prostredí Borland C++ Builder 5.0 pre operačný systém
-MS Windows.
+### 13.1 Introduction
+The Data Editor program allows creating and editing the data files used in the game Dark
+Oberon. A data file contains two basic types of records: textures (image data)
+and sounds.
+The application is programmed in the Borland C++ Builder 5.0 environment for the
+MS Windows operating system.
 
-### 13.2 Zdrojové súbory
-Aplikácia obsahuje štyri základné moduly rozdelené do zdrojových súborov v adresári src:
+### 13.2 Source files
+The application contains four basic modules divided into source files in the src directory:
 •
 •
 •
@@ -3026,53 +3022,53 @@ demainfrm.*
 deaboutfrm.* –
 dedatafile.*
 –
-a jeho záznamami.
+and its records.
 
-hlavný modul aplikácie s automaticky generovaným kódom,
-hlavné okno,
-okno O programe,
-obsahujú dátové štruktúry a metódy pre prácu s dátovým súborom
+the main module of the application with automatically generated code,
+the main window,
+the About window,
+contain the data structures and methods for working with the data file
 
-### 13.3 Hlavné okno
-Hlavné okno aplikácie (MainForm) obsahuje menu (MainMenu), panel nástrojov (ToolBar),
-stromový diagram zobrazujúci štruktúru dátového súboru (TreeView), oddeľovač pre
-dynamickú zmenu veľkosti diagramu (Splitter), a tri panely s ovládacími prvkami pre
-jednotlivé typy záznamov dátového súboru. Keď užívateľ označí v diagrame niektorú
-položku, zobrazí sa panel odpovedajúci tejto položke a jeho ovládacie prvky sa vyplnia
-aktuálnymi hodnotami. Ostatné panely ostanú skryté.
-Okno obsahuje i niekoľko skrytých komponentov. Ikony pre položky menu a panel nástrojov
-sú uložené v komponente ImageList. Pre otváranie a ukladanie rôznych súborov slúžia
-štandartné dialógy FileOpenDialog, FileSaveDialog, TextureOpenDialog,
+### 13.3 Main window
+The main window of the application (MainForm) contains a menu (MainMenu), a toolbar (ToolBar),
+a tree diagram showing the structure of the data file (TreeView), a splitter for
+dynamically resizing the diagram (Splitter), and three panels with controls for
+the individual record types of the data file. When the user selects some
+item in the diagram, the panel corresponding to this item is displayed and its controls are filled with
+the current values. The other panels remain hidden.
+The window also contains several hidden components. The icons for the menu items and the toolbar
+are stored in the ImageList component. For opening and saving various files the
+standard dialogs FileOpenDialog, FileSaveDialog, TextureOpenDialog,
 TextureSaveDialog,
 SoundOpenDialog,
 SoundSaveDialog,
 ImportDialog
-a ExportDialog.
+and ExportDialog are used.
 
-### 13.4 Okno O programe
-Okno O programe (AboutForm) zobrazuje ikonu,
-názov, verziu programu a licenčné podmienky. Obsahuje
-tlačidlo pre zatvorenie okna (OKButton).
+### 13.4 About window
+The About window (AboutForm) displays the icon,
+name, version of the program and the licence terms. It contains
+a button for closing the window (OKButton).
 
-### 13.5 Editovanie dát
-Prácu s dátovým súborom zabezpečuje trieda TDataFile.
-Obsahuje dva obojsmerné spojové zoznamy: zoznam
-skupín textúr a zoznam zvukových záznamov. Skupinu
-textúr reprezentuje štruktúra TTextureGroup. Tá v sebe
-obsahuje spojový zoznam textúrových záznamov
-
-
-Obrázok 22: Štruktúra dát
+### 13.5 Editing data
+Working with the data file is handled by the class TDataFile.
+It contains two doubly linked lists: a list
+of texture groups and a list of sound records. A texture
+group is represented by the structure TTextureGroup. It
+contains a linked list of texture records
 
 
-(TDataTexture). Zvukový záznam je reprezentovaný štruktúrou TDataSound.
-Detailný popis jednotlivých premenných a metód sa nachádza v zdrojovom kóde programu.
+Figure 22: Data structure
 
-### 13.6 Formátovanie dátového súboru
-Dátové súbory sú binárne a majú koncovku dat. Aktuálna verzia dátového súboru je 3.
-V zložení súboru je pri každej položke uvedený typ premennej použitej pre zapisovanie
-a načítavanie danej položky.
-Zloženie súboru:
+
+(TDataTexture). A sound record is represented by the structure TDataSound.
+A detailed description of the individual variables and methods can be found in the source code of the program.
+
+### 13.6 Data file format
+Data files are binary and have the extension dat. The current version of the data file is 3.
+In the file layout, for each item the type of the variable used for writing
+and reading the given item is given.
+File layout:
 •
 •
 •
@@ -3081,61 +3077,61 @@ Zloženie súboru:
 
 •
 
-hlavička – vždy reťazec „Dark Oberon data file“ – 21 x char,
-verzia súboru – unsigned char,
-počiatok bloku súboru so skupinami textúr – long. V prípade, že sa v súbore skupiny
-textúr nenachádzajú, tento počiatok je nastavený na nulu,
-počiatok bloku súboru so zvukmi – long, V prípade, že sa v súbore zvukové záznamy
-nenachádzajú, tento počiatok je nastavený na nulu,
-blok súboru obsahujúci textúry. Tento blok sa v súbore nachádza iba v prípade, že
-v ňom existuje aspoň jedna skupina textúr:
-o počet skupín textúr – int,
-o jednotlivé skupiny:
-dĺžka názvu skupiny textúr – unsigned char,
-reťazec s názvom skupiny – n x char,
-počet textúr v skupine – int,
-záznamy textúr:
-• dĺžka názvu textúry – unsigned char,
-• reťazec s názvom – n x char,
-• horizontálny počet snímkov v animovanej textúre – unsigned
-char. V intervale <0, 100>,
-• vertikálny počet snímkov v animovanej textúre – unsigned
-char. V intervale <0, 100>,
-• dĺžka animácie v milisekundách – int. V intervale <0, 10000>,
-• x-ová pozícia stredu súradnicovej sústavy – int. V intervale
+header – always the string "Dark Oberon data file" – 21 x char,
+file version – unsigned char,
+start of the file block with texture groups – long. If there are no texture groups
+in the file, this start is set to zero,
+start of the file block with sounds – long. If there are no sound records
+in the file, this start is set to zero,
+file block containing textures. This block is present in the file only if
+at least one texture group exists in it:
+o number of texture groups – int,
+o the individual groups:
+length of the texture group name – unsigned char,
+string with the group name – n x char,
+number of textures in the group – int,
+texture records:
+• length of the texture name – unsigned char,
+• string with the name – n x char,
+• horizontal number of frames in the animated texture – unsigned
+char. In the interval <0, 100>,
+• vertical number of frames in the animated texture – unsigned
+char. In the interval <0, 100>,
+• animation length in milliseconds – int. In the interval <0, 10000>,
+• x position of the origin of the coordinate system – int. In the interval
 <-1024, 1024>,
-• y-ová pozícia stredu súradnicovej sústavy – int. V intervale
+• y position of the origin of the coordinate system – int. In the interval
 <-1024, 1024>,
-• typ textúry – unsigned char. Povolené hodnoty sú uvedené
-v tabuľke nižšie,
-• veľkosť zdrojových dát – unsigned int. Môže byť i nula,
-• zdrojové dáta – n x unsigned char. Iba v prípade, že veľkosť
-dát je väčšia ako nula,
-blok súboru obsahujúci zvuky. Tento blok sa v súbore nachádza iba v prípade, že
-v ňom existuje aspoň jeden zvukový záznam:
-o počet zvukov – int,
-o jednotlivé záznamy zvukov:
-dĺžka názvu zvuku – unsigned char,
-reťazec s názvom zvuku – n x char,
-formát zvuku – char. Povolené hodnoty sú uvedené v tabuľke nižšie,
+• texture type – unsigned char. Allowed values are given
+in the table below,
+• size of the source data – unsigned int. Can also be zero,
+• source data – n x unsigned char. Only if the size
+of the data is greater than zero,
+file block containing sounds. This block is present in the file only if
+at least one sound record exists in it:
+o number of sounds – int,
+o the individual sound records:
+length of the sound name – unsigned char,
+string with the sound name – n x char,
+sound format – char. Allowed values are given in the table below,
 
 
-typ zvyku – char. Povolené hodnoty sú uvedené v tabuľke nižšie,
-veľkosť zdrojových dát – unsigned int. Môže byť i nula,
-zdrojové dáta – n x unsigned char. Iba v prípade, že veľkosť dát je
-väčšia ako nula.
+sound type – char. Allowed values are given in the table below,
+size of the source data – unsigned int. Can also be zero,
+source data – n x unsigned char. Only if the size of the data is
+greater than zero.
 
-Typy textúr:
+Texture types:
 
-Bežná štvorcová textúra
-Textúra určená pre fragment terénu
+Ordinary square texture
+Texture intended for a terrain fragment
 
-Typy zvukov:
+Sound types:
 
 Sample
 Stream
 
-Formáty zvukov:
+Sound formats:
 
 WAV
 MP2
@@ -3153,15 +3149,15 @@ SGT
 Peter Knut
 
 
-### 14.1 Úvod
-Program Map Editor umožňuje vytvárať a upravovať konfiguračné súbory máp používaných
-v hre Dark Oberon. Tento editor nie je úplný, je zameraný iba na editovanie povrchu máp.
-Aplikácia je naprogramovaná v prostredí Borland C++ Builder 5.0 pre operačný systém
-MS Windows.
+### 14.1 Introduction
+The Map Editor program allows creating and editing the configuration files of maps used
+in the game Dark Oberon. This editor is not complete; it is focused only on editing the surface of maps.
+The application is programmed in the Borland C++ Builder 5.0 environment for the
+MS Windows operating system.
 
-### 14.2 Zdrojové súbory
-Aplikácia obsahuje niekoľko základných modulov rozdelených do zdrojových súborov
-v adresári src:
+### 14.2 Source files
+The application contains several basic modules divided into source files
+in the src directory:
 •
 •
 •
@@ -3173,73 +3169,73 @@ v adresári src:
 •
 
 mapedit.*
-– základný, automaticky generovaný kód aplikácie,
+– the basic, automatically generated code of the application,
 memain.*
-– kód hlavného okna,
+– the code of the main window,
 meabout.*
-– okno O programe,
-menewmap.* – dialóg s vlastnosťami mapy,
+– the About window,
+menewmap.* – the dialog with the map properties,
 mefragsize.*
-– dialóg s veľkosťou fragmentov,
-mefragments.* – dialóg pre definovanie farebnej schémy,
+– the dialog with the fragment size,
+mefragments.* – the dialog for defining the colour scheme,
 memap.*
-– obsahujú triedu pre prácu so súborom mapy,
+– contain the class for working with the map file,
 mescheme.*
-– obsahujú triedu pre prácu so súborom farebnej schémy,
+– contain the class for working with the colour scheme file,
 mefile.*
-– obsahujú univerzálne dátové štruktúry a metódy pre prácu
-s konfiguračným súborom. Tieto súbory sú prevzaté zo zdrojových súborov hry Dark
-Oberon a upravené pre použitie v Map Editore.
+– contain universal data structures and methods for working
+with a configuration file. These files are taken from the source files of the game Dark
+Oberon and adapted for use in the Map Editor.
 
-### 14.3 Hlavné okno
-Základné súčasti hlavného okno aplikácie (frm_main) sú: menu (mnu_main), tabuľka
-fragmentov a farebnej schémy (grd_scheme), pole pre výber aktuálneho segmentu
-(rg_segment), oddeľovač pre dynamickú zmenu veľkosti tabuľky (splitter), a obrázok
-pre vykresľovanie mapy (img_map). Veľkosť obrázka sa automaticky mení na základe
-veľkosti otvorenej mapy tak, aby políčko mapy predstavujúce jeden fragment bolo vždy
-rovnako veľké.
-Okno obsahuje i niekoľko skrytých komponentov. Ikony pre položky menu sú uložené
-v komponente il_menu. Pre otváranie a ukladanie súborov slúžia štandartné dialógy
-glg_open a dlg_save.
+### 14.3 Main window
+The basic parts of the main window of the application (frm_main) are: a menu (mnu_main), a table
+of fragments and the colour scheme (grd_scheme), a field for selecting the current segment
+(rg_segment), a splitter for dynamically resizing the table (splitter), and an image
+for rendering the map (img_map). The size of the image changes automatically based on the
+size of the opened map so that the map field representing one fragment is always
+the same size.
+The window also contains several hidden components. The icons for menu items are stored
+in the component il_menu. For opening and saving files the standard dialogs
+glg_open and dlg_save are used.
 
-### 14.4 Pomocné dialógy
-Dialóg frm_new_map slúži jednak pre prvotné nastavenie vlastností mapy pri vytváraní novej
-mapy a potom pre zmenu jej vlastností počas editovania. Súčasťou dialógu sú polia pre
-nastavenie rozmerov mapy a veľkosti fragmentov; a tlačidlá pre potvrdenie prípadne zrušenie
-nastavenia.
-Pri otváraní existujúcej mapy je potrebné zadať veľkosť fragmentov, ktorú mapa používa. Pre
-tento účel je vytvorený dialóg frm_frag_size.
+### 14.4 Auxiliary dialogs
+The dialog frm_new_map serves both for the initial setting of the map properties when creating a new
+map and then for changing its properties during editing. The dialog includes fields for
+setting the map dimensions and the fragment size; and buttons for confirming or cancelling
+the settings.
+When opening an existing map it is necessary to enter the fragment size the map uses. For
+this purpose the dialog frm_frag_size was created.
 
 
-Pomocou dialógu frm_fragments je možné upravovať farebnú schému. Dialóg obsahuje
-pole pre voľbu segmentu (rg_segment), editovacie polia pre číslo a meno fragmentu,
-obrázok pre zobrazovanie farby fragmentu (pic_color) a nakoniec tlačidlo pre zavretie
-dilógu (btn_done).
+Using the dialog frm_fragments it is possible to edit the colour scheme. The dialog contains
+a field for choosing the segment (rg_segment), edit fields for the fragment number and name,
+an image for displaying the fragment colour (pic_color) and finally a button for closing the
+dialog (btn_done).
 
-### 14.5 Okno O programe
-Okno O programe (frm_about) zobrazuje ikonu, názov, verziu programu a licenčné
-podmienky. Obsahuje tlačidlo pre zatvorenie okna (btn_ok).
+### 14.5 About window
+The About window (frm_about) displays the icon, name, version of the program and the licence
+terms. It contains a button for closing the window (btn_ok).
 
-### 14.6 Dátové štruktúry
-Prácu s konfiguračnými súbormi mapy a farebnej schémy zabezpečujú triedy TMAP_FILE
-(memap.*) a TSCHEME_FILE (mescheme.*) s využitím triedy TCONF_FILE (mefile.*).
-Farebná schéma je udržiavaná v globálnej premennej frg_info typu TFRAGMENTS_INFO,
-mapa v poli map_arr (memain.*).
-Detailný popis jednotlivých premenných a metód sa nachádza v zdrojovom kóde programu.
+### 14.6 Data structures
+Working with the configuration files of the map and the colour scheme is handled by the classes TMAP_FILE
+(memap.*) and TSCHEME_FILE (mescheme.*) using the class TCONF_FILE (mefile.*).
+The colour scheme is kept in the global variable frg_info of type TFRAGMENTS_INFO,
+the map in the array map_arr (memain.*).
+A detailed description of the individual variables and methods can be found in the source code of the program.
 
-### 14.7 Formáty súborov
-Formát konfiguračného súboru mapy je uvedený v dokumentácii k vytvoreniu vlastnej mapy
-v hre Dark Oberon.
-Súbory s definíciami farebných schém sú textové a majú koncovku col. Používajú rovnaký
-formátovací systém ako ostatné konfiguračné súbory hry Dark Oberon. Obsahujú tri základné
-značky <Segment #> pre každý segment, kde # je číslo segmentu (0, 1 alebo 2). Značka
-<Segment> obsahuje jednak položku count s počtom fragmentov v príslušnom segmente,
-a potom položky v tvare:
+### 14.7 File formats
+The format of the map configuration file is given in the documentation on creating a custom map
+in the game Dark Oberon.
+Files with colour scheme definitions are textual and have the extension col. They use the same
+formatting system as the other configuration files of the game Dark Oberon. They contain three basic
+tags <Segment #> for each segment, where # is the segment number (0, 1 or 2). The tag
+<Segment> contains, first, the item count with the number of fragments in the corresponding segment,
+and then items of the form:
 fragment_# r g b name
 
-kde # je číslo fragmentu počnúc od nuly; r, g, b sú čísla z intervalu <0, 255> definujúce farbu
-fragmentu po zložkách (červená, zelená, modrá); name je meno fragmentu.
-Príklad farebnej schémy:
+where # is the fragment number starting from zero; r, g, b are numbers from the interval <0, 255> defining the colour
+of the fragment by component (red, green, blue); name is the name of the fragment.
+Example of a colour scheme:
 <Segment 0>
 count 1
 fragment_0 108 221 114 "clay"
