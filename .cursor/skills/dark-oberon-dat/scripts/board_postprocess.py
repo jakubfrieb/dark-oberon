@@ -26,6 +26,9 @@ BG_WHITE = 245
 FRINGE_MIN = 210        # light grey outline fringe (min RGB)
 FRINGE_MAX_SAT = 25
 FRINGE_PASSES = 2
+SHADOW_MAX_SAT = 40
+ISLAND_LIGHT_MIN = 170
+ISLAND_MAX_SAT = 40
 SHADOW_ALPHA = 250
 SHADOW_LUMA = 80
 FIGURE_ALPHA = 128
@@ -64,7 +67,9 @@ def _masks(original: Image.Image) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     o = np.asarray(original.convert("RGBA")).astype(np.int32)
     alpha = o[..., 3]
     luma = (o[..., 0] * 299 + o[..., 1] * 587 + o[..., 2] * 114) // 1000
-    shadow = (alpha > 0) & (alpha < SHADOW_ALPHA) & (luma < SHADOW_LUMA)
+    sat = o[..., :3].max(-1) - o[..., :3].min(-1)
+    # a ground shadow is dark AND grey; dark coloured edges (e.g. blue ore outline) are not
+    shadow = (alpha > 0) & (alpha < SHADOW_ALPHA) & (luma < SHADOW_LUMA) & (sat < SHADOW_MAX_SAT)
     figure = (alpha >= FIGURE_ALPHA) & ~shadow
     return alpha, shadow, figure
 
@@ -111,8 +116,46 @@ def restore_alpha(generated: Image.Image, original: Image.Image) -> Image.Image:
         light = (g.min(axis=2) >= FRINGE_MIN) & (g.max(axis=2) - g.min(axis=2) < FRINGE_MAX_SAT) & ~shadow
         edge = _grow(transparent) & ~transparent                       # touches transparency
         out[light & edge] = 0
+    # islands of the old silhouette (separate human objects) that codex filled with plain light
+    # grey: an opaque part with no darker / coloured pixel at all is removed
+    g = out[..., :3].astype(np.int32)
+    opaque = (out[..., 3] > 0) & ~shadow
+    light = (g.min(axis=2) >= ISLAND_LIGHT_MIN) & (g.max(axis=2) - g.min(axis=2) < ISLAND_MAX_SAT)
+    keep = _connected_to(opaque, opaque & ~light)
+    out[opaque & ~keep] = 0
+    # semi-transparent outline pixels left behind by removed objects: not shadow and not next to
+    # anything opaque any more
+    solid = out[..., 3] >= FIGURE_ALPHA
+    soft = (out[..., 3] > 0) & (out[..., 3] < FIGURE_ALPHA) & ~shadow
+    out[soft & ~_grow(solid)] = 0
     out[alpha == 0] = 0
     return Image.fromarray(out, "RGBA")
+
+
+def retint(img: Image.Image, rule: dict) -> Image.Image:
+    """Move pixels whose hue lies in rule['from_hue'] (degrees) to rule['to_hue'] with saturation
+    rule['sat'] (value kept) - e.g. the human blue boulder on the orc catapult -> grey-brown rock."""
+    from colorsys import hsv_to_rgb
+    a = np.asarray(img.convert("RGBA")).astype(np.float64)
+    rgb = a[..., :3] / 255.0
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    d = mx - mn
+    h = np.zeros_like(mx)
+    nz = d > 1e-9
+    r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    rm = nz & (mx == r_); gm = nz & (mx == g_) & ~rm; bm = nz & ~rm & ~gm
+    h[rm] = ((g_ - b_)[rm] / d[rm]) % 6
+    h[gm] = (b_ - r_)[gm] / d[gm] + 2
+    h[bm] = (r_ - g_)[bm] / d[bm] + 4
+    h *= 60.0
+    s = np.where(mx > 0, d / np.where(mx > 0, mx, 1), 0)
+    lo, hi = rule["from_hue"]
+    sel = (h >= lo) & (h <= hi) & (s > 0.15) & (a[..., 3] > 0)
+    out = a.copy()
+    tr, tg, tb = hsv_to_rgb(rule["to_hue"] / 360.0, rule["sat"], 1.0)
+    for i, c in enumerate((tr, tg, tb)):
+        out[..., i][sel] = np.clip(mx[sel] * c * 255.0, 0, 255)
+    return Image.fromarray(out.astype(np.uint8), "RGBA")
 
 
 def validate_board(generated: Image.Image, original: Image.Image, board: dict) -> list[str]:
@@ -169,6 +212,8 @@ def process_all(work: Path, only: set[str] | None = None,
     review.mkdir(parents=True, exist_ok=True)
     report_path = work / "_post_report.json"
     report = json.loads(report_path.read_text("utf-8")) if report_path.exists() else {}
+    retint_path = work / "_retint.json"       # {entity: {from_hue: [lo, hi], to_hue, sat}}
+    retints = json.loads(retint_path.read_text("utf-8")) if retint_path.exists() else {}
 
     for board in manifest["boards"]:
         if only and board["entity_id"] not in only:
@@ -180,6 +225,8 @@ def process_all(work: Path, only: set[str] | None = None,
         generated = embed_generated(Image.open(raw), board, original.size)
         issues = validate_board(generated, original, board)
         processed = restore_alpha(generated, original)
+        if board["entity_id"] in retints:
+            processed = retint(processed, retints[board["entity_id"]])
         make_review(original, processed).save(review / board["board_file"])
         out = edited / board["board_file"]
         accepted = bool(issues) and board["board_id"] in accept

@@ -158,3 +158,59 @@ def test_restore_alpha_drops_light_fringe_on_outline_keeps_interior_light():
     out = restore_alpha(Image.fromarray(gen, "RGB"), human_board())
     assert out.getpixel((39, 20))[3] == 0
     assert out.getpixel((25, 20))[3] == 255
+
+
+def test_coloured_dark_edge_is_not_kept_as_shadow():
+    orig = np.array(human_board())
+    orig[45:47, 14:20] = (20, 30, 110, 120)        # dark BLUE semi-transparent edge (ore outline), not a shadow
+    out = restore_alpha(orc_generated(), Image.fromarray(orig, "RGBA"))
+    assert out.getpixel((15, 45))[:3] != (20, 30, 110)
+
+
+def test_light_islands_are_removed_but_light_parts_of_figure_stay():
+    orig = np.array(human_board())
+    orig[50:54, 50:54] = (40, 40, 200, 255)        # separate human object (blue ore pile)
+    gen = np.array(orc_generated())
+    gen[50:54, 50:54] = (215, 215, 215)            # codex painted a light grey blob there
+    gen[12:14, 22:26] = (230, 230, 225)            # light detail attached to the orc
+    out = restore_alpha(Image.fromarray(gen, "RGB"), Image.fromarray(orig, "RGBA"))
+    assert out.getpixel((51, 51))[3] == 0
+    assert out.getpixel((23, 13))[3] == 255
+
+
+def test_retint_moves_blue_to_target_hue():
+    from board_postprocess import retint
+    img = Image.new("RGBA", (2, 1))
+    img.putpixel((0, 0), (60, 80, 150, 255))      # blue stone
+    img.putpixel((1, 0), (60, 140, 50, 255))      # green skin
+    out = retint(img, {"from_hue": [190, 260], "to_hue": 30, "sat": 0.15})
+    r, g, b, a = out.getpixel((0, 0))
+    assert r >= b and a == 255
+    assert out.getpixel((1, 0)) == (60, 140, 50, 255)
+
+
+def test_process_all_applies_retint_config(tmp_path):
+    w = tmp_path
+    (w / "boards").mkdir(); (w / "raw").mkdir()
+    (w / "boards" / "_boards_manifest.json").write_text(json.dumps({"boards": [BOARD]}))
+    human_board().save(w / "boards" / BOARD["board_file"])
+    gen = np.array(orc_generated()); gen[10:40, 20:40] = (60, 80, 150)
+    Image.fromarray(gen, "RGB").save(w / "raw" / BOARD["board_file"])
+    (w / "_retint.json").write_text(json.dumps({"x": {"from_hue": [190, 260], "to_hue": 30, "sat": 0.15}}))
+    process_all(w)
+    r, g, b, a = Image.open(w / "boards/edited" / BOARD["board_file"]).getpixel((25, 20))
+    assert r >= b
+
+
+def test_orphan_semi_transparent_ring_is_removed_but_figure_edges_stay():
+    orig = np.array(human_board())
+    orig[50:54, 50:54] = (40, 40, 200, 255)        # separate human object ...
+    orig[49, 49:55] = (40, 40, 200, 90)            # ... with a semi-transparent outline
+    orig[10:40, 19] = (60, 60, 60, 100)            # anti-aliased left edge of the figure
+    gen = np.array(orc_generated())
+    gen[50:54, 49:55] = (215, 215, 215)            # codex: light grey blob
+    gen[49, 49:55] = (50, 60, 70)                  # ... and a dark ring where the outline was
+    gen[10:40, 19] = (80, 120, 60)
+    out = restore_alpha(Image.fromarray(gen, "RGB"), Image.fromarray(orig, "RGBA"))
+    assert out.getpixel((51, 49))[3] == 0          # orphan ring gone
+    assert out.getpixel((19, 20))[3] == 100        # figure's soft edge kept

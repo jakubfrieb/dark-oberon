@@ -55,6 +55,16 @@ Nástroje: `.cursor/skills/dark-oberon-dat/scripts/` (`race_pipeline.sh`, `run_c
 | Kalibrace barev párovala špatně | lidské varianty mají jiné indexy skupin (`g020_…`) | párovat podle `skupina__id` |
 | Světlá věž (Watchtower) působí lidsky | design zdědil světlou omítku | u design sheetu hlídat materiály (tmavé dřevo/kámen) — uživatel to schválil vědomě |
 
+| Stavební fáze vypadala lidsky (šedý kámen) | codex převzal materiál z lidského boardu | `restyle --hint "…same orc materials as the finished building…"` |
+| Zbytky lidských předmětů (modrá ruda, bílé kameny, tečkované obrysy) | alfa z lidského originálu drží i ostrůvky, které codex vyplní světle | post-process: stín jen šedý (ne barevný), odstranění světlých ostrůvků, osiřelých poloprůhledných obrysů a světlého lemu na obrysu |
+| Modrý kámen na orčím katapultu | lidský předmět, nápověda nezabrala | deterministicky `W/_retint.json` (`{"catapult": {"from_hue": [190,260], "to_hue": 30, "sat": 0.15}}`) |
+
+**Review hotové rasy:** metriky proti lidské rase (bílé pixely, lem, ztracená plocha, magenta,
+týmová barva) + kontaktní listy všech textur na trávě; podezřelé kusy porovnat 1:1 s lidským
+originálem. Po změně post-processu vždy zkontrolovat regrese (úbytek neprůhledné plochy > 2 %).
+`finalize` validuje ještě před `attack_anim apply` → chyby `footman_attack` size jsou v tu chvíli
+očekávané, po `apply` musí validace projít.
+
 Provozní drobnosti: headless server po startu hry nereaguje na `quit` (ukončovat
 `timeout -k`); server zapisuje logy do `logs/` repozitáře (nesplést s logy hráče); scratchpad
 se po restartu session maže (binárky serveru stavět znovu); `finalize` přepíše `.dat` ze sheetů —
