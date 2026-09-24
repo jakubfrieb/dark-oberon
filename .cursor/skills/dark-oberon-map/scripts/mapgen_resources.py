@@ -126,8 +126,9 @@ def place_resources(layout, walk: np.ndarray, rng, ground: np.ndarray | None = N
         c = (x + s / 2, y + s / 2)
         return all(_dist(c, st) >= FAR_FROM_BASES for st in starts)
 
-    want = int(rng.integers(CONTESTED_GOLD[0], CONTESTED_GOLD[1] + 1))
     h, w = walk.shape
+    area = (w / 160.0) ** 2              # tuned for 160x160
+    want = int(rng.integers(max(1, round(CONTESTED_GOLD[0] * area)), max(1, round(CONTESTED_GOLD[1] * area)) + 1))
     got = 0
     for _ in range(2000):
         if got >= want:
@@ -139,7 +140,7 @@ def place_resources(layout, walk: np.ndarray, rng, ground: np.ndarray | None = N
             got += 1
     forests = sum(1 for q in p.out if q[0] == "forest")
     for _ in range(400):
-        if forests >= TOTAL_FORESTS:
+        if forests >= TOTAL_FORESTS * area:
             break
         centre = (rng.uniform(4, w - 4), rng.uniform(4, h - 4))
         forests += _cluster(p, rng, centre, int(rng.integers(5, 13)), lambda x, y: far(x, y, 3))

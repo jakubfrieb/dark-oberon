@@ -77,25 +77,37 @@ def cells_connected(lay: Layout) -> bool:
     return all(seen[cy, cx] for cx, cy in cells)
 
 
-def _place_starts(rng, cells: int) -> list:
-    lo, hi = 5, cells - 6
-    corners = [(lo, lo), (hi, lo), (lo, hi), (hi, hi)]
+MIN_START_DIST = 70       # fields (Chebyshev) between any two start points
+
+
+def _place_starts(rng, cells: int, players: int = 4) -> list:
+    lo, hi, mid = 5, cells - 6, cells // 2
+    if players == 2:            # opposite corners, either diagonal
+        corners = [(lo, lo), (hi, hi)] if rng.random() < 0.5 else [(hi, lo), (lo, hi)]
+    elif players == 6:          # corners + middle of the left and right side
+        corners = [(lo, lo), (hi, lo), (lo, mid), (hi, mid), (lo, hi), (hi, hi)]
+    else:
+        corners = [(lo, lo), (hi, lo), (lo, hi), (hi, hi)]
+    jit = 1 if players == 6 else 2
     out = []
     for cx, cy in corners:
-        jx, jy = rng.integers(-2, 3, size=2)
+        jx, jy = rng.integers(-jit, jit + 1, size=2)
         out.append((int(cx + jx), int(cy + jy)))
     return out
 
 
 def _lakes(rng, shape, starts_cells) -> np.ndarray:
     h, w = shape
+    s = w / 32.0                         # sizes are tuned for 32x32 cells (160x160 fields)
+    area = s * s
     water = np.zeros(shape, bool)
     # central lake: a few overlapping discs around the centre
     cx0, cy0 = w / 2 + rng.uniform(-2, 2), h / 2 + rng.uniform(-2, 2)
     for _ in range(int(rng.integers(3, 6))):
-        water |= _disc(shape, cx0 + rng.uniform(-3, 3), cy0 + rng.uniform(-3, 3), rng.uniform(2.5, 4.5))
+        water |= _disc(shape, cx0 + rng.uniform(-3, 3) * s, cy0 + rng.uniform(-3, 3) * s,
+                       rng.uniform(2.5, 4.5) * s)
     # smaller lakes between the bases
-    for _ in range(int(rng.integers(2, 4))):
+    for _ in range(int(rng.integers(max(1, round(2 * area)), max(2, round(4 * area))))):
         for _try in range(30):
             x, y = rng.uniform(3, w - 4), rng.uniform(3, h - 4)
             if min(max(abs(x - sx), abs(y - sy)) for sx, sy in starts_cells) >= START_FREE_WATER + 4:
@@ -107,11 +119,12 @@ def _lakes(rng, shape, starts_cells) -> np.ndarray:
 
 def _plateaus(rng, shape, water, starts_cells) -> np.ndarray:
     h, w = shape
+    area = (w / 32.0) ** 2
     plateau = np.zeros(shape, bool)
     forbidden = _dilate(water, 2) | _start_zone(shape, starts_cells, START_FREE_PLATEAU)
     placed = 0
     for _try in range(200):
-        if placed >= int(rng.integers(3, 6)):
+        if placed >= int(rng.integers(max(2, round(3 * area)), max(3, round(6 * area)))):
             break
         pw, ph = int(rng.integers(4, 8)), int(rng.integers(4, 8))
         x, y = int(rng.integers(1, w - pw - 1)), int(rng.integers(1, h - ph - 1))
@@ -152,11 +165,16 @@ def _components(mask: np.ndarray) -> list:
     return comps
 
 
-def make_layout(seed: int, cells: int = 32) -> Layout:
+def make_layout(seed: int, cells: int = 32, players: int = 4) -> Layout:
     shape = (cells, cells)
+    area = (cells / 32.0) ** 2
     for attempt in range(20):
         rng = np.random.default_rng(seed * 1000 + attempt)
-        starts_cells = _place_starts(rng, cells)
+        starts_cells = _place_starts(rng, cells, players)
+        fields = [(cx * FRAG + 2, cy * FRAG + 2) for cx, cy in starts_cells]
+        if any(max(abs(a[0] - b[0]), abs(a[1] - b[1])) < MIN_START_DIST
+               for i, a in enumerate(fields) for b in fields[i + 1:]):
+            continue
         water = _lakes(rng, shape, starts_cells)
         plateau = _plateaus(rng, shape, water, starts_cells)
         ramps: dict = {}
@@ -169,7 +187,8 @@ def make_layout(seed: int, cells: int = 32) -> Layout:
             comp = comps.pop(int(rng.integers(len(comps))))
             lay.plateau = lay.plateau & ~comp
             lay.ramps = {k: v for k, v in lay.ramps.items() if not comp[k[1], k[0]]}
-        if cells_connected(lay) and lay.water.sum() >= 40 and lay.plateau.sum() >= 30 and len(lay.ramps) >= 4:
+        if cells_connected(lay) and lay.water.sum() >= 40 * area and lay.plateau.sum() >= 30 * area \
+                and len(lay.ramps) >= 4:
             return lay
     raise RuntimeError(f"no valid layout for seed {seed}")
 

@@ -31,8 +31,11 @@ START_UNITS = [("peasant", 1, 8, 0), ("peasant", 3, 8, 0), ("peasant", 5, 8, 0),
                ("footman", 8, 1, 2), ("footman", 8, 4, 2)]
 
 
+CELLS_FOR_PLAYERS = {2: 24, 4: 32, 6: 40}   # 120x120, 160x160, 200x200 fields
+
+
 def _players(starts) -> str:
-    lines = ["<Players>", "  max_count 4", "  ", "  <Start Points>", f"    count {len(starts)}", "    "]
+    lines = ["<Players>", f"  max_count {len(starts)}", "  ", "  <Start Points>", f"    count {len(starts)}", "    "]
     lines += [f"    start_point_{i} {x} {y}" for i, (x, y) in enumerate(starts)]
     lines += ["  </Start Points>", "  ", "  <Races>", f"    count {len(RACES)}", "    "]
     for i, race in enumerate(RACES):
@@ -75,14 +78,15 @@ def _segment(seg: int, ids: np.ndarray) -> str:
     return "\n".join(lines)
 
 
-def generate(seed: int, out: Path, name: str | None = None, cells: int = 32) -> Path:
+def generate(seed: int, out: Path, name: str | None = None, players: int = 4) -> Path:
+    cells = CELLS_FOR_PLAYERS[players]
     root = repo_root()
     sch = root / "schemes" / "plastic.sch"
     allowed = learn_adjacency([root / "maps" / n for n in HANDMADE], sch)
     # rare shapes (e.g. two diagonally offset notches) have no seamless fragments: try the next
     # layout derived from the seed until the fragment check passes (still deterministic)
     for attempt in range(20):
-        lay = make_layout(seed * 97 + attempt, cells)
+        lay = make_layout(seed * 97 + attempt, cells, players)
         grid = layout_grid(lay)
         if not check_adjacency(grid, allowed, sch):
             break
@@ -115,9 +119,10 @@ def main() -> int:
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("-o", "--out", type=Path, required=True)
     ap.add_argument("--name", default=None)
+    ap.add_argument("--players", type=int, choices=sorted(CELLS_FOR_PLAYERS), default=4)
     ap.add_argument("--preview", type=Path, default=None)
     a = ap.parse_args()
-    generate(a.seed, a.out, a.name)
+    generate(a.seed, a.out, a.name, a.players)
     print(f"wrote {a.out}")
     if a.preview:
         from render_map import render

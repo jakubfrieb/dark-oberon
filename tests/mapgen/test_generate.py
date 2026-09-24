@@ -60,3 +60,16 @@ def test_render_preview(tmp_path):
     from PIL import Image
     im = Image.open(png)
     assert im.width > 1000 and im.height > 500
+
+
+import pytest
+
+
+@pytest.mark.parametrize("players,size", [(2, 120), (6, 200)])
+def test_generate_other_player_counts(tmp_path, players, size):
+    out = tmp_path / f"p{players}.map"
+    generate(5, out, name="P", players=players)
+    text = out.read_text(encoding="latin-1")
+    assert f"width {size}" in text and f"max_count {players}" in text
+    assert len(re.findall(r"start_point_\d+ ", text)) == players
+    assert check_map(out) == []

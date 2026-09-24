@@ -33,8 +33,9 @@ Nástroje: `.cursor/skills/dark-oberon-dat/scripts/` (`race_pipeline.sh`, `run_c
 9. **Validace a engine:** `validate_race.py races/<id> --reference races/human-red`, pak
    headless server (`make server` v dočasné kopii `src/`, `addcpu`×2, `start`) — musí dojít
    na `Update: Running` bez `Err:`.
-10. **Testovací mapy:** `maps/orc_test.map` (orci proti lidem), `maps/attack_test.map`
-    (armády 8 polí od sebe — boj hned po startu, ideální na kontrolu animací).
+10. **Testovací mapa pro novou rasu** (jednorázová, necommitovat): kopie `maps/trial.map` s `name "<rasa>"
+    místo `"human-red"`; pro kontrolu animací boje postavit obě armády ~8 polí od sebe
+    (`start_point_0/1` blízko, v `<Units>` jen vojáci) — boj začne hned po startu.
 
 ## 2. Co nefungovalo a jak se to řeší
 
@@ -77,7 +78,7 @@ alfa, kotva a počty snímků. Proto:
    snímku), ukotvení nohou na zemní bod, stín převzít z předlohy (nebo syntetizovat).
    Reference pro codex = board se všemi 8 směry + nápověda pohledu pro zadní směry.
 4. **Pořadí:** design sheety → schválení → 1 jednotka + 1 budova pilot (včetně herního
-   testu) → zbytek → barevné varianty → validace → headless test → `attack_test`-like mapa.
+   testu) → zbytek → barevné varianty → validace → headless test → dočasná aréna (bod 10).
 5. **Validátor** dnes porovnává s referenční rasou 1:1 (stejné skupiny a rozměry). Pro novou
    rasu bude potřeba režim „jen konzistence“ (každá `tg_*` skupina existuje, 8 textur pro
    směrové skupiny, `hcount*vcount` sedí s rozměrem, žádná data za pixely).

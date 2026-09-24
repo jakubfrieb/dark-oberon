@@ -54,3 +54,20 @@ def test_starts_free_spread_and_connected(seed):
         for b in lay.starts[i + 1:]:
             assert max(abs(a[0] - b[0]), abs(a[1] - b[1])) >= 70
     assert cells_connected(lay)
+
+
+@pytest.mark.parametrize("players,cells", [(2, 24), (6, 40)])
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_other_player_counts(players, cells, seed):
+    lay = make_layout(seed, cells, players)
+    assert len(lay.starts) == players and lay.water.shape == (cells, cells)
+    for i, a in enumerate(lay.starts):
+        for b in lay.starts[i + 1:]:
+            assert max(abs(a[0] - b[0]), abs(a[1] - b[1])) >= 70
+        cx, cy = a[0] // 5, a[1] // 5
+        assert not lay.water[cy - 2:cy + 3, cx - 2:cx + 3].any()
+    assert cells_connected(lay)
+    for cy in range(cells):
+        for cx in range(cells):
+            outline_fragment(lay.water, cx, cy, WATER_TABLE)
+            outline_fragment(lay.plateau, cx, cy, PLATEAU_TABLE)
