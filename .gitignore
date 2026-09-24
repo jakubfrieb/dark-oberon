@@ -1,19 +1,19 @@
 dark-oberon
 dark-oberon-server
 src/build_info.h
-src/devel_stats.html
 src/tags
-src/checking
-src/annotate.out
-src/doxygen.log
-src/doxygen.conf
-src/doxygen.log
+src/.checking
+src/.compile_flags
+src/.doxygen.log
 src/*.o
 logs/*
+__pycache__/
+.pytest_cache/
 
 ai-working
 # unpacked .dat working copies
 races/*/*.dat-unpacked/
 graphify-out/
+.superpowers/
 
 .env

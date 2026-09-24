@@ -1,6 +1,4 @@
 .git
-version-from-internet
-dat_unpacked
 .cursor
 logs
 *.o
@@ -9,3 +7,6 @@ dark-oberon-server
 **/__pycache__
 **/*.pyc
 .pytest_cache
+ai-working
+races/*/*.dat-unpacked
+.superpowers
