@@ -21,6 +21,8 @@ services:
       - "${PORT_RANGE_START:-17000}-${PORT_RANGE_END:-17009}:${PORT_RANGE_START:-17000}-${PORT_RANGE_END:-17009}/tcp"
     volumes:
       - ../maps:/app/maps:ro
+      # Lobby accounts (SQLite) and the generated session key; survives rebuilds.
+      - lobby-data:/app/lobby-data
     environment:
       - PORT_RANGE_START=${PORT_RANGE_START:-17000}
       - PORT_RANGE_END=${PORT_RANGE_END:-17009}
@@ -30,3 +32,15 @@ services:
       - GAME_PUBLIC_HOST=${GAME_PUBLIC_HOST:-}
       # `-` = access log to stdout, `/dev/null` = quiet.
       - GUNICORN_ACCESS_LOG=${GUNICORN_ACCESS_LOG:--}
+      - LOBBY_DATA_DIR=/app/lobby-data
+      # Empty = generated once and stored in the lobby-data volume.
+      - LOBBY_SECRET_KEY=${LOBBY_SECRET_KEY:-}
+      # Number of reverse proxies in front of the lobby (for client IPs); 0 = direct.
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-0}
+      # 1 = session cookie only over HTTPS (set when the lobby is served via HTTPS).
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-0}
+      - LOBBY_IDLE_MINUTES=${LOBBY_IDLE_MINUTES:-30}
+      - LOBBY_MAX_GAME_HOURS=${LOBBY_MAX_GAME_HOURS:-8}
+
+volumes:
+  lobby-data:

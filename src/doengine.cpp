@@ -1168,7 +1168,7 @@ bool TMAP_INFO_LIST::LoadMapList() {
 
 #ifdef WINDOWS  // on WINDOWS systems
   _finddata_t file;         // file in directory 
-  long file_handler;        // handler to first find file in directory
+  intptr_t file_handler;    // handler to first find file in directory (64-bit on Win64)
   bool next_file = true;
 #else  // on UNIX systems
   DIR *dir;
@@ -1184,7 +1184,7 @@ bool TMAP_INFO_LIST::LoadMapList() {
 
   while (ok && next_file) { // loop over all files and directories id MAP_PATH diectory
     extension = strrchr(file.name, '.');
-    if (!(strcmp(extension, ".map"))) // filter in _findfirst is not correct (accepts files *.map*)
+    if (extension && !(strcmp(extension, ".map"))) // filter in _findfirst is not correct (accepts files *.map*)
       ok = LoadMapInfo(true, file.name);  // loads map info for each *.map file
     next_file = (!_findnext(file_handler, &file));
   }
@@ -1198,13 +1198,10 @@ bool TMAP_INFO_LIST::LoadMapList() {
   }
 
   while (ok && ((entry = readdir(dir)) != NULL)) {
-    if (entry->d_type != DT_DIR)
-    {
-      extension = strrchr(entry->d_name, '.');
-      /** XXX: THIS WILL PROBABLY CRASH if there is a file without an extension **/
-      if (!(strcmp(extension, ".map")))
-        ok = LoadMapInfo(true, entry->d_name); // loads map info for each *.map file
-    }
+    // Filter by extension only: d_type/DT_DIR is not portable (missing on Haiku).
+    extension = strrchr(entry->d_name, '.');
+    if (extension && !(strcmp(extension, ".map")))
+      ok = LoadMapInfo(true, entry->d_name); // loads map info for each *.map file
   }
   
   closedir(dir);
@@ -6905,7 +6902,9 @@ void RunDedicatedServer(const char *map_basename, int port)
     pfd.fd = fileno(stdin);
     pfd.events = POLLIN;
     int pr = poll(&pfd, 1, 100);
-    if (pr > 0 && (pfd.revents & POLLIN)) {
+    /* A closed stdin (the lobby exited) reports POLLHUP without POLLIN; fgets then hits EOF
+       and the server quits instead of spinning on poll(). */
+    if (pr > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR))) {
       char buf[256];
       if (fgets(buf, sizeof buf, stdin) == NULL) {
         running = false;

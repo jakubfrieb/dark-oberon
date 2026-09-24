@@ -12,7 +12,13 @@
 <p align="center">
   <img alt="version" src="https://img.shields.io/github/v/tag/jakubfrieb/dark-oberon?label=version&color=c9a227">
   <img alt="license" src="https://img.shields.io/badge/license-GPL--2.0--or--later-blue">
-  <img alt="platform" src="https://img.shields.io/badge/platform-Linux%20%C2%B7%20SDL2%20%C2%B7%20OpenGL-555">
+  <img alt="SDL2 + OpenGL" src="https://img.shields.io/badge/SDL2%20%C2%B7%20OpenGL-555">
+</p>
+
+<p align="center">
+  <a href="#linux"><img alt="Linux" src="docs/badges/linux.svg"></a>
+  <a href="#windows"><img alt="Windows" src="docs/badges/windows.svg"></a>
+  <a href="#haiku"><img alt="Haiku" src="docs/badges/haiku.svg"></a>
 </p>
 
 ---
@@ -94,7 +100,7 @@ Lake Country, Long Water, Crossroads, Great Bay** and **Six Hills**.
 
 ### Under the hood
 
-- **SDL2 + OpenGL** instead of the long-dead GLFW 2 and FMOD. The game builds and runs on current Linux.
+- **SDL2 + OpenGL** instead of the long-dead GLFW 2 and FMOD. The game runs on **Linux, Windows and Haiku**.
 - A **headless dedicated server** and a web **lobby** for internet games (see below).
 - A **developer console**: press <kbd>`</kbd> in game and type `help`. It can reveal the map,
   add resources, speed up building and show AI logs.
@@ -113,25 +119,49 @@ Lake Country, Long Water, Crossroads, Great Bay** and **Six Hills**.
 ## Play over the internet: Oberon Cloud
 
 You don't need to set up a server or forward ports. Games run on the
-**Oberon Cloud** at [digitalmind.cz](https://digitalmind.cz):
+**Oberon Cloud** at [digitalmind.cz](https://digitalmind.cz), and the lobby
+at **<https://oberon.cloud.digitalmind.cz>** shows every game that's running.
 
-1. **Open the lobby** at **<https://oberon.cloud.digitalmind.cz>**.
-2. **Start a server.** Pick a map and click **New server**. The lobby shows the address to connect
-   to, for example `oberon-game.cloud.digitalmind.cz:17001`.
-3. **Send that address to your friends.**
-4. **Everyone connects from the game:** **Play → Connect**, type the whole `host:port` address
-   into the *IP* field, enter your name and confirm.
-5. **Choose races.** In the game lobby each player picks a race and colour (every player needs a
+<p align="center">
+  <img src="docs/screenshots/15_lobby.png" alt="Oberon Cloud lobby" width="820">
+  <br><sub>The lobby: your game with its address, and the other games on the server.</sub>
+</p>
+
+**Hosting a game** needs a free account (just a name and a password, no e-mail):
+
+1. **Create an account** in the lobby, or sign in.
+2. **Create a game.** Pick a map and click **Create game**. The lobby shows the address to
+   connect to, for example `oberon-game.cloud.digitalmind.cz:17001`. Each account can host one
+   game at a time.
+3. **Send that address to your friends.** They can also copy it from the list in the lobby.
+
+**Joining a game** needs no account:
+
+1. **Connect from the game:** choose **Play → Connect**, type the whole address including the
+   port after the colon into the *IP* field, enter your name and confirm.
+2. **Choose races.** In the game lobby each player picks a race and colour (every player needs a
    different one). Want more opponents? Click **Add computer** to fill free slots with CPU players.
-6. **Start.** Click **Play** in the game, or **Start game** in the web lobby.
+3. **Start.** Click **Play** in the game. The host can also press **Start game** in the web lobby.
 
-When you're done, stop the server in the web lobby so the slot is free for someone else.
+When you're done, the host clicks **Stop game** in the lobby. Games stop by themselves when
+nobody has been connected for 30 minutes, and after 8 hours at most.
 
 > Running your own server? `server/` has a ready-made Docker setup: the lobby web UI plus
 > headless game servers in one container. Copy `server/.env.example` to `server/.env`, set
-> `GAME_PUBLIC_HOST` and run `server/up-server`.
+> `GAME_PUBLIC_HOST` and run `server/up-server`. Accounts are stored in the `lobby-data` Docker
+> volume. Behind an HTTPS reverse proxy also set `TRUSTED_PROXIES=1` and `SESSION_COOKIE_SECURE=1`.
 
-## Build and run (Linux)
+## Build and run
+
+The game runs on **Linux**, **Windows** and **Haiku** (64-bit):
+
+| | System | How to get it |
+|---|---|---|
+| <img alt="Linux" src="docs/badges/linux.svg"> | any current distro | build from source with `make` |
+| <img alt="Windows" src="docs/badges/windows.svg"> | Windows 10 / 11 | unzip `dark-oberon-<version>-win64.zip`, run `dark-oberon.exe` |
+| <img alt="Haiku" src="docs/badges/haiku.svg"> | Haiku R1/beta6 | unzip `dark-oberon-<version>-haiku-x86_64.zip` after `pkgman install libsdl2 sdl2_mixer glu` |
+
+### Linux
 
 ```bash
 # Debian/Ubuntu: sudo apt install build-essential libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
@@ -142,24 +172,41 @@ make               # the binary ./dark-oberon ends up in the repository root
 
 - **Sound and music:** build with `make -C src SOUND=1` (needs SDL2_mixer).
 - **Dedicated server:** `make -C src server`.
-- **Tests:** `make test-ai` (C++ AI logic) and `python -m pytest tests/race_pipeline tests/mapgen`.
+- **Tests:** `make test-ai` (C++ AI logic) and `python -m pytest tests/race_pipeline tests/mapgen tests/lobby`
+  (the lobby tests need Flask: `pip install -r server/web/requirements.txt`).
 
 Requirements are modest: any OpenGL-capable graphics card and SDL2.
 
-<details>
-<summary><b>Windows</b></summary>
+### Windows
 
-This fork is built and tested on Linux. On Windows you have these options:
+The Windows version is cross-compiled from Linux with MinGW-w64 into a ready-to-run zip:
 
-- **WSL2 (recommended):** install a Linux distro and follow the Linux steps. On Windows 11,
-  WSLg usually runs OpenGL/SDL apps out of the box. Otherwise use an X server (VcXsrv, X410).
-- **MSYS2 / MinGW-w64 (unsupported):** install `mingw-w64-x86_64-gcc` and `mingw-w64-x86_64-SDL2`
-  (plus `SDL2_mixer` for sound), and link `-lopengl32 -lglu32` instead of `-lGL -lGLU`. Keep
-  `-DUNIX=1`. Patches for a clean Windows target are welcome.
-- **The original Windows release** (GLFW 2 + FMOD) is still available from the
-  [original homepage](http://dark-oberon.sourceforge.net/). It uses the old code, not this fork.
+```bash
+sudo scripts/setup-windows-toolchain.sh   # once, Arch/Manjaro: mingw-w64-gcc, wine, zip
+scripts/fetch-windows-deps.sh             # once: SDL2 + SDL2_mixer for Windows
+make windows                              # -> dist/dark-oberon-<version>-win64.zip
+```
 
-</details>
+Unzip it anywhere on Windows 10 or 11 and run `dark-oberon.exe`. Nothing else needs to be
+installed: the SDL2 DLLs are in the zip and the C/C++ runtime is built into the exe. Settings
+and logs are kept next to the exe (`config.cfg`, `logs/`). To try the build on Linux, run
+`wine dark-oberon.exe` in the unpacked folder.
+
+### Haiku
+
+Haiku builds natively with the same Makefile as Linux:
+
+```bash
+pkgman install libsdl2_devel sdl2_mixer_devel glu_devel
+make -C src SOUND=1   # the binary ./dark-oberon ends up in the repository root
+./dark-oberon
+```
+
+Settings and logs go to `~/.dark-oberon/`.
+
+A ready-to-run zip can be built from Linux with `make haiku`, which compiles the game on a Haiku
+machine over SSH (`HAIKU_HOST`, default `haiku`) and saves `dist/dark-oberon-<version>-haiku-x86_64.zip`.
+To play from that zip you only need the runtime libraries: `pkgman install libsdl2 sdl2_mixer glu`.
 
 ## Documentation
 

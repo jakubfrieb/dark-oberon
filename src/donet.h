@@ -460,6 +460,12 @@ public:
     return thread;
   }
 
+  /** Called when someone else (the listener it consumes from) has already
+   *  joined the thread with SDL_WaitThread(), which frees the handle. */
+  void ThreadJoined () {
+    thread = NULL;
+  }
+
 private:
   static int SDLCALL dispatcher_thread_function (void *dispatcher_class);
 

@@ -6,6 +6,7 @@ src/.checking
 src/.compile_flags
 src/.doxygen.log
 src/*.o
+src/obj-win/
 logs/*
 __pycache__/
 .pytest_cache/
@@ -20,3 +21,8 @@ graphify-out/
 
 # local deployment override for server/docker-compose.yml
 server/docker-compose.override.yml
+
+# Windows cross-compile deps (scripts/fetch-windows-deps.sh) and build output
+third_party/
+dist/
+*.exe

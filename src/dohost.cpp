@@ -83,6 +83,9 @@ THOST::~THOST ()
   /* Order in which objects are deleted must be: listener, dispatcher, handler!
    */
   delete listener;
+  /* ~TNET_LISTENER already joined the dispatcher thread (its consumer);
+   * joining it again would double-free the SDL_Thread. */
+  dispatcher->ThreadJoined ();
   delete dispatcher;
   delete handler;
 }

@@ -1,0 +1,272 @@
+/* Dark Oberon lobby — styled after the game's own main menu:
+   cracked stone, plasticine knights, gold title, black panels with a thin pale rim,
+   and menu commands as plain gold serif words. */
+
+:root {
+  --stone: #151412;
+  --panel: rgba(4, 4, 4, 0.86);
+  --rim: #b9b2a4;
+  --gold: #dcb660;
+  --gold-hi: #f3d98f;
+  --gold-dim: #9a7f45;
+  --clay: #eee6d8;
+  --clay-dim: #a9a397;
+  --clay-red: #d0493a;
+  --grass: #7cb84a;
+  --input: #f2ecdf;
+  --ink: #141210;
+
+  --font-menu: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-text: "Alegreya", Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--stone); }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--clay);
+  font-family: var(--font-text);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  background: transparent;
+}
+
+/* The menu backdrop stays put while the panels scroll over it, like the in-game menu. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom, rgba(10, 9, 8, 0.92) 0%, rgba(10, 9, 8, 0.35) 22%, rgba(10, 9, 8, 0) 40%),
+    url("backdrop.jpg") center bottom / cover no-repeat,
+    var(--stone);
+}
+
+a { color: var(--gold); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--gold-hi); }
+
+:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+
+/* ---------- top: account line + title ---------- */
+
+.account {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 1.25rem;
+  padding: 0.9rem 1.25rem 0;
+  font-family: var(--font-menu);
+  font-size: 0.95rem;
+}
+.account .who { color: var(--clay-dim); font-family: var(--font-text); font-style: italic; }
+.account .who b { color: var(--clay); font-weight: 400; }
+.account form { margin: 0; }
+
+.title {
+  text-align: center;
+  padding: 1.5rem 1rem 0.25rem;
+}
+.title a { display: inline-block; }
+.title img {
+  width: min(640px, 92vw);
+  height: auto;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.85));
+}
+.title p {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-menu);
+  color: var(--gold-dim);
+  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+}
+
+main {
+  width: min(620px, calc(100% - 2rem));
+  margin: 2.5rem auto 40vh;   /* leave the knights visible below the last panel */
+  display: grid;
+  gap: 1.75rem;
+}
+
+/* ---------- panels: the black box with a pale rim from the game's dialogs ---------- */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--rim);
+  padding: 1.5rem 1.75rem 1.4rem;
+}
+.panel > h2 {
+  margin: 0 0 1rem;
+  font-family: var(--font-menu);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  color: var(--clay);
+}
+.panel p { margin: 0 0 0.9rem; }
+.muted { color: var(--clay-dim); }
+.small { font-size: 0.92rem; }
+
+/* ---------- commands: gold words, like "Play", "Create", "Back" in the game ---------- */
+
+.cmd {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.2rem 0.1rem;
+  cursor: pointer;
+  font-family: var(--font-menu);
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--gold);
+  text-decoration: none;
+  text-shadow: 0 1px 0 #000;
+  transition: color 120ms ease, text-shadow 120ms ease;
+}
+.cmd:hover:not(:disabled) {
+  color: var(--gold-hi);
+  text-shadow: 0 0 10px rgba(243, 217, 143, 0.35), 0 1px 0 #000;
+}
+.cmd:disabled { color: #5d5445; cursor: default; }
+.cmd.small { font-size: 1.05rem; }
+.cmd.danger { color: var(--clay-red); }
+.cmd.danger:hover:not(:disabled) { color: #ee6d5d; text-shadow: 0 0 10px rgba(208, 73, 58, 0.35); }
+
+.commands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 0.5rem 2rem;
+  margin-top: 1.1rem;
+}
+
+/* ---------- form fields: pale edit boxes with dark text, as in the game ---------- */
+
+.field { display: grid; grid-template-columns: 7.5rem 1fr; align-items: center; gap: 0.6rem 1rem; margin-bottom: 0.75rem; }
+.field label {
+  font-family: var(--font-menu);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+}
+input[type="text"], input[type="password"], select {
+  width: 100%;
+  background: var(--input);
+  color: var(--ink);
+  border: 1px solid #fff;
+  border-radius: 0;
+  padding: 0.4rem 0.55rem;
+  font: 1rem/1.3 var(--font-text);
+}
+select { cursor: pointer; }
+
+.hint { grid-column: 2; margin: -0.35rem 0 0; font-size: 0.85rem; color: var(--clay-dim); }
+
+.error {
+  border-left: 3px solid var(--clay-red);
+  padding: 0.35rem 0 0.35rem 0.75rem;
+  margin: 0 0 1rem;
+  color: #f2c3bb;
+}
+
+/* ---------- your game ---------- */
+
+.game-name {
+  font-family: var(--font-menu);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.state { display: flex; align-items: center; gap: 0.45rem; margin: 0.2rem 0 1rem; color: var(--clay-dim); }
+.state svg { width: 0.95rem; height: 0.95rem; flex: none; }
+.state.waiting svg { color: var(--gold); }
+.state.battle { color: var(--clay); }
+.state.battle svg { color: var(--grass); }
+
+.address {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-top: 1px solid rgba(185, 178, 164, 0.35);
+  border-bottom: 1px solid rgba(185, 178, 164, 0.35);
+  padding: 0.7rem 0;
+  margin-bottom: 1rem;
+}
+.address code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-text);
+  font-size: 1.3rem;
+  color: var(--clay);
+  user-select: all;
+}
+
+.players { margin: 0; }
+.players .names { font-style: italic; font-size: 1.15rem; }
+.players .names span + span::before { content: ", "; font-style: normal; color: var(--clay-dim); }
+
+/* ---------- games list ---------- */
+
+.games { list-style: none; margin: 0; padding: 0; }
+.games li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 1rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid rgba(185, 178, 164, 0.25);
+}
+.games li:first-child { border-top: 0; padding-top: 0; }
+.games .map { font-family: var(--font-menu); font-weight: 700; font-size: 1.1rem; color: var(--clay); }
+.games .host { font-style: italic; color: var(--clay-dim); }
+.games .host b { font-weight: 400; color: var(--clay); }
+.games .state { margin: 0; grid-column: 1; }
+.games .join { grid-column: 2; grid-row: 1 / span 3; align-self: center; text-align: right; }
+.games .join code { display: block; font-family: var(--font-text); color: var(--clay); margin-bottom: 0.1rem; }
+
+.empty { font-style: italic; color: var(--clay-dim); margin: 0; }
+
+/* ---------- how to join: a real sequence, so it is numbered ---------- */
+
+.steps { margin: 0; padding-left: 1.4rem; }
+.steps li { margin-bottom: 0.45rem; padding-left: 0.3rem; }
+.steps li::marker { font-family: var(--font-menu); color: var(--gold); font-weight: 700; }
+.steps b { font-family: var(--font-menu); font-weight: 500; color: var(--gold); }
+
+/* ---------- toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 2rem));
+  background: var(--panel);
+  border: 1px solid var(--rim);
+  padding: 0.6rem 1.1rem;
+  font-size: 1rem;
+}
+.toast[hidden] { display: none; }
+.toast.err { border-color: var(--clay-red); color: #f2c3bb; }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 560px) {
+  .panel { padding: 1.2rem 1.1rem; }
+  .field { grid-template-columns: 1fr; gap: 0.3rem; }
+  .hint { grid-column: 1; margin-top: 0; }
+  .games li { grid-template-columns: 1fr; }
+  .games .join { grid-column: 1; grid-row: auto; text-align: left; margin-top: 0.35rem; }
+  .address { flex-wrap: wrap; gap: 0.2rem; }
+  .address code { flex-basis: 100%; font-size: 1.05rem; white-space: nowrap; overflow-wrap: normal; }
+  main { margin-bottom: 30vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmd { transition: none; }
+}

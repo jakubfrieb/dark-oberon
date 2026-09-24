@@ -26,6 +26,10 @@ ifeq ($(SOUND),1)
 INCLUDES += $(SDL2_MIXER_CFLAGS)
 LIBRARIES += $(SDL2_MIXER_LIBS)
 endif
+# Haiku keeps BSD sockets in libnetwork, not libroot.
+ifeq ($(shell uname -s),Haiku)
+LIBRARIES += -lnetwork
+endif
 # Pure-rendering objects: GL/GUI/TGA loader/font/mouse/draw loop/SDL_video shim.
 # Goal: exclude these from the dedicated server build (and drop -lGL -lGLU from
 # SERVER_LIBRARIES). Currently blocked by 98 sim->render symbol references — see
@@ -34,6 +38,9 @@ RENDER_OBJECTS = dodraw.o domouse.o doglfw_sdl.o glfont.o glgui.o tga.o
 
 # Dedicated server is always SOUND=0; do not link SDL2_mixer (LIBRARIES is parsed before target-specific SOUND).
 SERVER_LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
+ifeq ($(shell uname -s),Haiku)
+SERVER_LIBRARIES += -lnetwork
+endif
 OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doai_logic.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 OBJECTS_SERVER = $(filter-out doberon.o,$(OBJECTS)) doserver.o
 TARGETS = ../dark-oberon

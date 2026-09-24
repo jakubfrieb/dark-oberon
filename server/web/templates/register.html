@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Create account · Dark Oberon{% endblock %}
+{% block content %}
+<section class="panel" aria-labelledby="h-register">
+  <h2 id="h-register">Create account</h2>
+  <p class="muted">With an account you can host one game at a time on this server. No e-mail needed.</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('register') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="username">Name</label>
+      <input type="text" id="username" name="username" value="{{ username or '' }}" autocomplete="username"
+             minlength="3" maxlength="20" pattern="[A-Za-z0-9_\-]{3,20}" required autofocus>
+      <p class="hint">3–20 letters, digits, _ or -</p>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+      <p class="hint">At least 8 characters</p>
+    </div>
+    <div class="field">
+      <label for="password2">Again</label>
+      <input type="password" id="password2" name="password2" autocomplete="new-password" minlength="8" maxlength="128" required>
+    </div>
+    <div class="commands">
+      <a class="cmd" href="{{ url_for('index') }}">Back</a>
+      <button class="cmd" type="submit">Create</button>
+    </div>
+  </form>
+  <p class="small muted" style="margin-top:1rem">Already have an account? <a href="{{ url_for('login') }}">Sign in</a>.</p>
+</section>
+{% endblock %}

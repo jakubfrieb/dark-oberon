@@ -2,7 +2,7 @@
 
 - Communicate with the user in Czech.
 - Race and map workflows: `.cursor/skills/dark-oberon-race/PLAYBOOK.md`, `.cursor/skills/dark-oberon-map/`.
-- Tests: `make test-ai` (C++ AI logic), `python -m pytest tests/race_pipeline tests/mapgen`.
+- Tests: `make test-ai` (C++ AI logic), `python -m pytest tests/race_pipeline tests/mapgen tests/lobby` (lobby tests need Flask).
 
 ## Versioning & Changelog (SemVer) — BINDING
 - Every **finished iteration** is versioned using Semantic Versioning **MAJOR.MINOR.PATCH**:

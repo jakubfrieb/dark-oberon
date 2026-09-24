@@ -9,6 +9,45 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+### Added
+- Windows (x86_64) build, cross-compiled with MinGW-w64: `make windows` produces
+  `dist/dark-oberon-<version>-win64.zip` (exe, SDL2/SDL2_mixer DLLs, game data). The C/C++ runtime is
+  linked statically. One-time setup: `sudo scripts/setup-windows-toolchain.sh` and
+  `scripts/fetch-windows-deps.sh`.
+- Haiku (x86_64) support: builds natively with the regular `make -C src SOUND=1` (needs
+  `libsdl2_devel sdl2_mixer_devel glu_devel` from HaikuDepot/pkgman); sockets link against `libnetwork`.
+  `make haiku` builds it on a Haiku machine over SSH (`HAIKU_HOST`, default `haiku`) and fetches
+  `dist/dark-oberon-<version>-haiku-x86_64.zip`.
+- Lobby accounts: registration and sign-in (name + password, no e-mail). Hosting a game needs an
+  account, each account can run one game at a time, and only its owner can start or stop it. Joining
+  still needs only the address. Accounts live in SQLite in the `lobby-data` Docker volume; sign-up and
+  sign-in are rate limited per IP, forms and API calls are CSRF-protected.
+- Lobby housekeeping: a game with no human player connected stops after `LOBBY_IDLE_MINUTES` (30), and
+  any game after `LOBBY_MAX_GAME_HOURS` (8).
+- New lobby settings in `server/.env.example`: `LOBBY_SECRET_KEY`, `TRUSTED_PROXIES`,
+  `SESSION_COOKIE_SECURE`, `LOBBY_IDLE_MINUTES`, `LOBBY_MAX_GAME_HOURS`. Lobby tests in `tests/lobby`.
+
+### Changed
+- The lobby web page is restyled after the game's main menu (stone backdrop with the plasticine
+  knights, the gold title, black panels, menu-style commands) and works on phones. The manual port
+  field is gone; ports are assigned automatically.
+- README: internet play explains accounts, hosting vs. joining and when games stop by themselves.
+- README: the game is documented as running on Linux, Windows and Haiku, with OS badges, a platform table
+  and build steps for each.
+
+### Fixed
+- Dedicated server: when its stdin closed (the lobby exited or restarted), the server spun at 100 % CPU
+  forever instead of quitting, because `poll()` reported `POLLHUP` without `POLLIN`.
+- Windows: crash on startup while listing maps. The `_findfirst` handle was stored in a 32-bit `long`,
+  which truncates it on Win64 (same bug in race loading). A map file without an extension no longer
+  crashes the map list either.
+- Windows: variables named `near`/`far` in the CPU player code clashed with `windows.h` macros.
+- Crash (double free) when leaving a network game, e.g. hosting and then connecting elsewhere: the
+  dispatcher thread was joined twice, first by the listener that consumes its queue and then by the
+  dispatcher itself. It showed up on Haiku, and on the other systems it was silent undefined behaviour.
+- The map list no longer relies on `dirent::d_type` (missing on Haiku) and no longer crashes on a file
+  without an extension in `maps/`.
+
 ## [0.2.4] - 2026-09-24
 
 ### Changed

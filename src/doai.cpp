@@ -1938,12 +1938,12 @@ void TAI_CONTROLLER::ScanEnemies()
           continue;
 
         TAI_UNIT_SAMPLE s = SampleUnit(u);
-        bool near = false;
-        for (int k = 0; k < ns && !near; k++)
-          near = tai_cheb_xy(s.x, s.y, sx[k], sy[k]) <= kTaiBaseThreatRadius;
+        bool is_near = false;
+        for (int k = 0; k < ns && !is_near; k++)
+          is_near = tai_cheb_xy(s.x, s.y, sx[k], sy[k]) <= kTaiBaseThreatRadius;
         enemy_units[n_enemies] = u;
         enemy_samples[n_enemies] = s;
-        enemy_near_base[n_enemies] = near;
+        enemy_near_base[n_enemies] = is_near;
         n_enemies++;
         if (s.attacking_us)
           retaliation.Hit((int)pid, game_time);
@@ -2108,15 +2108,15 @@ void TAI_CONTROLLER::ManageArmy()
   case MIL_GATHER: {
     if (!rally_sent.SameDestination(rx, ry))
       rally_sent.Reset(rx, ry);
-    TFORCE_UNIT *far[TAI_GAME_STATE::kMaxIdleForces];
+    TFORCE_UNIT *far_units[TAI_GAME_STATE::kMaxIdleForces];
     int nf = 0;
     for (int i = 0; i < n; i++)
       if (army[i]->GetAction() == UA_STAY && !rally_sent.Sent(army[i]->GetUnitID())
           && tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) > kTaiRallyRadius) {
-        far[nf++] = army[i];
+        far_units[nf++] = army[i];
         rally_sent.Add(army[i]->GetUnitID());
       }
-    OrderGroup(far, nf, rx, ry, NULL);
+    OrderGroup(far_units, nf, rx, ry, NULL);
 
     const TAI_PHASE &ph = strategy->GetPhase(current_phase);
     const bool may_attack = ph.targets.attack_when_ready || retaliation.Active(game_time);

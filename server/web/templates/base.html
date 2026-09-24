@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Dark Oberon{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='lobby.css') }}">
+</head>
+<body{% if user %} data-user="{{ user }}"{% endif %}>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <nav class="account" aria-label="Account">
+    {% if user %}
+      <span class="who">Signed in as <b>{{ user }}</b></span>
+      <form method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="cmd small" type="submit">Sign out</button>
+      </form>
+    {% else %}
+      <a class="cmd small" href="{{ url_for('login') }}">Sign in</a>
+      <a class="cmd small" href="{{ url_for('register') }}">Create account</a>
+    {% endif %}
+  </nav>
+
+  <header class="title">
+    <a href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='title.png') }}" alt="Dark Oberon" width="636" height="70"></a>
+    <p>Internet lobby</p>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

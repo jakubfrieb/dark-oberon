@@ -2089,7 +2089,7 @@ bool LoadRaces(void)
 
 #ifdef WINDOWS  // on WINDOWS systems
   _finddata_t file;         // file in directory 
-  long file_handler;        // handler to first find file in directory
+  intptr_t file_handler;    // handler to first find file in directory (64-bit on Win64)
   bool next_file = true;
 
   if ((file_handler = _findfirst((std::string(RAC_PATH) + "*").c_str(), &file)) == -1L) {  //none file or directories exists

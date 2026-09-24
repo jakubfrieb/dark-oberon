@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Dark Oberon{% endblock %}
+{% block content %}
+<section class="panel" aria-labelledby="h-login">
+  <h2 id="h-login">Sign in</h2>
+  <p class="muted">You need an account only to host a game. To join a friend's game, just use the address they send you.</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('login') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field">
+      <label for="username">Name</label>
+      <input type="text" id="username" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+    </div>
+    <div class="commands">
+      <a class="cmd" href="{{ url_for('index') }}">Back</a>
+      <button class="cmd" type="submit">Sign in</button>
+    </div>
+  </form>
+  <p class="small muted" style="margin-top:1rem">No account yet? <a href="{{ url_for('register') }}">Create one</a>.</p>
+</section>
+{% endblock %}
