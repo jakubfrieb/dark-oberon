@@ -9,6 +9,8 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-24
+
 ### Changed
 - `server/docker-compose.yml` is deployment-neutral: settings come from `server/.env` (project name, web/host
   ports, game port range, public game host, gunicorn access log) with defaults, and the lobby web UI is
@@ -137,7 +139,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.1.0...v0.2.0
