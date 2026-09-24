@@ -18,6 +18,7 @@ swing per direction from the idle frame and turns it into an engine texture:
 Usage:
   attack_anim.py prepare  --unpacked U --stay-group footman_stay --work W
   attack_anim.py generate --work W --reference REF.png --subject "..." [--parallel N] [--only 1,3] [--force]
+                          [--views "5:back-left,6:back"]
   attack_anim.py build    --unpacked U --stay-group footman_stay --work W
   attack_anim.py apply    --unpacked U --group footman_attack --work W [--atime 1000] [--mapping team_blue.json]
 """
@@ -54,7 +55,7 @@ top-right, bottom-left, bottom-right):
   3. strike: sword fully extended forward at hip height (impact)
   4. recover: returning toward the idle pose
 Rules:
-- exactly the same facing direction, camera angle, colours, gear and proportions as image 1;
+{view_rule}- exactly the same facing direction, camera angle, colours, gear and proportions as image 1;
   the feet stay on the same spot in every cell;
 - matte plasticine / modelling clay look, soft light from top-left, chunky rounded shapes,
   no outlines, no pixel art;
@@ -65,6 +66,26 @@ Rules:
   at the same size in all 4 cells (about 45 % of the cell height).
 
 Save to: ./raw/dir{direction}.png  (1024x1024 PNG)"""
+
+
+def parse_views(spec: str | None) -> dict[int, str]:
+    """"5:back-left,6:back" -> {5: "back-left", 6: "back"}."""
+    views: dict[int, str] = {}
+    for part in (spec or "").split(","):
+        if ":" in part:
+            d, v = part.split(":", 1)
+            views[int(d)] = v.strip()
+    return views
+
+
+def build_prompt(subject: str, direction: int, views: dict[int, str] | None = None) -> str:
+    view = (views or {}).get(direction)
+    view_rule = ""
+    if view:
+        view_rule = (f"- IMPORTANT: in image 1 the character is seen from the {view.upper()} (look at which side of the "
+                     f"body faces the camera). Keep exactly this view in all 4 cells - do NOT turn the character "
+                     f"to face the camera.\n")
+    return PROMPT.format(subject=subject, direction=direction, view_rule=view_rule)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +227,7 @@ def cmd_generate(a) -> int:
         out = a.work / "raw" / f"dir{d}.png"
         if out.exists() and not a.force:
             return d, True
-        prompt = PROMPT.format(subject=a.subject, direction=d)
+        prompt = build_prompt(a.subject, d, parse_views(getattr(a, "views", None)))
         return d, run_codex_board_batch.run_codex(prompt, [a.work / "in" / f"dir{d}.png", reference], out, a.work)
 
     with ThreadPoolExecutor(max_workers=max(1, a.parallel)) as ex:
@@ -257,6 +278,7 @@ def main() -> int:
     g.add_argument("--parallel", type=int, default=4)
     g.add_argument("--only", default=None)
     g.add_argument("--force", action="store_true")
+    g.add_argument("--views", default=None, help='per-direction view hints, e.g. "5:back-left,6:back"')
     b = sub.add_parser("build")
     b.add_argument("--unpacked", type=Path, required=True)
     b.add_argument("--stay-group", required=True)

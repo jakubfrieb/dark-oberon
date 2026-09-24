@@ -124,3 +124,12 @@ def test_generate_passes_absolute_image_paths(tmp_path, monkeypatch):
     images, expect, cwd = seen[0]
     assert all(Path(p).is_absolute() and Path(p).exists() for p in images)
     assert Path(expect).is_absolute() and Path(cwd).is_absolute()
+
+
+def test_prompt_contains_view_hint_for_direction():
+    from attack_anim import build_prompt, parse_views
+    views = parse_views("5:back-left,6:back")
+    assert views == {5: "back-left", 6: "back"}
+    p = build_prompt("an orc", 6, views)
+    assert "seen from the BACK" in p and "./raw/dir6.png" in p
+    assert "seen from the" not in build_prompt("an orc", 2, views)
