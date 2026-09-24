@@ -567,13 +567,18 @@ G – low CPU mode, no rendering is performed, which results in low CPU usage,
 
 •
 
-S, s – stay, if a unit is for example walking across the map, it can be stopped by selecting it and then
+H, h – stay (hold), if a unit is for example walking across the map, it can be stopped by selecting it and then
 pressing this key. The remaining shortcuts are listed only for
 information; their detailed description was given in section 3.2:
 
 •
 
-M, m – move, A, a – attack, I, i – mine, R, r – repair, B, b – build.
+M, m – move, T, t – attack, I, i – mine, R, r – repair, B, b – build.
+
+•
+
+W, A, S, D – scroll the map up, left, down and right, the same as the arrow keys
+(in the original game S and A were stay and attack).
 
 Figure 15: Effect of the Ctrl+number shortcut
 
@@ -585,7 +590,7 @@ Movement – moving the mouse to the sides of the game screen scrolls the map,
 
 •
 
-Arrows – likewise scroll the map,
+Arrows or W, A, S, D – likewise scroll the map,
 
 •
 

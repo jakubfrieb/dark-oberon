@@ -1,4 +1,5 @@
 #include "dodevcheat.h"
+#include "dopace.h"
 
 #include "dodraw.h"
 #include "doplayers.h"
@@ -25,13 +26,14 @@ double DevCheatsEffectiveProductionDelta(double production_time)
 {
   if (dev_fast_timers)
     return 1.0 / static_cast<double>(UNI_PRODUCING_COUNT);
-  return production_time / static_cast<double>(UNI_PRODUCING_COUNT);
+  return production_time / PACE_PRODUCTION_SPEED / static_cast<double>(UNI_PRODUCING_COUNT);
 }
 
 double DevCheatsEffectiveRepairDelta(double repairing_time, float work_remaining)
 {
+  double paced = repairing_time / PACE_BUILD_SPEED;
   if (!dev_fast_timers || work_remaining <= 0.f)
-    return repairing_time;
+    return paced;
   double fast = 1.0 / static_cast<double>(work_remaining);
-  return MIN(repairing_time, fast);
+  return MIN(paced, fast);
 }

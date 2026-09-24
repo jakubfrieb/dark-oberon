@@ -9,6 +9,27 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
+
+### Added
+- Map scrolling with W, A, S, D (in addition to the arrow keys).
+
+### Changed
+- Faster game pace for all races: construction, upgrades and repairs are 3× faster and factories
+  produce units 1.5× faster (`src/dopace.h`; the `.rac` files keep the original timings). A peon now
+  builds a barracks in about 70 s instead of 200 s. Players of one network game must run the same version.
+- Hotkeys: Stay moved from S to H (hold) and Attack from A to T, because S and A now scroll the map.
+
+### Fixed
+- Orcs: the Goblin Workshop and the flying Goblin Zeppelin flickered, because codex had repainted each
+  animation frame separately. The zeppelin now changes only at its propeller (the part that moves in the
+  original animation); the workshop, which has no wheel like the human Manufactory, stands still. All
+  three orc colours. New pipeline script `stabilize_frames.py` (dark-oberon-dat skill, `--freeze` for
+  groups without a moving part) does this against the human reference race.
+- Dedicated server crashed (`terminate called after throwing an instance of 'int'`) when any TCP
+  connection to the game port sent an invalid size byte or closed in the middle of a message, e.g. a
+  port scanner on the public internet. Such a connection is now dropped with a warning; the game goes on.
+
 ## [0.3.1] - 2026-09-24
 
 ### Added
@@ -221,7 +242,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.3...v0.2.4

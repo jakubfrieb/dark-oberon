@@ -3151,7 +3151,8 @@ void GameOnKeyDown(int key)
     ToggleChatPanel();
     break;
 
-  case 'S':
+  // 'H' (hold) and 'T' (attack): S and A belong to the WASD map movement below.
+  case 'H':
     if (panel_info.stay_button->IsEnabled()) {
       panel_info.stay_button->SetChecked(true);
       GameButtonOnClick(MNU_ACTION_STAY);
@@ -3165,7 +3166,7 @@ void GameOnKeyDown(int key)
     }
     break;
 
-  case 'A':
+  case 'T':
     if (panel_info.attack_button->IsEnabled()) {
       panel_info.attack_button->SetChecked(true);
       GameButtonOnClick(MNU_ACTION_ATTACK);
@@ -3198,19 +3199,23 @@ void GameOnKeyDown(int key)
     break;
 
   /*
-   * RIGHT, LEFT, DOWN and UP starts to move the map in the selected
+   * RIGHT, LEFT, DOWN and UP (or D, A, S and W) start to move the map in the selected
    * direction. The map stops to move, when the apropriate key is released.
    */
   case GLFW_KEY_LEFT:
+  case 'A':
     map.StartKeyMove(MAP_KEY_MOVE_RIGHT);
     break;
   case GLFW_KEY_RIGHT:
+  case 'D':
     map.StartKeyMove(MAP_KEY_MOVE_LEFT);
     break;
   case GLFW_KEY_UP:
+  case 'W':
     map.StartKeyMove(MAP_KEY_MOVE_DOWN);
     break;
   case GLFW_KEY_DOWN:
+  case 'S':
     map.StartKeyMove(MAP_KEY_MOVE_UP);
     break;
 
@@ -3342,19 +3347,23 @@ void GameOnKeyUp(int key)
   switch (key) {
 
   /*
-   * The map stops it's move, when a key LEFT, RIGHT, UP or DOWN was
+   * The map stops it's move, when a key LEFT, RIGHT, UP or DOWN (or A, D, W, S) was
    * released. The map started it's move, when the same key was pressed.
    */
   case GLFW_KEY_LEFT:
+  case 'A':
     map.StopKeyMove(MAP_KEY_MOVE_RIGHT);
     break;
   case GLFW_KEY_RIGHT:
+  case 'D':
     map.StopKeyMove(MAP_KEY_MOVE_LEFT);
     break;
   case GLFW_KEY_UP:
+  case 'W':
     map.StopKeyMove(MAP_KEY_MOVE_DOWN);
     break;
   case GLFW_KEY_DOWN:
+  case 'S':
     map.StopKeyMove(MAP_KEY_MOVE_UP);
     break;
 
@@ -4723,7 +4732,7 @@ void CreateGameGUI()
 
   panel_info.stay_button = button = panel->AddGroupButton(MNU_ACTION_STAY, 3, 3, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 0), 2);
   button->SetTexture(GUI_BS_DOWN, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 6));
-  SetGameButton("Stay (S)");
+  SetGameButton("Stay (H)");
 
   panel_info.move_button = button = panel->AddGroupButton(MNU_ACTION_MOVE, 31, 3, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 1), 2);
   button->SetTexture(GUI_BS_DOWN, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 7));
@@ -4731,7 +4740,7 @@ void CreateGameGUI()
 
   panel_info.attack_button = button = panel->AddGroupButton(MNU_ACTION_ATTACK, 59, 3, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 2), 2);
   button->SetTexture(GUI_BS_DOWN, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 8));
-  SetGameButton("Attack (A)");
+  SetGameButton("Attack (T)");
 
   panel_info.mine_button = button = panel->AddGroupButton(MNU_ACTION_MINE, 87, 3, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 3), 2);
   button->SetTexture(GUI_BS_DOWN, gui_table.GetTexture(DAT_TGID_ACTION_BUTTONS, 9));

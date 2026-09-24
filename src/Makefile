@@ -120,7 +120,7 @@ doconfig.o: doconfig.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h
 dodata.o: dodata.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h tga.h
 	$(CPP) -c dodata.cpp
 
-dodevcheat.o: dodevcheat.cpp dodevcheat.h cfg.h dodraw.h doplayers.h doschemes.h dosimpletypes.h dounits.h
+dodevcheat.o: dodevcheat.cpp dodevcheat.h dopace.h cfg.h dodraw.h doplayers.h doschemes.h dosimpletypes.h dounits.h
 	$(CPP) -c dodevcheat.cpp
 
 dodraw.o: dodraw.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h

@@ -82,7 +82,8 @@ to right edge of the screen the map will be moved right.
 Another posibility how to move the map is by pressing the left mouse button and
 draging the mouse while holding the ALT key.
 
-The map can be moved also with cursor keys UP, RIGHT, DOWN and LEFT.
+The map can be moved also with cursor keys UP, RIGHT, DOWN and LEFT, or with
+W, D, S and A.
 
 What about moving the map by clicking into radar or draging? Yes, that is
 possible too.
@@ -138,7 +139,7 @@ Attacking
 ---------
 
 Right click on the unit or building you want to attack. That simple! If you
-want to attack your own unit, select attack action in right panel or press 'A'.
+want to attack your own unit, select attack action in right panel or press 'T'.
 
 
 More to come... :-)

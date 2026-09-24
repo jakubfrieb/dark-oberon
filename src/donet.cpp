@@ -538,14 +538,34 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
       break;
     }
 
+    /* The port is public: anything (port scanners, stray HTTP requests) can connect. A bad size
+       byte or a connection that ends mid-message drops only that connection; passing the partial
+       message on used to throw from Init_receive and terminate the whole server. */
+    if (*size < TNET_MESSAGE::GetHeaderSize ()) {
+      Warning (LogMsg ("Listener: dropping connection from %s: invalid message size %d",
+                       inet_ntoa (data->address.sin_addr), *size));
+      do_close (fd);
+      break;
+    }
+
+    bool complete = true;
     do {
       if ((len = recv (fd, reinterpret_cast<char*>(buf + pos), *size - pos, 0)) <= 0) {
-        Error (SOCKET_ERROR_MESSAGE ("Listener: recv failed"));
+        if (len < 0)
+          Error (SOCKET_ERROR_MESSAGE ("Listener: recv failed"));
+        else
+          Debug ("Listener: Remote host closed connection in the middle of a message");
+        complete = false;
         break;
       }
 
       pos += len;
     } while (pos != *size);
+
+    if (!complete) {
+      do_close (fd);
+      break;
+    }
 
     TNET_MESSAGE *msg = pool_net_messages->GetFromPool();
     msg->Init_receive(data->address.sin_addr, data->address.sin_port, fd, buf);
