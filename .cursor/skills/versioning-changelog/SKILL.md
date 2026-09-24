@@ -29,6 +29,10 @@ Format: `vMAJOR.MINOR.PATCH` (e.g. `v0.2.0`).
 Pre-1.0 caveat: while we're on `0.x.y`, a MINOR may carry breaking changes —
 call them out explicitly in the changelog entry.
 
+The current version lives in the root **`VERSION`** file (single source of truth;
+`src/Makefile` turns it into `DO_VERSION_STRING` in `build_info.h`). Bump it together
+with the changelog release section.
+
 The fork starts at **0.1.0** (independent line; upstream Dark Oberon is 1.1.0
 and we don't claim continuity). Tag releases with `git tag v0.1.0` and push
 tags with `git push --tags`.

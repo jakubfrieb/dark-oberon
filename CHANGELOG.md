@@ -9,6 +9,8 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
 ### Added
 - **Orc race** `orc-red`, `orc-blue`, `orc-yellow` — 1:1 counterpart of the humans (16 entities) in the
   plasticine style, restyled with codex; team colours by deterministic recolouring.
@@ -31,6 +33,7 @@ is the historical baseline and not tracked here.
 - `RENDER_OBJECTS` variable in `src/Makefile` documenting the 6 pure-rendering objects that should eventually leave the dedicated-server build.
 
 ### Changed
+- App version now comes from the root `VERSION` file (SemVer) and is shown in the menu; was the stale upstream `1.0.2-RC1` hard-coded in `src/Makefile`.
 - `InitMemorySestem` renamed to `InitMemorySystem` across `doalloc.{h,cpp}` and `doberon.cpp` (typo fix on a public API).
 - `TMAP_SURFACE` activity array now sized via `PL_MAX_PLAYERS` instead of a hardcoded `8`.
 - `CreateGame()` `@@FIXME@@` replaced with an actual contract comment about `Disconnect()` semantics.
@@ -90,5 +93,6 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jakubfrieb/dark-oberon/releases/tag/v0.1.0
