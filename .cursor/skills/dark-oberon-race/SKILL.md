@@ -12,6 +12,9 @@ description: >-
 
 # Dark Oberon — new race creation
 
+> **Read first: [PLAYBOOK.md](PLAYBOOK.md)** — lessons from the orc race (what worked, what failed,
+> and the recommended process for a brand-new race). The codex path is the current default.
+
 ## Quick start (agent workflow)
 
 When the user asks to prepare data for a new race or create a new race:
