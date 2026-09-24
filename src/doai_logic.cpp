@@ -272,6 +272,23 @@ void TAI_SENT_SET::Add(int id)
     ids[n++] = id;
 }
 
+bool TAI_PickMinerRebalance(const float *stock, const int *miners, const bool *mineable, int n_materials,
+                            float low, float rich_factor, int *from, int *to)
+{
+  int scarce = -1, rich = -1;
+  for (int i = 0; i < n_materials; i++) {
+    if (mineable[i] && stock[i] < low && (scarce < 0 || stock[i] < stock[scarce]))
+      scarce = i;
+    if (miners[i] >= 2 && stock[i] >= rich_factor * low && (rich < 0 || stock[i] > stock[rich]))
+      rich = i;
+  }
+  if (scarce < 0 || rich < 0 || scarce == rich)
+    return false;
+  *from = rich;
+  *to = scarce;
+  return true;
+}
+
 bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points)
 {
   for (int i = 0; i < n_materials; i++)

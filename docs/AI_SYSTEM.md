@@ -152,7 +152,7 @@ The AI separates **strategic intent** from **whether an action is valid now**:
 
 ### Deficit order and food
 
-**`TAI_BUILD_GOAL` (subset):** `BG_NONE`, `BG_WORKER`, `BG_FORCE` (train **military** units from factories — not a building blueprint), `BG_FARM`, `BG_RESOURCE_BLDG`, `BG_FACTORY`, `BG_DEFENSE`, `BG_UPGRADE`.
+**`TAI_BUILD_GOAL` (subset):** `BG_NONE`, `BG_WORKER`, `BG_FORCE` (train **military** units from factories — not a building blueprint), `BG_FARM`, `BG_RESOURCE_BLDG`, `BG_FACTORY`, `BG_DEFENSE`, `BG_UPGRADE`, `BG_ENERGY` (building with `energy > 0`; plastic: farm).
 
 **`ComputeHighestDeficit` priority** (first match wins; see [`src/doai.cpp`](../src/doai.cpp)):
 
@@ -162,6 +162,7 @@ The AI separates **strategic intent** from **whether an action is valid now**:
 4. Workers below `min_workers` → `BG_WORKER`.
 5. Extra military factories up to `target_military_factories` → `BG_FACTORY`.
 6. **`BG_FARM`** if `build_farms` and **either** global food drain (`food_out > 0` and `food_in < food_out`) **or** any completed factory has a queued order and **`GetNeedID() == 0`** (engine: not enough food for the **first payment** of the current product — can happen even when `food_in >= food_out`). Flag: **`any_factory_blocked_on_food`** in **`TAI_GAME_STATE`**.
+6b. **`BG_ENERGY`** when consumers drain more energy than is produced (`energy_out > energy_in`) — barracks/workshops stall below their `min_energy` otherwise.
 7. Army below `min_forces` → **`BG_FORCE`** (needs finished military factory).
 8. Army below **`train_to_forces`** cap → **`BG_FORCE`** (assault keeps training past minimums).
 9. Defense buildings, then `BG_NONE`.
@@ -196,6 +197,12 @@ flowchart LR
 - If **`worker_count < 2`** and **`energy_sufficient`**, queues a **worker** from the first idle factory that can produce `IT_WORKER`.
 
 **Repairs** (`AssistDamagedFriendlyStructures`) are ordered only when the stock covers 20 repair points of every material the structure needs (`TAI_CanAffordRepair`, `mat_per_pt` from `.rac`). The engine stops a repairing worker as soon as any material is below `mat_per_pt`; before this gate the same idle workers were re-ordered every tick, used the whole action budget and never went mining (economy deadlock after fights near the base).
+
+**Energy:** `HandleResourceShortage` also tries `ManageBuilding(BG_ENERGY)` when `energy_out > energy_in`. Factory orders are **not** gated on the global energy balance any more — a town hall (`min_energy 0`) keeps training workers while the barracks is short; per-product energy is checked by `TAI_PredictProduceBlocker`.
+
+**Miner rebalancing** (`RebalanceMiners`, at most every 10 s): when a mineable material drops below 400 while another has ≥ 3× that and ≥ 2 miners, one miner is moved to the scarce material (`TAI_PickMinerRebalance`). Without it all workers stayed on gold and no wood was left for farms.
+
+**Phase "establish"** counts the town hall (a factory) as a building (`building_count + factory_count`), so maps that start with only a town hall leave the phase.
 
 **Mining** (idle workers → sources) is **`AssignIdleWorkers`** later in the same tick, not inside `HandleResourceShortage`. It only uses materials that have both **`has_source`** and **`can_unload_material`**.
 

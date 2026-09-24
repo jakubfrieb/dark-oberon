@@ -230,6 +230,30 @@ TEST(test_sent_set_orders_each_unit_once_per_destination) {
   CHECK(s.Sent(1000));
 }
 
+TEST(test_rebalance_moves_miner_to_scarce_material) {
+  float stock[3] = {2000.f, 150.f, 900.f};
+  int miners[3] = {4, 0, 0};
+  bool mineable[3] = {true, true, false};
+  int from = -1, to = -1;
+  CHECK(TAI_PickMinerRebalance(stock, miners, mineable, 3, 400.f, 3.f, &from, &to));
+  CHECK(from == 0 && to == 1);
+}
+
+TEST(test_rebalance_keeps_last_miner_and_needs_rich_source) {
+  float stock[2] = {2000.f, 150.f};
+  bool mineable[2] = {true, true};
+  int from = -1, to = -1;
+  int one[2] = {1, 0};                       // never strip the only miner
+  CHECK(!TAI_PickMinerRebalance(stock, one, mineable, 2, 400.f, 3.f, &from, &to));
+  float close[2] = {1000.f, 380.f};          // 1000 < 3 x 400 -> not rich enough
+  int two[2] = {3, 0};
+  CHECK(!TAI_PickMinerRebalance(close, two, mineable, 2, 400.f, 3.f, &from, &to));
+  float fine[2] = {2000.f, 600.f};           // nothing is scarce
+  CHECK(!TAI_PickMinerRebalance(fine, two, mineable, 2, 400.f, 3.f, &from, &to));
+  bool cannot[2] = {true, false};            // scarce material cannot be mined
+  CHECK(!TAI_PickMinerRebalance(stock, two, cannot, 2, 400.f, 3.f, &from, &to));
+}
+
 int main() {
   for (int i = 0; i < g_nt; i++) {
     int before = g_fail;

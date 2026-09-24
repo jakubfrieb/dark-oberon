@@ -107,6 +107,11 @@ struct TAI_SENT_SET {
   void Add(int id);
 };
 
+//! Economy: move one miner from the richest material (stock >= @p rich_factor x @p low, >= 2 miners)
+//! to the scarcest mineable material (stock < @p low). Returns false when no move is needed.
+bool TAI_PickMinerRebalance(const float *stock, const int *miners, const bool *mineable, int n_materials,
+                            float low, float rich_factor, int *from, int *to);
+
 //! Stock covers @p points of repair (engine stops a repairing worker when any material < mat_per_pt).
 bool TAI_CanAffordRepair(const float *stored, const float *mat_per_pt, int n_materials, float points);
 

@@ -242,6 +242,8 @@ static const char *GoalName(TAI_BUILD_GOAL g)
     return "BG_DEFENSE";
   case BG_UPGRADE:
     return "BG_UPGRADE";
+  case BG_ENERGY:
+    return "BG_ENERGY";
   default:
     return "?";
   }
@@ -745,6 +747,7 @@ bool TAI_CONTROLLER::CanPursueGoal(TAI_BUILD_GOAL goal, const TAI_GAME_STATE &s)
     return false;
   case BG_RESOURCE_BLDG:
   case BG_FARM:
+  case BG_ENERGY:
     return true;
   case BG_FACTORY:
     return s.has_any_unload_building;
@@ -802,6 +805,8 @@ bool TAI_CONTROLLER::MatchesGoal(TBUILDING_ITEM *bi, TAI_BUILD_GOAL goal)
            && bi->AllowAnyMaterial();
   case BG_DEFENSE:
     return BuildingItemIsDefense(bi);
+  case BG_ENERGY:
+    return bi->energy > 0;
   case BG_UPGRADE:
     return false;
   default:
@@ -1004,7 +1009,9 @@ bool TAI_PHASE::IsSatisfied(const TAI_GAME_STATE &s) const
     return false;
   if (targets.train_to_forces > 0 && s.has_military_factory && s.force_count < targets.train_to_forces)
     return false;
-  if (s.building_count < targets.min_buildings)
+  /* A town hall is a factory (it trains workers) but it is the base's main building: maps that
+   * start with only a town hall would otherwise never leave "establish" (no deficit builds one). */
+  if (s.building_count + s.factory_count < targets.min_buildings)
     return false;
   if (s.defense_building_count < targets.min_defense_buildings)
     return false;
@@ -1029,6 +1036,9 @@ TAI_BUILD_GOAL TAI_CONTROLLER::ComputeHighestDeficit(const TAI_GAME_STATE &s, co
       && ((s.food_out > 0 && s.food_in < s.food_out)
           || (s.has_military_factory && s.any_factory_blocked_on_food)))
     return BG_FARM;
+  /* Energy consumers (barracks, workshops) stall below their min_energy: add supply first. */
+  if (s.energy_out > 0 && s.energy_in < s.energy_out)
+    return BG_ENERGY;
   /* With a minimal economy, train before chasing escalated min_workers into peasant spam. */
   static const int kFloorWorkersBeforeArmy = 8;
   if (s.has_military_factory && s.worker_count >= kFloorWorkersBeforeArmy) {
@@ -1058,7 +1068,8 @@ TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *str
     think_accumulator(0), mining_rr(0),
     current_phase(0), enemy_contacted(false), target_escalation(0), game_time(0.0), n_enemies(0),
     visible_enemy_power(0.f), remembered_enemy_power(0.f), enemy_seen_at(-1e9), mil_state(MIL_GATHER),
-    mil_state_since(0.0), attack_target_id(-1), n_defenders(0), n_scouts(0), factory_military_rr(0)
+    mil_state_since(0.0), attack_target_id(-1), n_defenders(0), last_rebalance(-1e9), n_scouts(0),
+    factory_military_rr(0)
 {
   army_order.Reset();
   rally_sent.Reset(-1, -1);
@@ -1078,8 +1089,15 @@ void TAI_CONTROLLER::HandleResourceShortage()
     }
   }
 
+  if (state.energy_out > 0 && state.energy_in < state.energy_out) {
+    bool built = ManageBuilding(BG_ENERGY);
+    if (g_tai_think_trace_log && player)
+      tai_ai_trace(player->GetPlayerID(), "shortage energy (%d < %d) -> ManageBuilding(BG_ENERGY) %s",
+                   state.energy_in, state.energy_out, built ? "ok" : "noop");
+  }
+
   /* Rebuild workforce if nearly wiped (not only 0 — avoids long deadlock at 1 peasant). */
-  if (state.worker_count < 2 && state.energy_sufficient) {
+  if (state.worker_count < 2) {   /* town hall trains workers without energy */
     for (int i = 0; i < state.idle_factories_len; i++) {
       TFACTORY_UNIT *f = state.idle_factories[i];
       TFACTORY_ITEM *fi = static_cast<TFACTORY_ITEM *>(f->GetPointerToItem());
@@ -1240,9 +1258,8 @@ bool TAI_CONTROLLER::AssignIdleWorkers(int max_assign, TAI_BUILD_GOAL pursued_bu
 
 int TAI_CONTROLLER::ManageFactories(TAI_BUILD_GOAL prod_goal, int max_orders)
 {
-  if (!state.energy_sufficient)
-    return 0;
-
+  /* No global energy gate: a town hall (min_energy 0) must keep training workers while the
+   * barracks is short of energy; per-product energy is checked by TAI_PredictProduceBlocker. */
   const int pid = player ? (int)player->GetPlayerID() : -1;
   int placed = 0;
 
@@ -1638,6 +1655,53 @@ int TAI_CONTROLLER::AssistDamagedFriendlyStructures(int max_assign)
   }
 
   return done;
+}
+
+//! Stock below this is "scarce"; a material is "plentiful" at kTaiRebalanceRich x this.
+static const float kTaiRebalanceLow = 400.f;
+static const float kTaiRebalanceRich = 3.f;
+static const double kTaiRebalanceCooldown = 10.0;
+
+bool TAI_CONTROLLER::RebalanceMiners()
+{
+  if (!player || game_time - last_rebalance < kTaiRebalanceCooldown)
+    return false;
+  int miners[SCH_MAX_MATERIALS_COUNT] = {0};
+  bool mineable[SCH_MAX_MATERIALS_COUNT];
+  for (int m = 0; m < scheme.materials_count; m++)
+    mineable[m] = state.has_source[m] && state.can_unload_material[m];
+  for (TPLAYER_UNIT *u = player->units; u; u = u->GetNext()) {
+    if (!u->TestItemType(IT_WORKER) || !tai_unit_alive(static_cast<TMAP_UNIT *>(u)))
+      continue;
+    TWORKER_UNIT *w = static_cast<TWORKER_UNIT *>(u);
+    const int mat = (int)(signed char)w->GetMaterial();
+    if (w->GetAction() == UA_MINE && mat >= 0 && mat < scheme.materials_count)
+      miners[mat]++;
+  }
+  int from = -1, to = -1;
+  if (!TAI_PickMinerRebalance(state.materials, miners, mineable, scheme.materials_count, kTaiRebalanceLow,
+                              kTaiRebalanceRich, &from, &to))
+    return false;
+  for (TPLAYER_UNIT *u = player->units; u; u = u->GetNext()) {
+    if (!u->TestItemType(IT_WORKER) || !tai_unit_alive(static_cast<TMAP_UNIT *>(u)))
+      continue;
+    TWORKER_UNIT *w = static_cast<TWORKER_UNIT *>(u);
+    /* miners inside a source / unloading are off-map (see AcquireWorkerForConstruction) */
+    if (w->GetAction() != UA_MINE || (int)(signed char)w->GetMaterial() != from || !w->IsInMap())
+      continue;
+    TSOURCE_UNIT *src = FindNearestMineableSource(w, to);
+    if (!src)
+      return false;
+    w->ClearActions();
+    if (!w->StartMine(src, true))
+      continue;
+    last_rebalance = game_time;
+    if (g_tai_think_trace_log)
+      tai_ai_trace((int)player->GetPlayerID(), "rebalance: miner %d material %d (%.0f) -> %d (%.0f)",
+                   (int)w->GetUnitID(), from, state.materials[from], to, state.materials[to]);
+    return true;
+  }
+  return false;
 }
 
 void TAI_CONTROLLER::ManageScouting()
@@ -2320,6 +2384,9 @@ void TAI_CONTROLLER::Think(double dt)
   }
 
   state.ScanFromPlayer(player);
+
+  if (RebalanceMiners())
+    state.ScanFromPlayer(player);
 
   if (budget > 0 && state.idle_factories_len > 0) {
     TAI_BUILD_GOAL prod_raw = ComputeHighestDeficit(state, eff_targets);

@@ -19,7 +19,9 @@ enum TAI_BUILD_GOAL {
   BG_RESOURCE_BLDG,
   BG_FACTORY,
   BG_DEFENSE,
-  BG_UPGRADE
+  BG_UPGRADE,
+  //! Building that supplies energy (plastic: farm) when consumers drain more than is produced.
+  BG_ENERGY
 };
 
 //! One line of text (no trailing newline). Used for on-screen console and FILE sinks.
@@ -218,6 +220,8 @@ private:
   //! Units sent to defend this tick (excluded from the field army).
   int defender_ids[TAI_GAME_STATE::kMaxIdleForces];
   int n_defenders;
+  //! Last time a miner was moved to a scarce material (cooldown).
+  double last_rebalance;
   //! Dedicated scouts (excluded from defense and the field army).
   int scout_ids[2];
   int n_scouts;
@@ -247,6 +251,8 @@ private:
   void OrderGroup(TFORCE_UNIT **forces, int n, int x, int y, TMAP_UNIT *attack_target);
   void SetMilState(TAI_MIL_STATE s, float my_power, float enemy_power, int n);
   void ManageScouting();
+  //! Move one miner from a plentiful material to a scarce one (e.g. all on gold, no wood for a farm).
+  bool RebalanceMiners();
   bool FindBuildPosition(TBUILDING_ITEM *item, TPOSITION &out_pos);
   //! Nearest source for which worker->CanMine is true (searches all deposits of that material).
   TSOURCE_UNIT *FindNearestMineableSource(TWORKER_UNIT *worker, int material);
