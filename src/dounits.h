@@ -29,6 +29,8 @@
 
 #include "cfg.h"
 
+#include <atomic>
+
 //=========================================================================
 // Forward declarations
 //=========================================================================
@@ -36,6 +38,14 @@
 class TDRAW_UNIT;
 class TPLAYER_UNIT;
 class TMAP_UNIT;
+
+/** Queues a unit whose last counted pointer was released for deletion by the game thread.
+ *  Pointers are released from other threads too (path finding jobs), and deleting a unit there
+ *  raced with the game thread and the renderer walking the unit lists. */
+void DeferUnitDelete(TMAP_UNIT *unit);
+/** Deletes the queued units (under delete_mutex). Called by the game thread once per step, by the
+ *  map editor loop, and when a game stops. */
+void DeletePendingUnits();
 class TPROJECTILE_UNIT;
 class TBASIC_UNIT;
 class TFORCE_UNIT;
@@ -493,13 +503,22 @@ public:
     if (will_be_deleted) return NULL; else { pointer_counter++; return this; }
   }
 
+  /** Exactly one caller wins the right to delete the unit (UnitToDelete vs. the last
+   *  ReleasePointer, possibly on different threads). */
+  bool ClaimDeletion() { return !deletion_claimed.exchange(true); }
+
   /** The method release pointer to the object and decrease counter of the pointers.
    *  If counter is zero and flag will_be_deleted is set then unit is deleted
    *  from the memory. 
    *  @return The method returns true if unit hasn't flag will_be_deleted setted to true.*/
   bool ReleasePointer() {
-    if (!pointer_counter) return true;
-    bool result = !will_be_deleted; pointer_counter--; if (!pointer_counter && will_be_deleted) delete this; return result;
+    if (pointer_counter == 0) return true;
+    bool result = !will_be_deleted;
+    /* The last release may happen on a path finding thread: never delete here, let the game
+       thread do it (DeletePendingUnits) while nobody walks the unit lists. */
+    if (--pointer_counter == 0 && will_be_deleted && ClaimDeletion())
+      DeferUnitDelete(this);
+    return result;
   }
 
   void ResetSignAnimation() { sign_animation = NULL; }
@@ -549,7 +568,8 @@ protected:
   /** The method sets variable to will be deleted and delete unit. */
   virtual void UnitToDelete(bool lock) {
     if (lock) SDL_LockMutex(delete_mutex);
-    if (!pointer_counter) delete this; else will_be_deleted = true;
+    will_be_deleted = true;   // set before the check, see ClaimDeletion()
+    if (pointer_counter == 0 && ClaimDeletion()) delete this;
     if (lock) SDL_UnlockMutex(delete_mutex);
   }
 
@@ -570,11 +590,12 @@ protected:
 
   T_BYTE hided_count;                    //!< Count of engaged hided places.
 
-  unsigned int pointer_counter;       //!< The counter of pointers assigned to the instance of class.
+  std::atomic<int> pointer_counter;   //!< Counted pointers to the unit (changed from several threads).
+  std::atomic<bool> deletion_claimed; //!< Someone has taken over deleting the unit (ClaimDeletion).
   TGUI_ANIMATION  *burn_animation;    //!< Animation for insufficient material or aid.
   TGUI_ANIMATION  *sign_animation;    //!< Animation for fire over unit.
 
-  bool will_be_deleted;   //!< Whether unit will be deleted or not.
+  std::atomic<bool> will_be_deleted;   //!< Whether unit will be deleted or not.
 
 private:
   TAGGRESSIVITY_MODE aggressivity;        //!< Aggressivity of the unit. 
@@ -618,6 +639,9 @@ public:
   TPOOLED_LIST(TPOOL<TNODE> *elements_source) 
     { first = NULL; last = NULL; length = 0; pool = elements_source;}
   ~TPOOLED_LIST();
+
+  /** Releases the counted pointers to all units in the list and empties it. */
+  void Clear();
 
   /** Adds new node at the beginning of the list. */
   void AddNode(TMAP_UNIT * const new_pitem);

@@ -1872,6 +1872,22 @@ void TMAP::DrawToRadar()
  */
 void TMAP::DeleteMap()
 {
+  /* The aimers/watchers lists on the map fields hold counted pointers to units: release them
+   * while the units are still alive (map.Clear() would release them after DeletePlayers()
+   * freed the units - a use after free found with AddressSanitizer). */
+  for (int seg = 0; seg < DAT_SEGMENTS_COUNT; seg++) {
+    if (!segments[seg].surface)
+      continue;
+    for (int x = 0; x < width; x++)
+      for (int y = 0; y < height; y++) {
+        TMAP_SURFACE &f = segments[seg].surface[x][y];
+        if (f.GetAimersList())
+          f.GetAimersList()->Clear();
+        if (f.GetWatchersList())
+          f.GetWatchersList()->Clear();
+      }
+  }
+
   /* Destroy units while map/segments are still valid; map.Clear() frees surface
    * that those units may still reference. */
   DeletePlayers();

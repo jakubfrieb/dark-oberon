@@ -197,6 +197,7 @@ TMAP_UNIT::TMAP_UNIT(int uplayer, int ux, int uy, int uz, TMAP_ITEM *mi, int new
   target = last_target = NULL;
 
   pointer_counter = 0;
+  deletion_claimed = false;
 
   sign_animation = NULL;
   will_be_deleted = false;
@@ -1549,6 +1550,11 @@ bool TPOOLED_LIST::RemoveNode(TMAP_UNIT* delete_item)
  *  Destructor clears the list.
  */
 TPOOLED_LIST::~TPOOLED_LIST()
+{
+  Clear();
+}
+
+void TPOOLED_LIST::Clear()
 {
   TNODE *p_delete = first;
 

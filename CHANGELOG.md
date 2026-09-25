@@ -9,6 +9,29 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-25
+
+### Fixed
+- Crashes (use after free) a few minutes into a game, most often with many workers cutting wood, seen
+  on Haiku in the renderer (`TSOURCE_UNIT::TestVisibility`, `TMAP_UNIT::DrawToRadar`) and in the CPU AI
+  (`TAI_GAME_STATE::ScanFromPlayer`). A unit marked for deletion (e.g. a tree that was cut down) was
+  freed by whoever released the last counted pointer to it, which could be a path finding thread,
+  while the game thread and the renderer were still walking the unit lists; the pointer counter itself
+  was a plain `int` changed from several threads. Units are now only queued there and deleted by the
+  game thread between steps (and when a game stops), the counter is atomic, and exactly one caller
+  takes over the deletion. The queue is checked without any locking when it is empty (the usual case),
+  so the game thread does not wait for the renderer every step. On Linux it usually went unnoticed
+  because the freed memory stays readable.
+- Use after free when a game ends (found with AddressSanitizer): the map fields' aimer/watcher lists
+  released their counted pointers after the players and their units had already been deleted. They
+  are now released first.
+- Haiku: the game could abort at start in Mesa ("Mesa cache keys mismatch!") after an earlier crash had
+  left llvmpipe's on-disk shader cache inconsistent. The game now starts with the shader cache off
+  (`MESA_SHADER_CACHE_DISABLE`, can still be overridden).
+- The git revision next to the version in the menu now follows new commits; before, `build_info.h`
+  was only regenerated when `VERSION` or the Makefile changed, so packages could show an older hash.
+  Builds without git (release containers, Docker) keep the existing stamp.
+
 ## [0.5.0] - 2026-09-25
 
 ### Added
@@ -298,7 +321,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...v0.4.0

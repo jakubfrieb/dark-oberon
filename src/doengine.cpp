@@ -5266,6 +5266,9 @@ static int SDLCALL ProcessFunction(void *arg)
     const double perf_t0 = AppGetTimeSeconds ();
     int perf_events = 0;
 
+    // units whose last pointer was released on another thread are deleted here, between steps
+    DeletePendingUnits ();
+
     // cycle which get from queue all events with time_stamp <= actual time.
     while ((queue_events->GetFirstEventTimeStamp() != -1) && (queue_events->GetFirstEventTimeStamp() <= time.GetActual())) {
       perf_events++;
@@ -6652,6 +6655,7 @@ void Editor(void)
   gui->MouseMove(GLfloat(mouse.x), GLfloat(mouse.y));
 
   while (state == ST_EDITOR) {
+    DeletePendingUnits();
     clock.Update();
 
     gui->Update(clock.GetShift());
@@ -6712,6 +6716,12 @@ void StopGame()
     process_thread = NULL;
   }
 
+  // kill all temporary threads first: their last pointer releases queue units for deletion,
+  // and those must be deleted before the map and the players go away
+  if (threadpool_astar) { delete threadpool_astar; threadpool_astar = NULL; }
+  if (threadpool_nearest) { delete threadpool_nearest; threadpool_nearest = NULL; }
+  DeletePendingUnits();
+
   // delete selection
   if (selection) {
     delete selection;
@@ -6726,10 +6736,6 @@ void StopGame()
   if (pool_path_info){ delete pool_path_info; pool_path_info = NULL;}
   if (pool_nearest_info){ delete pool_nearest_info; pool_nearest_info = NULL;}
   if (pool_sel_node){ delete pool_sel_node; pool_sel_node = NULL;}
-
-  // kill all temporary threads
-  if (threadpool_astar) { delete threadpool_astar; threadpool_astar = NULL; }
-  if (threadpool_nearest) { delete threadpool_nearest; threadpool_nearest = NULL; }
 
   if (delete_mutex){
     SDL_DestroyMutex(delete_mutex);

@@ -279,6 +279,14 @@ void DestroyAll(void)
  */
 int main(int argc, char *argv[])
 {
+#ifdef __HAIKU__
+  /* Haiku renders with Mesa's llvmpipe, whose on-disk shader cache can be left inconsistent when
+     the game is killed while it writes it; the next start then aborts in Mesa ("Mesa cache keys
+     mismatch!"). Compiling the few shaders again at every start is cheap. The user can still
+     override it. */
+  setenv("MESA_SHADER_CACHE_DISABLE", "true", 0);
+#endif
+
 #ifdef WINDOWS
   app_path = argv[0];
   app_path = app_path.substr(0, app_path.rfind('\\') + 1);

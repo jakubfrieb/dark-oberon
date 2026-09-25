@@ -29,6 +29,8 @@
 #include <cstdlib>
 #include <math.h>
 #include <stdarg.h>
+#include <atomic>
+#include <vector>
 
 #include "dodata.h"
 #include "dodraw.h"
@@ -1099,3 +1101,45 @@ void TPROJECTILE_UNIT::ProcessEvent(TEVENT *proc_event)
 //=========================================================================
 // vim:ts=2:sw=2:et:
 
+
+//=========================================================================
+// Deferred deletion of units (see DeferUnitDelete in dounits.h)
+//=========================================================================
+
+static std::vector<TMAP_UNIT *> pending_unit_deletes;   // guarded by pending_lock()
+static std::atomic<int> pending_unit_count(0);
+
+/* The queue has its own lock: path finding threads must not wait for delete_mutex, which the
+   renderer holds while it walks all units (slow with software GL, e.g. llvmpipe on Haiku). */
+static SDL_mutex *pending_lock()
+{
+  static SDL_mutex *lock = SDL_CreateMutex();
+  return lock;
+}
+
+void DeferUnitDelete(TMAP_UNIT *unit)
+{
+  SDL_LockMutex(pending_lock());
+  pending_unit_deletes.push_back(unit);
+  pending_unit_count++;
+  SDL_UnlockMutex(pending_lock());
+}
+
+void DeletePendingUnits()
+{
+  // called every simulation step: nothing queued (the usual case) -> no locking at all, so the
+  // game thread does not wait for the renderer
+  if (pending_unit_count.load() == 0)
+    return;
+
+  std::vector<TMAP_UNIT *> units;
+  SDL_LockMutex(pending_lock());
+  units.swap(pending_unit_deletes);
+  pending_unit_count = 0;
+  SDL_UnlockMutex(pending_lock());
+
+  SDL_LockMutex(delete_mutex);   // nobody may be walking the unit lists while they shrink
+  for (TMAP_UNIT *u : units)
+    delete u;
+  SDL_UnlockMutex(delete_mutex);
+}
