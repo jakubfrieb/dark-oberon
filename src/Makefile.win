@@ -36,7 +36,7 @@ LIBRARIES += -l:libSDL2_mixer.dll.a
 endif
 
 # Same object list as the Linux client (src/Makefile).
-SOURCES = doalloc doberon dobuildings doconfig dodata dodevcheat dodraw doai doai_logic doengine doevents dofactories dofight dofile dofollower doforces doglfw_sdl dohost doipc dolayout doleader dologs domap domapunits domouse donet doplayers doraces doschemes doselection dosimpletypes dosound dosources dounits dowalk doworkers glfont glgui tga utils
+SOURCES = doalloc doberon dobuildings doconfig dodata dodevcheat dodraw doai doai_logic doengine doevents dofactories dofight dofile dofollower doforces doglfw_sdl dohost doipc dolayout doleader dologs domap domapunits domouse donet doperf doplayers doraces doschemes doselection dosimpletypes dosound dosources dounits dowalk doworkers glfont glgui tga utils
 OBJECTS = $(addprefix $(OBJDIR)/,$(addsuffix .o,$(SOURCES)))
 
 all: $(EXE)

@@ -1063,6 +1063,12 @@ TAI_CONTROLLER::TAI_CONTROLLER(TPLAYER *owner, TAI_LEVEL *lvl, TAI_STRATEGY *str
 {
   army_order.Reset();
   rally_sent.Reset(-1, -1);
+  n_falling_back = 0;
+  for (int i = 0; i < 2; i++) {
+    scout_life[i] = 0.f;
+    scout_fleeing[i] = false;
+    scout_avoid_until[i] = 0.0;
+  }
 }
 
 TAI_CONTROLLER::~TAI_CONTROLLER() = default;
@@ -1694,19 +1700,33 @@ bool TAI_CONTROLLER::RebalanceMiners()
   return false;
 }
 
+//! A scout that was chased away keeps away from the enemy base this long.
+static const double kTaiScoutAvoidSeconds = 60.0;
+
+static TFORCE_UNIT *tai_find_force(TPLAYER *p, int unit_id)
+{
+  for (TPLAYER_UNIT *u = p->units; u; u = u->GetNext())
+    if ((int)u->GetUnitID() == unit_id && u->TestItemType(IT_FORCE))
+      return static_cast<TFORCE_UNIT *>(u);
+  return NULL;
+}
+
 void TAI_CONTROLLER::ManageScouting()
 {
   if (!player || !player->GetLocalMap())
     return;
 
-  /* Drop dead scouts. */
+  /* Drop dead scouts (keeping the per-scout state in step). */
   int kept = 0;
   for (int i = 0; i < n_scouts; i++) {
-    bool alive = false;
-    for (TPLAYER_UNIT *u = player->units; u && !alive; u = u->GetNext())
-      alive = (int)u->GetUnitID() == scout_ids[i] && tai_unit_alive(static_cast<TMAP_UNIT *>(u));
-    if (alive)
-      scout_ids[kept++] = scout_ids[i];
+    TFORCE_UNIT *fu = tai_find_force(player, scout_ids[i]);
+    if (!fu || !tai_unit_alive(fu))
+      continue;
+    scout_ids[kept] = scout_ids[i];
+    scout_life[kept] = scout_life[i];
+    scout_fleeing[kept] = scout_fleeing[i];
+    scout_avoid_until[kept] = scout_avoid_until[i];
+    kept++;
   }
   n_scouts = kept;
 
@@ -1715,6 +1735,12 @@ void TAI_CONTROLLER::ManageScouting()
   /* Scouting must not strip a small army. */
   if (state.force_count < want + 2)
     want = 0;
+  /* Scouts that go back to the army fight again. */
+  for (int i = want; i < n_scouts; i++) {
+    TFORCE_UNIT *fu = tai_find_force(player, scout_ids[i]);
+    if (fu)
+      fu->SetAggressivity(static_cast<TMAP_ITEM *>(fu->GetPointerToItem())->GetAggressivity(), false);
+  }
   if (n_scouts > want)
     n_scouts = want;
 
@@ -1736,19 +1762,49 @@ void TAI_CONTROLLER::ManageScouting()
     }
     if (!pick)
       break;
-    scout_ids[n_scouts++] = pick->GetUnitID();
+    /* Scouts look, they do not fight: without this a scout that reaches the enemy base
+       starts hitting the first building it sees, whatever is attacking it. */
+    pick->SetAggressivity(AM_IGNORE, false);
+    scout_ids[n_scouts] = pick->GetUnitID();
+    scout_life[n_scouts] = pick->GetLife();
+    scout_fleeing[n_scouts] = false;
+    scout_avoid_until[n_scouts] = 0.0;
+    n_scouts++;
   }
 
-  /* Every scout that stands still gets a new random destination. */
   for (int i = 0; i < n_scouts; i++) {
-    TFORCE_UNIT *fu = NULL;
-    for (TPLAYER_UNIT *u = player->units; u && !fu; u = u->GetNext())
-      if ((int)u->GetUnitID() == scout_ids[i])
-        fu = static_cast<TFORCE_UNIT *>(u);
-    if (!fu || fu->GetAction() != UA_STAY)
+    TFORCE_UNIT *fu = tai_find_force(player, scout_ids[i]);
+    if (!fu)
       continue;
+
+    /* Under attack: run home and keep away from the enemy base for a while. */
+    int attackers = 0;
+    for (int k = 0; k < n_enemies; k++)
+      if (enemy_units[k]->GetTarget() == fu)
+        attackers++;
+    const float life = fu->GetLife();
+    const bool threatened = TAI_ScoutThreatened(life, scout_life[i], attackers);
+    scout_life[i] = life;
+    if (threatened && !scout_fleeing[i]) {
+      int bx, by;
+      GetBase(&bx, &by);
+      TPOSITION_3D home;
+      home.SetPosition(bx, by, fu->GetPosition().segment);
+      fu->StartMoving(home, true);
+      scout_fleeing[i] = true;
+      scout_avoid_until[i] = game_time + kTaiScoutAvoidSeconds;
+      if (g_tai_think_trace_log)
+        tai_ai_trace((int)player->GetPlayerID(), "scout %d attacked (%d attackers, life %.0f) -> home", scout_ids[i],
+                     attackers, life);
+      continue;
+    }
+
+    /* Every scout that stands still (also one that reached home) gets a new random destination. */
+    if (fu->GetAction() != UA_STAY)
+      continue;
+    scout_fleeing[i] = false;
     int tx = -1, ty = -1;
-    if (rng.Chance(0.5f)) {
+    if (TAI_ScoutMayProbeEnemyBase(game_time, scout_avoid_until[i]) && rng.Chance(0.5f)) {
       const int foe = ChooseEnemyPlayer();
       if (foe >= 0 && players[foe]->initial_x >= 0) {
         tx = players[foe]->initial_x + rng.Index(7) - 3;
@@ -1797,6 +1853,10 @@ static const int kTaiTargetRadius = 20;
 static const float kTaiRetargetMargin = 25.f;
 //! Retreat lasts at most this long before gathering again.
 static const double kTaiRetreatSeconds = 20.0;
+//! Radius (Chebyshev tiles) around one unit for its own fight-or-fall-back decision.
+static const int kTaiUnitLocalRadius = 6;
+//! A unit that falls back sticks to it this long (no turning around every tick).
+static const double kTaiFallBackSeconds = 10.0;
 
 TAI_UNIT_SAMPLE TAI_CONTROLLER::SampleUnit(TMAP_UNIT *u) const
 {
@@ -2104,17 +2164,93 @@ void TAI_CONTROLLER::ManageArmy()
   const float est = TAI_EnemyPowerEstimate(visible_enemy_power, remembered_enemy_power,
                                            (float)(game_time - enemy_seen_at));
 
+  /* Per-unit reactions: the army-wide orders below go by the centroid, so a unit that ran ahead would
+     keep hitting a building while it is attacked. Units that react this tick are left out of those
+     orders (they would send it back at the building). */
+  TFORCE_UNIT *free_army[TAI_GAME_STATE::kMaxIdleForces];
+  TAI_UNIT_SAMPLE free_samples[TAI_GAME_STATE::kMaxIdleForces];
+  int nfree = 0;
+  {
+    int kept = 0;
+    for (int k = 0; k < n_falling_back; k++)
+      if (falling_back_until[k] > game_time) {
+        falling_back_ids[kept] = falling_back_ids[k];
+        falling_back_until[kept] = falling_back_until[k];
+        kept++;
+      }
+    n_falling_back = kept;
+  }
+  for (int i = 0; i < n; i++) {
+    TFORCE_UNIT *fu = army[i];
+    TAI_UNIT_REACTION react = TAI_REACT_KEEP;
+    int attacker = -1;
+    bool sticking = false;
+    for (int k = 0; k < n_falling_back && !sticking; k++)
+      sticking = falling_back_ids[k] == (int)fu->GetUnitID() && fu->GetAction() == UA_MOVE;
+    if (sticking)
+      continue;   /* still falling back: neither re-decide nor take army orders */
+    if (mil_state != MIL_RETREAT) {
+      TAI_UNIT_SAMPLE near_enemy[kMaxEnemies], near_mine[TAI_GAME_STATE::kMaxIdleForces];
+      int ne = 0, nm = 0;
+      float best_sc = -1e30f;
+      bool fighting_attacker = false;
+      for (int k = 0; k < n_enemies; k++) {
+        const TAI_UNIT_SAMPLE &e = enemy_samples[k];
+        const int d = tai_cheb_xy(e.x, e.y, samples[i].x, samples[i].y);
+        if (e.dps > 0.f && d <= kTaiUnitLocalRadius)
+          near_enemy[ne++] = e;
+        if (e.dps > 0.f && enemy_units[k]->GetTarget() == fu) {
+          if (fu->GetTarget() == enemy_units[k])
+            fighting_attacker = true;
+          const float sc = TAI_TargetScore(e, (float)d);
+          if (sc > best_sc) {
+            best_sc = sc;
+            attacker = k;
+          }
+        }
+      }
+      for (int j = 0; j < n; j++)
+        if (tai_cheb_xy(samples[j].x, samples[j].y, samples[i].x, samples[i].y) <= kTaiUnitLocalRadius)
+          near_mine[nm++] = samples[j];
+      react = TAI_UnitReaction(attacker >= 0, fighting_attacker, TAI_ArmyPower(near_mine, nm),
+                               TAI_ArmyPower(near_enemy, ne), personality);
+    }
+    if (react == TAI_REACT_RETALIATE) {
+      fu->StartAttacking(enemy_units[attacker], true);
+      if (g_tai_think_trace_log)
+        tai_ai_trace((int)player->GetPlayerID(), "unit %d attacked -> fights back", (int)fu->GetUnitID());
+    } else if (react == TAI_REACT_FALL_BACK) {
+      const TPOSITION_3D g = fu->GetGoal();
+      if (fu->GetAction() != UA_MOVE || tai_cheb_xy(g.x, g.y, rx, ry) > kTaiRallyRadius) {
+        TPOSITION_3D back;
+        back.SetPosition(rx, ry, fu->GetPosition().segment);
+        fu->StartMoving(back, true);
+        if (n_falling_back < kMaxFallingBack) {
+          falling_back_ids[n_falling_back] = (int)fu->GetUnitID();
+          falling_back_until[n_falling_back] = game_time + kTaiFallBackSeconds;
+          n_falling_back++;
+        }
+        if (g_tai_think_trace_log)
+          tai_ai_trace((int)player->GetPlayerID(), "unit %d outnumbered -> falls back", (int)fu->GetUnitID());
+      }
+    } else {
+      free_army[nfree] = fu;
+      free_samples[nfree] = samples[i];
+      nfree++;
+    }
+  }
+
   switch (mil_state) {
   case MIL_GATHER: {
     if (!rally_sent.SameDestination(rx, ry))
       rally_sent.Reset(rx, ry);
     TFORCE_UNIT *far_units[TAI_GAME_STATE::kMaxIdleForces];
     int nf = 0;
-    for (int i = 0; i < n; i++)
-      if (army[i]->GetAction() == UA_STAY && !rally_sent.Sent(army[i]->GetUnitID())
-          && tai_cheb_xy(samples[i].x, samples[i].y, rx, ry) > kTaiRallyRadius) {
-        far_units[nf++] = army[i];
-        rally_sent.Add(army[i]->GetUnitID());
+    for (int i = 0; i < nfree; i++)
+      if (free_army[i]->GetAction() == UA_STAY && !rally_sent.Sent(free_army[i]->GetUnitID())
+          && tai_cheb_xy(free_samples[i].x, free_samples[i].y, rx, ry) > kTaiRallyRadius) {
+        far_units[nf++] = free_army[i];
+        rally_sent.Add(free_army[i]->GetUnitID());
       }
     OrderGroup(far_units, nf, rx, ry, NULL);
 
@@ -2151,21 +2287,22 @@ void TAI_CONTROLLER::ManageArmy()
       TMAP_UNIT *target = enemy_units[best];
       attack_target_id = (int)target->GetUnitID();
       if (army_order.Changed(MIL_ATTACK, attack_target_id, 0, 0))
-        OrderGroup(army, n, enemy_samples[best].x, enemy_samples[best].y, target);
+        OrderGroup(free_army, nfree, enemy_samples[best].x, enemy_samples[best].y, target);
       else /* reinforcements and units that arrived: engage when close */
-        for (int i = 0; i < n; i++)
-          if (!tai_skip_assault_attack_for_approach(army[i], target) && army[i]->GetTarget() != target)
-            army[i]->StartAttacking(target, true);
+        for (int i = 0; i < nfree; i++)
+          if (!tai_skip_assault_attack_for_approach(free_army[i], target) && free_army[i]->GetTarget() != target)
+            free_army[i]->StartAttacking(target, true);
     } else if (ex >= 0 && ey >= 0) {
       attack_target_id = -1;
       if (army_order.Changed(MIL_ATTACK, -1, ex, ey))
-        OrderGroup(army, n, ex, ey, NULL);
+        OrderGroup(free_army, nfree, ex, ey, NULL);
       else {
         TFORCE_UNIT *idle[TAI_GAME_STATE::kMaxIdleForces];
         int ni = 0;
-        for (int i = 0; i < n; i++)
-          if (army[i]->GetAction() == UA_STAY && tai_cheb_xy(samples[i].x, samples[i].y, ex, ey) > kTaiRallyRadius)
-            idle[ni++] = army[i];
+        for (int i = 0; i < nfree; i++)
+          if (free_army[i]->GetAction() == UA_STAY
+              && tai_cheb_xy(free_samples[i].x, free_samples[i].y, ex, ey) > kTaiRallyRadius)
+            idle[ni++] = free_army[i];
         OrderGroup(idle, ni, ex, ey, NULL);
       }
     } else {

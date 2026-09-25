@@ -98,7 +98,7 @@ Same race assignment logic as the GUI (unused race from map list). See `RunDedic
 
 Every think tick the controller scans the map **once** (`ScanEnemies`: visible enemy units, their power, which are near our structures, who is hitting us), then:
 
-1. **Scouting** (`ManageScouting`) — `round(scout_count)` (1–2) dedicated scouts, only when the army has at least `scouts + 2` units; the lightest combat units are recruited. An idle scout gets a new random target: half the time near an enemy start, otherwise a random map point. Scouts are excluded from defense and the field army.
+1. **Scouting** (`ManageScouting`) — `round(scout_count)` (1–2) dedicated scouts, only when the army has at least `scouts + 2` units; the lightest combat units are recruited. An idle scout gets a new random target: half the time near an enemy start, otherwise a random map point. Scouts are excluded from defense and the field army. Scouts only look: they are set to ignore enemies (no attacking the first building they reach), and a scout that loses life or is targeted by a visible enemy (`TAI_ScoutThreatened`) runs home and then explores only random map points for 60 s (`TAI_ScoutMayProbeEnemyBase`). A scout that returns to the army gets its unit type's default aggressivity back.
 2. **Defense** (`ManageDefense`) — enemies within 12 tiles of our structures that are military or attacking us are threats. The best-scored threat is attacked by the nearest units until their power ≥ `defense_commit × threat power` (`TAI_DefenseCommitCount`); the rest of the army is not pulled back.
 3. **Field army** (`ManageArmy`) — state machine:
 
@@ -115,6 +115,7 @@ stateDiagram-v2
 - **Targets** (`TAI_TargetScore`): units attacking us > combat units > armed structures > other structures; closer and wounded preferred, searched within 20 tiles of the army centroid, otherwise march on the enemy start.
 - **Army power** = (Σ gun power) × (Σ life) of the units (Lanchester estimate from `.rac` data).
 - **Retaliation**: whoever hits us becomes the target for 90 s after the last hit (`TAI_RETALIATION`), then the AI returns to the nearest enemy.
+- **Per-unit reactions** (`TAI_UnitReaction`, every think tick, not while retreating): the army decisions above go by the army centroid, so each army unit also checks its own surroundings (6 tiles). A unit that an armed enemy is attacking falls back to the rally point when the local power ratio is below `retreat_ratio`, otherwise it turns on the attacker (best `TAI_TargetScore`) if it is not already fighting it. Units that react are left out of that tick's army orders, so the next order does not send them back at a building. A unit that falls back keeps doing so (no new orders, no re-decision) while it moves, for up to 10 s, so it does not turn around every tick.
 - **Orders** are de-duplicated (`TAI_ORDER_MEMO`) and use one group path per order (no per-unit `StartMoving` on top of it).
 - `logs on` prints transitions: `Player <id> (<name>) military GATHER -> ATTACK (my=… enemy=… n=… t=…s)`.
 

@@ -223,6 +223,15 @@ private:
   //! Dedicated scouts (excluded from defense and the field army).
   int scout_ids[2];
   int n_scouts;
+  //! Per scout: life at the last tick, running home, and until when it keeps away from the enemy base.
+  float scout_life[2];
+  bool scout_fleeing[2];
+  double scout_avoid_until[2];
+  //! Army units falling back after TAI_REACT_FALL_BACK, and until when they stick to it.
+  static const int kMaxFallingBack = 32;
+  int falling_back_ids[kMaxFallingBack];
+  double falling_back_until[kMaxFallingBack];
+  int n_falling_back;
   //! Rotates which idle military factory is tried first (Workshop vs Barracks on budget=1).
   unsigned factory_military_rr;
 

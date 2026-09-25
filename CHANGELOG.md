@@ -9,6 +9,35 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-25
+
+### Added
+- Dev console `god`: your units take no damage; `god all` makes every player's units invulnerable (map
+  objects such as trees and mines are not affected); `god off` turns it off. Local games only, like the
+  other dev commands.
+- Performance test `tests/cpp/perf_smoke.sh [units] [seconds] [warmup] [map]`: a headless server with CPU
+  players places the units around the bases, sends them all to the middle of the map and measures the
+  battle: simulation step time (events and AI; avg, p50, p95, p99, max, share over the 20 ms budget),
+  path search jobs in the thread pool and the length of their queue. Optional limits
+  `PERF_MAX_STEP_P99_MS` and `PERF_MAX_PATH_QUEUE` make it fail. New server commands behind it:
+  `spawn <n> [fight]` and `perf [reset]`; statistics in `src/doperf.*` (tested in `make test-ai`).
+
+### Changed
+- Path finding uses one thread per CPU core minus one (at least the original 5, at most 8) instead of
+  always 5; the A* jobs do not take the simulation lock. With 1200 fighting units 8 threads halve the
+  queue of waiting path searches; more threads made each search and the simulation step slower.
+  `DO_PATH_THREADS=<n>` overrides the count.
+
+### Fixed
+- A CPU soldier that got ahead of its army kept walking to a building and hitting it while a player
+  was attacking it: attack and retreat decisions only looked at the army as a whole, and the army order
+  kept re-sending the unit at its target. Each army unit now reacts on its own: it turns on the enemy
+  attacking it, or falls back to the rally point when it is outnumbered where it stands
+  (`TAI_UnitReaction`, personality `retreat_ratio`).
+- CPU scouts walked into the enemy base and kept hitting the first building they reached, even while
+  being attacked, because scouts are left out of defense and the army. Scouts now ignore enemies, run
+  home as soon as they are hit or targeted, and keep away from that base for 60 s.
+
 ## [0.4.1] - 2026-09-25
 
 ### Changed
@@ -269,7 +298,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.3.0...v0.3.1

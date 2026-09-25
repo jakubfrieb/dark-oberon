@@ -254,6 +254,32 @@ TEST(test_rebalance_keeps_last_miner_and_needs_rich_source) {
   CHECK(!TAI_PickMinerRebalance(stock, two, cannot, 2, 400.f, 3.f, &from, &to));
 }
 
+TEST(test_scout_threatened_when_hit_or_targeted) {
+  CHECK(TAI_ScoutThreatened(40.f, 50.f, 0));    // lost life since the last tick
+  CHECK(TAI_ScoutThreatened(50.f, 50.f, 1));    // someone is attacking it
+  CHECK(!TAI_ScoutThreatened(50.f, 50.f, 0));   // untouched
+  CHECK(!TAI_ScoutThreatened(55.f, 50.f, 0));   // healed, nobody targets it
+}
+
+TEST(test_scout_probes_enemy_base_only_after_cooldown) {
+  CHECK(TAI_ScoutMayProbeEnemyBase(100.0, 0.0));     // never chased away
+  CHECK(!TAI_ScoutMayProbeEnemyBase(100.0, 130.0));  // chased away, cooling down
+  CHECK(TAI_ScoutMayProbeEnemyBase(130.0, 130.0));   // cooldown over
+}
+
+TEST(test_unit_reaction_retaliates_or_falls_back) {
+  TAI_PERSONALITY p = TAI_PERSONALITY_PRESETS[2];  // calm: retreat_ratio 0.75
+  // nobody attacks the unit: keep the army order
+  CHECK(TAI_UnitReaction(false, false, 10.f, 50.f, p) == TAI_REACT_KEEP);
+  // attacked while hitting a building, fight is even: turn on the attacker
+  CHECK(TAI_UnitReaction(true, false, 100.f, 100.f, p) == TAI_REACT_RETALIATE);
+  // already fighting the attacker: nothing to change
+  CHECK(TAI_UnitReaction(true, true, 100.f, 100.f, p) == TAI_REACT_KEEP);
+  // attacked and clearly outnumbered where it stands: fall back to the army
+  CHECK(TAI_UnitReaction(true, false, 30.f, 100.f, p) == TAI_REACT_FALL_BACK);
+  CHECK(TAI_UnitReaction(true, true, 30.f, 100.f, p) == TAI_REACT_FALL_BACK);
+}
+
 int main() {
   for (int i = 0; i < g_nt; i++) {
     int before = g_fail;

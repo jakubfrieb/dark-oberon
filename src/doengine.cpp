@@ -50,6 +50,7 @@
 
 #include "donet.h"
 #include "doglfw_sdl.h"
+#include "doperf.h"
 
 #include <atomic>
 #include <cctype>
@@ -2990,7 +2991,7 @@ static void ProcessDevConsoleCommand(const char *raw)
     arg[i] = (char)tolower((unsigned char)arg[i]);
 
   if (cmd == "help") {
-    ost->AddText("Dev: map | map off | resource [all] | speed on | speed off");
+    ost->AddText("Dev: map | map off | resource [all] | speed on | speed off | god [all] | god off");
     ost->AddText("Dev: logs | logs on | logs off | logs think on | logs think off | logs <cpu_slot>");
     return;
   }
@@ -3017,6 +3018,21 @@ static void ProcessDevConsoleCommand(const char *raw)
       ost->AddText("Dev: +10000 each material");
     } else {
       ost->AddText("Dev: resource [all]");
+    }
+    return;
+  }
+  if (cmd == "god") {
+    if (arg == "off") {
+      dev_god_mode = DEV_GOD_OFF;
+      ost->AddText("Dev: god mode off");
+    } else if (arg == "all") {
+      dev_god_mode = DEV_GOD_ALL;
+      ost->AddText("Dev: units of all players take no damage");
+    } else if (arg.empty()) {
+      dev_god_mode = DEV_GOD_ME;
+      ost->AddText("Dev: your units take no damage");
+    } else {
+      ost->AddText("Dev: god [all] | god off");
     }
     return;
   }
@@ -5246,8 +5262,13 @@ static int SDLCALL ProcessFunction(void *arg)
     time.Update ();
     fps_of_update.Update (time.GetShift ());
 
+    // step timing for performance tests (doperf, server command `perf`)
+    const double perf_t0 = AppGetTimeSeconds ();
+    int perf_events = 0;
+
     // cycle which get from queue all events with time_stamp <= actual time.
     while ((queue_events->GetFirstEventTimeStamp() != -1) && (queue_events->GetFirstEventTimeStamp() <= time.GetActual())) {
+      perf_events++;
       process_mutex->Lock();
 
       act_event = queue_events->GetFirstEvent();
@@ -5297,6 +5318,7 @@ static int SDLCALL ProcessFunction(void *arg)
       pool_events->PutToPool(act_event);
     }
 
+    const double perf_t1 = AppGetTimeSeconds ();
     {
       int pc = player_array.GetCount ();
       for (int ai = 1; ai < pc; ai++) {
@@ -5305,11 +5327,35 @@ static int SDLCALL ProcessFunction(void *arg)
           players[ai]->UpdateAI (time.GetShift ());
       }
     }
+    PerfRecordStep (perf_t1 - perf_t0, AppGetTimeSeconds () - perf_t1, perf_events,
+                    threadpool_astar ? (int)threadpool_astar->PendingRequests () : 0);
 
     // sleep that long, we get 50 fps
     time.SleepToGetExpectedFrameDuration (0.02);
   }
   return 0;
+}
+
+
+/**
+ *  Threads for path finding. The A* jobs read the map without the simulation lock, so they scale
+ *  with CPU cores: one core is left for the simulation, never fewer than the original 5 threads,
+ *  at most 8. More threads shorten the queue further but make each search and the simulation step
+ *  slower (perf_smoke.sh, 1200 units: 5 / 8 / 16 threads -> queue p99 24 / 15 / 9, search p99
+ *  9 / 17 / 19 ms, step p99 2.7 / 4.1 / 5.1 ms). DO_PATH_THREADS=<n> overrides it.
+ */
+static int PathThreadCount()
+{
+  static int count = 0;
+  if (count > 0)
+    return count;
+  const char *env = getenv("DO_PATH_THREADS");
+  int n = env ? atoi(env) : 0;
+  if (n < 1 || n > 64)
+    n = std::max(5, std::min(8, SDL_GetCPUCount() - 1));
+  count = n;
+  Info(LogMsg("Path finding: %d threads", count));
+  return count;
 }
 
 
@@ -5369,7 +5415,7 @@ bool StartGame(double stime)
 
   //create thread pool for path finding but only if doesn't exist yet
   if (threadpool_astar == NULL)
-    threadpool_astar = threadpool_astar->CreateNewThreadPool(5, 50);
+    threadpool_astar = threadpool_astar->CreateNewThreadPool(PathThreadCount(), 50);
   //create thread pool for searching of the nearest building but only if doesn't exist yet
   if (threadpool_nearest == NULL)
     threadpool_nearest = threadpool_nearest->CreateNewThreadPool(3, 30);
@@ -6261,7 +6307,7 @@ bool EditorBootstrap(const char *basename_raw)
   }
 
   if (threadpool_astar == NULL)
-    threadpool_astar = threadpool_astar->CreateNewThreadPool(5, 50);
+    threadpool_astar = threadpool_astar->CreateNewThreadPool(PathThreadCount(), 50);
   if (threadpool_nearest == NULL)
     threadpool_nearest = threadpool_nearest->CreateNewThreadPool(3, 30);
   if (!threadpool_astar || !threadpool_nearest) {
@@ -6871,6 +6917,72 @@ static void fprint_json_string(FILE *f, const std::string &s)
   fputc('"', f);
 }
 
+/**
+ *  Performance tests (server command `spawn <n> [fight]`): places @p total military units, split
+ *  between the players, in rings around their start positions. With @p fight every placed unit is
+ *  sent to the middle of the map at once (a burst of path searches, then one big battle); otherwise
+ *  the CPU players move them. Returns how many were placed (fewer when the map around the bases is
+ *  full).
+ */
+static int SpawnStressUnits(int total, bool fight, int *sent)
+{
+  *sent = 0;
+  int pids[PL_MAX_PLAYERS], np = 0;
+  for (int i = 1; i < player_array.GetCount() && i < PL_MAX_PLAYERS; i++)
+    if (players[i] && players[i]->race && players[i]->initial_x >= 0)
+      pids[np++] = i;
+  if (np == 0)
+    return 0;
+
+  int placed = 0;
+  process_mutex->Lock();
+  for (int k = 0; k < np; k++) {
+    const int pid = pids[k];
+    std::vector<int> kinds;   // military units first, workers only when a race has none
+    for (int u = 0; u < players[pid]->race->units_count; u++)
+      if (players[pid]->race->units[u]->GetItemType() == IT_FORCE)
+        kinds.push_back(u);
+    for (int u = 0; kinds.empty() && u < players[pid]->race->units_count; u++)
+      kinds.push_back(u);
+    if (kinds.empty())
+      continue;
+    const int want = total / np + (k < total % np ? 1 : 0);
+    const int cx = players[pid]->initial_x, cy = players[pid]->initial_y;
+    int mine = 0;
+    for (int r = 4; r < 60 && mine < want; r++)
+      for (int dx = -r; dx <= r && mine < want; dx++)
+        for (int dy = -r; dy <= r && mine < want; dy++) {
+          if (std::max(std::abs(dx), std::abs(dy)) != r || (dx + dy) % 2)
+            continue;   // one ring at a time, every other tile so units are not packed solid
+          const int x = cx + dx, y = cy + dy;
+          if (!map.IsInMap(x, y))
+            continue;
+          if (!map.PlacePlayerUnit(pid, kinds[mine % kinds.size()], x, y))
+            continue;
+          mine++;
+          TMAP_UNIT *u = map.segments[1].surface[x][y].unit;
+          if (fight && u && u->TestItemType(IT_FORCE)) {
+            TPOSITION_3D goal;
+            goal.SetPosition(map.width / 2 + (dx % 8), map.height / 2 + (dy % 8), 1);
+            if (static_cast<TFORCE_UNIT *>(u)->StartMoving(goal, true))   // first path: synchronous A*
+              (*sent)++;
+          }
+        }
+    placed += mine;
+  }
+  process_mutex->Unlock();
+  return placed;
+}
+
+static int CountPlayerUnits()
+{
+  int n = 0;
+  for (int i = 1; i < player_array.GetCount() && i < PL_MAX_PLAYERS; i++)
+    if (players[i])
+      n += players[i]->GetPlayerUnitsCount();
+  return n;
+}
+
 void RunDedicatedServer(const char *map_basename, int port)
 {
   std::string map_base = map_basename ? map_basename : "";
@@ -6902,7 +7014,7 @@ void RunDedicatedServer(const char *map_basename, int port)
 
   fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
   fprintf(stderr, "Clients connect to this host:%d — then type: start\n", port);
-  fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ...\n");
+  fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ... | spawn <n> [fight] | perf [reset]\n");
 
   bool running = true;
   while (running) {
@@ -7058,6 +7170,30 @@ void RunDedicatedServer(const char *map_basename, int port)
             fputs("logs: usage — logs | logs on | logs off | logs think on | logs think off | logs <slot>\n",
                   stderr);
         }
+      }
+      else if (strncmp(buf, "spawn", 5) == 0) {
+        int n = 0;
+        if (!started)
+          fputs("spawn: start the game first\n", stderr);
+        else if (std::sscanf(buf + 5, "%d", &n) != 1 || n <= 0)
+          fputs("spawn: usage — spawn <units> [fight]\n", stderr);
+        else {
+          int sent = 0;
+          const bool fight = strstr(buf + 5, "fight") != NULL;
+          const double t0 = AppGetTimeSeconds();
+          const int placed = SpawnStressUnits(n, fight, &sent);
+          fprintf(stderr, "spawn: %d of %d units placed, %d units on the map, took %.0f ms\n", placed, n,
+                  CountPlayerUnits(), (AppGetTimeSeconds() - t0) * 1000.0);
+          if (fight)
+            fprintf(stderr, "spawn: %d units found a path to the middle of the map\n", sent);
+        }
+      }
+      else if (strncmp(buf, "perf", 4) == 0) {
+        if (strstr(buf + 4, "reset")) {
+          PerfReset();
+          fputs("perf: reset\n", stderr);
+        } else
+          fputs(PerfReport(CountPlayerUnits()).c_str(), stderr);
       }
       else if (strncmp(buf, "start", 5) == 0) {
         player_array.Lock();

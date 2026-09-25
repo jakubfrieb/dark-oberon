@@ -90,6 +90,25 @@ float TAI_EnemyPowerEstimate(float visible, float remembered, float seconds_sinc
 //! Point @p dist tiles from base toward the enemy base, clamped to the map; base when enemy is unknown (<0).
 void TAI_RallyPoint(int bx, int by, int ex, int ey, int dist, int map_w, int map_h, int *ox, int *oy);
 
+//! What one army unit does this tick, on top of the army-wide order.
+enum TAI_UNIT_REACTION {
+  TAI_REACT_KEEP,        //!< follow the army order
+  TAI_REACT_RETALIATE,   //!< turn on the enemy that is attacking it
+  TAI_REACT_FALL_BACK    //!< attacked and outnumbered where it stands: pull back to the army
+};
+//! Army decisions look at the army's centroid, so a unit that ran ahead would keep hitting a building
+//! while it is attacked. Per unit: attacked + local power ratio < retreat_ratio -> fall back; attacked
+//! while not fighting the attacker -> retaliate; otherwise keep the army order.
+TAI_UNIT_REACTION TAI_UnitReaction(bool attacked, bool fighting_attacker, float my_local, float enemy_local,
+                                   const TAI_PERSONALITY &p);
+
+//! Scouts only look around. A scout is threatened (and should run home) when it lost life since the
+//! last AI tick or when @p enemies_targeting enemies are attacking it.
+bool TAI_ScoutThreatened(float life_now, float life_last, int enemies_targeting);
+//! After a scout was chased away (@p chased_until = when the cooldown ends), it explores random map
+//! points instead of walking straight back into the enemy base.
+bool TAI_ScoutMayProbeEnemyBase(double now, double chased_until);
+
 //! Index of the attack target: best score (TAI_TargetScore, Chebyshev distance to the army) within
 //! @p radius; the @p current target is kept while it is in radius and not beaten by @p margin (no
 //! re-targeting every tick). Nothing in radius -> best enemy anywhere; none -> -1.

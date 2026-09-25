@@ -37,6 +37,7 @@
 
 #include "dosdl.h"
 #include "dopool.h"
+#include "doperf.h"
 
 
 //========================================================================
@@ -231,6 +232,15 @@ public:
    *  @return The method returns count of the requests in the queue after 
    *  the addition of the request.
    */
+  //! Requests waiting for a free thread (performance tests).
+  unsigned int PendingRequests()
+  {
+    SDL_LockMutex(condition_mutex);
+    unsigned int n = requests->GetQueueLength();
+    SDL_UnlockMutex(condition_mutex);
+    return n;
+  }
+
   unsigned int AddRequest(I *request, O* (A::*processor)(I*))
   {
     //add request into the queue
@@ -299,7 +309,9 @@ public:
 
       SDL_UnlockMutex(thread->threadpool->condition_mutex);
 
+      const Uint64 job_start = SDL_GetPerformanceCounter();
       O* response = (thread->auxiliary_data.*p_process_method)(request);
+      PerfRecordJob((double)(SDL_GetPerformanceCounter() - job_start) / (double)SDL_GetPerformanceFrequency());
 
       if (thread->threadpool->use_response_queue && (response != NULL))
         thread->threadpool->responses->Push(response, NULL);

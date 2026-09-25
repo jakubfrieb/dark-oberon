@@ -410,6 +410,8 @@ public:
 
   bool LoadMap(char *name);     //!< Load map from file
   void DeleteMap();             //!< Deletes map and depend structures.
+  //! Places a live unit of player @p pid (race unit index @p uid) at (mx, my) if the tile is free.
+  bool PlacePlayerUnit(int pid, int uid, int mx, int my);
 
 #if !HEADLESS
   bool EditorReplaceFragmentAt(int sid, int mx, int my, int new_fid);

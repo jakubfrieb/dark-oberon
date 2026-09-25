@@ -48,6 +48,7 @@
 #include "donet.h"
 #include "dohost.h"
 #include "doengine.h"
+#include "dodevcheat.h"
 
 
 //=========================================================================
@@ -289,6 +290,12 @@ bool TMAP_UNIT::Injure(const float injury)
   float result_life;
 
   if ((injury < 0) || ((life == 0) && !TestState(US_IS_BEING_BUILT)) || (TestState(US_DYING)) || (TestState(US_ZOMBIE)) || (TestState(US_DELETE))) return false; 
+
+  // dev console `god` / `god all`: the local player's / every player's units are invulnerable
+  // (not the hyper player's map objects, so mining keeps working)
+  if ((dev_god_mode == DEV_GOD_ME && myself && GetPlayer() == myself)
+      || (dev_god_mode == DEV_GOD_ALL && GetPlayer() && GetPlayer() != hyper_player))
+    return false;
   
   result_life = life - injury;
 

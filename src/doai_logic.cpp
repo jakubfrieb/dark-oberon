@@ -309,3 +309,23 @@ bool TAI_ORDER_MEMO::Changed(int k, int t, int px, int py)
   y = py;
   return true;
 }
+
+bool TAI_ScoutThreatened(float life_now, float life_last, int enemies_targeting)
+{
+  return enemies_targeting > 0 || life_now < life_last;
+}
+
+bool TAI_ScoutMayProbeEnemyBase(double now, double chased_until)
+{
+  return now >= chased_until;
+}
+
+TAI_UNIT_REACTION TAI_UnitReaction(bool attacked, bool fighting_attacker, float my_local, float enemy_local,
+                                   const TAI_PERSONALITY &p)
+{
+  if (!attacked)
+    return TAI_REACT_KEEP;
+  if (TAI_ShouldRetreat(my_local, enemy_local, p))
+    return TAI_REACT_FALL_BACK;
+  return fighting_attacker ? TAI_REACT_KEEP : TAI_REACT_RETALIATE;
+}

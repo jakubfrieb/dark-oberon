@@ -4,9 +4,10 @@ SRC = ../../src
 SDL2_CFLAGS := $(shell pkg-config --cflags sdl2)
 SDL2_LIBS := $(shell pkg-config --libs sdl2)
 
-test: test_ai_logic test_dofile
+test: test_ai_logic test_dofile test_perf
 	./test_ai_logic
 	./test_dofile
+	./test_perf
 
 test_ai_logic: test_ai_logic.cpp $(SRC)/doai_logic.cpp $(SRC)/doai_logic.h
 	$(CXX) -std=gnu++17 -Wall -Wextra -O1 -I$(SRC) -o $@ test_ai_logic.cpp $(SRC)/doai_logic.cpp
@@ -17,7 +18,11 @@ test_dofile: test_dofile.cpp $(SRC)/dofile.cpp $(SRC)/dofile.h
 	  -w -DUNIX=1 -DSOUND=0 -DDEBUG=0 -DHEADLESS=0 -I$(SRC) $(SDL2_CFLAGS) \
 	  -o $@ test_dofile.cpp $(SRC)/dofile.cpp $(SDL2_LIBS)
 
+# Simulation step statistics (performance tests).
+test_perf: test_perf.cpp $(SRC)/doperf.cpp $(SRC)/doperf.h
+	$(CXX) -std=gnu++17 -Wall -Wextra -O1 -I$(SRC) $(SDL2_CFLAGS) -o $@ test_perf.cpp $(SRC)/doperf.cpp $(SDL2_LIBS)
+
 clean:
-	rm -f test_ai_logic test_dofile
+	rm -f test_ai_logic test_dofile test_perf
 
 .PHONY: test clean

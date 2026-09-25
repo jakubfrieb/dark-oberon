@@ -2192,43 +2192,7 @@ bool TMAP::EditorPlacePlayerBuilding(int pid, int bid, int mx, int my)
 
 bool TMAP::EditorPlacePlayerUnit(int pid, int uid, int mx, int my)
 {
-  if (pid < 1 || pid >= player_array.GetCount() || !players[pid] || !players[pid]->race)
-    return false;
-  if (uid < 0 || uid >= players[pid]->race->units_count)
-    return false;
-  const int z = 1;
-  const int dir = 2;
-  if (!players[pid]->race->units[uid]->IsPositionAvailable(mx, my, z))
-    return false;
-
-  TFORCE_UNIT *unit = NULL;
-  switch (players[pid]->race->units[uid]->GetItemType()) {
-  case IT_FORCE:
-    unit = NEW TFORCE_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
-    break;
-  case IT_WORKER:
-    unit = NEW TWORKER_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
-    break;
-  default:
-    return false;
-  }
-  if (!unit || !unit->AddToMap(true, true)) {
-    if (unit)
-      delete unit;
-    return false;
-  }
-  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
-  players[pid]->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
-                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
-  players[pid]->IncPlayerUnitsCount();
-  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
-  if (!in_editor_mode && !player_array.IsRemote(pid)) {
-    process_mutex->Lock();
-    unit->SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, unit->GetPosition().x,
-                    unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
-    process_mutex->Unlock();
-  }
-  return true;
+  return PlacePlayerUnit(pid, uid, mx, my);
 }
 
 
@@ -2380,6 +2344,51 @@ bool TMAP::SaveMapToFile(const char *basename_no_ext)
 }
 
 #endif /* !HEADLESS */
+
+/**
+ *  Places a unit of player @p pid (race unit index @p uid) on a free ground tile, alive and running
+ *  outside the editor. Used by the map editor and by the server's `spawn` command (performance tests).
+ */
+bool TMAP::PlacePlayerUnit(int pid, int uid, int mx, int my)
+{
+  if (pid < 1 || pid >= player_array.GetCount() || !players[pid] || !players[pid]->race)
+    return false;
+  if (uid < 0 || uid >= players[pid]->race->units_count)
+    return false;
+  const int z = 1;
+  const int dir = 2;
+  if (!players[pid]->race->units[uid]->IsPositionAvailable(mx, my, z))
+    return false;
+
+  TFORCE_UNIT *unit = NULL;
+  switch (players[pid]->race->units[uid]->GetItemType()) {
+  case IT_FORCE:
+    unit = NEW TFORCE_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
+    break;
+  case IT_WORKER:
+    unit = NEW TWORKER_UNIT(pid, mx, my, z, dir, *(players[pid]->race->units + uid), 0, true);
+    break;
+  default:
+    return false;
+  }
+  if (!unit || !unit->AddToMap(true, true)) {
+    if (unit)
+      delete unit;
+    return false;
+  }
+  unit->SetLife(static_cast<TMAP_ITEM *>(unit->GetPointerToItem())->GetMaxLife());
+  players[pid]->AddUnitEnergyFood(((TBASIC_ITEM *)(unit->GetPointerToItem()))->energy,
+                                  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->food);
+  players[pid]->IncPlayerUnitsCount();
+  ((TBASIC_ITEM *)(unit->GetPointerToItem()))->IncreaseActiveUnitCount();
+  if (!in_editor_mode && !player_array.IsRemote(pid)) {
+    process_mutex->Lock();
+    unit->SendEvent(false, AppGetTimeSeconds(), US_NEXT_STEP, -1, unit->GetPosition().x,
+                    unit->GetPosition().y, unit->GetPosition().segment, unit->GetMoveDirection());
+    process_mutex->Unlock();
+  }
+  return true;
+}
 
 
 /**

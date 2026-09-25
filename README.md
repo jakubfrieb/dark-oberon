@@ -103,7 +103,8 @@ Lake Country, Long Water, Crossroads, Great Bay** and **Six Hills**.
 - **SDL2 + OpenGL** instead of the long-dead GLFW 2 and FMOD. The game runs on **Linux, Windows and Haiku**.
 - A **headless dedicated server** and a web **lobby** for internet games (see below).
 - A **developer console**: press <kbd>`</kbd> in game and type `help`. It can reveal the map,
-  add resources, speed up building and show AI logs.
+  add resources, speed up building, make units invulnerable (`god` for yours, `god all` for everyone,
+  handy for watching the CPU players) and show AI logs.
 
 <table>
   <tr>
@@ -180,6 +181,9 @@ make               # with sound; the binary ./dark-oberon ends up in the reposit
 - **Dedicated server:** `make -C src server`.
 - **Tests:** `make test-ai` (C++ AI logic and config-file parser) and `python -m pytest tests/race_pipeline tests/mapgen tests/lobby`
   (the lobby tests need Flask: `pip install -r server/web/requirements.txt`).
+- **Performance test:** `tests/cpp/perf_smoke.sh 600` places 600 units on a headless server, lets
+  them fight and prints the simulation step time and the path finding load (optional limits:
+  `PERF_MAX_STEP_P99_MS`, `PERF_MAX_PATH_QUEUE`).
 
 Requirements are modest: any OpenGL-capable graphics card and SDL2.
 

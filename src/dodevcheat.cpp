@@ -8,6 +8,7 @@
 #include "dounits.h"
 
 bool dev_fast_timers = false;
+TDEV_GOD_MODE dev_god_mode = DEV_GOD_OFF;
 
 void DevCheatsSetRevealMap(bool on)
 {

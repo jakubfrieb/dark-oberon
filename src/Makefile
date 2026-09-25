@@ -41,7 +41,7 @@ SERVER_LIBRARIES = -pthread -lGL -lGLU $(SDL2_LIBS)
 ifeq ($(shell uname -s),Haiku)
 SERVER_LIBRARIES += -lnetwork
 endif
-OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doai_logic.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
+OBJECTS = doalloc.o doberon.o dobuildings.o doconfig.o dodata.o dodevcheat.o dodraw.o doai.o doai_logic.o doengine.o doevents.o dofactories.o dofight.o dofile.o dofollower.o doforces.o doglfw_sdl.o dohost.o doipc.o dolayout.o doleader.o dologs.o domap.o domapunits.o domouse.o donet.o doperf.o doplayers.o doraces.o doschemes.o doselection.o dosimpletypes.o dosound.o dosources.o dounits.o dowalk.o doworkers.o glfont.o glgui.o tga.o utils.o
 OBJECTS_SERVER = $(filter-out doberon.o,$(OBJECTS)) doserver.o
 TARGETS = ../dark-oberon
 
@@ -120,6 +120,9 @@ doconfig.o: doconfig.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h
 dodata.o: dodata.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h tga.h
 	$(CPP) -c dodata.cpp
 
+doperf.o: doperf.cpp doperf.h
+	$(CPP) -c doperf.cpp
+
 dodevcheat.o: dodevcheat.cpp dodevcheat.h dopace.h cfg.h dodraw.h doplayers.h doschemes.h dosimpletypes.h dounits.h
 	$(CPP) -c dodevcheat.cpp
 
@@ -132,7 +135,7 @@ doai_logic.o: doai_logic.cpp doai_logic.h
 doai.o: doai.cpp cfg.h doalloc.h doai.h doai_logic.h dolayout.h dounits.h domap.h doschemes.h dotime.h doipc.h doplayers.h dowalk.h doevents.h
 	$(CPP) -c doai.cpp
 
-doengine.o: doengine.cpp build_info.h cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h dodraw.h doai.h doai_logic.h doengine.h doevents.h dofight.h dofile.h dofollower.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
+doengine.o: doengine.cpp build_info.h doperf.h cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h dodraw.h doai.h doai_logic.h doengine.h doevents.h dofight.h dofile.h dofollower.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c doengine.cpp
 
 doevents.o: doevents.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
@@ -174,7 +177,7 @@ dologs.o: dologs.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doe
 domap.o: domap.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c domap.cpp
 
-domapunits.o: domapunits.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
+domapunits.o: domapunits.cpp cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c domapunits.cpp
 
 domouse.o: domouse.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
