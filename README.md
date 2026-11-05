@@ -151,6 +151,7 @@ nobody has been connected for 30 minutes, and after 8 hours at most.
 > headless game servers in one container. Copy `server/.env.example` to `server/.env`, set
 > `GAME_PUBLIC_HOST` and run `server/up-server`. Accounts are stored in the `lobby-data` Docker
 > volume. Behind an HTTPS reverse proxy also set `TRUSTED_PROXIES=1` and `SESSION_COOKIE_SECURE=1`.
+> The lobby shows the version from the `VERSION` file at build time; `GAME_VERSION` overrides it.
 
 ## Build and run
 

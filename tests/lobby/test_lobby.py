@@ -66,6 +66,8 @@ def lobby(tmp_path, monkeypatch):
     monkeypatch.setenv("LOBBY_REAPER", "0")
     monkeypatch.setenv("PORT_RANGE_START", "17000")
     monkeypatch.setenv("PORT_RANGE_END", "17002")
+    monkeypatch.setenv("GAME_VERSION", "9.8.7")
+    monkeypatch.setenv("DOWNLOAD_URL", "https://download.example.org/")
     monkeypatch.syspath_prepend(str(WEB_DIR))
     for mod in ("app", "accounts"):
         sys.modules.pop(mod, None)
@@ -103,6 +105,27 @@ def login(client, name="jakub", password="tajneheslo1"):
 def create_game(client, map_name="crossroads"):
     return client.post("/api/instances", json={"map": map_name},
                        headers={"X-CSRF-Token": csrf_of(client)})
+
+
+# --- version and download link ----------------------------------------------
+
+@pytest.mark.parametrize("path", ["/", "/login", "/register"])
+def test_pages_show_version_and_download_link(lobby, path):
+    html = lobby.app.test_client().get(path).get_data(as_text=True)
+    assert "v9.8.7" in html
+    assert 'href="https://download.example.org/"' in html
+
+
+def test_version_falls_back_to_version_file(lobby, tmp_path, monkeypatch):
+    monkeypatch.delenv("GAME_VERSION")
+    (tmp_path / "VERSION").write_text("1.2.3\n")
+    assert lobby._game_version() == "1.2.3"
+
+
+def test_version_is_hidden_when_unknown(lobby, monkeypatch):
+    monkeypatch.setattr(lobby, "GAME_VERSION", "")
+    html = lobby.app.test_client().get("/").get_data(as_text=True)
+    assert "Internet lobby</p>" in html
 
 
 # --- accounts ---------------------------------------------------------------

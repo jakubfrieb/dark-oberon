@@ -14,6 +14,7 @@
   <div class="backdrop" aria-hidden="true"></div>
 
   <nav class="account" aria-label="Account">
+    <a class="cmd small" href="{{ download_url }}">Download the game</a>
     {% if user %}
       <span class="who">Signed in as <b>{{ user }}</b></span>
       <form method="post" action="{{ url_for('logout') }}">
@@ -28,7 +29,7 @@
 
   <header class="title">
     <a href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='title.png') }}" alt="Dark Oberon" width="636" height="70"></a>
-    <p>Internet lobby</p>
+    <p>Internet lobby{% if game_version %} · v{{ game_version }}{% endif %}</p>
   </header>
 
   <main>

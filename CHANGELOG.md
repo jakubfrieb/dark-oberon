@@ -9,12 +9,17 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-05
+
 ### Added
 - Product page for the game at <https://oberon.cloud.digitalmind.cz> (Czech at `/`, English at `/en/`),
   styled after the game's main menu: what the fork adds, downloads for Linux, Windows and Haiku from the
   newest GitHub release, a link to the Oberon Cloud lobby with the number of games running, and the
   original authors. Source and deploy steps in `deploy/srv_dark-oberon/` (DigiCloud stack, Python
   standard library only). The game is unchanged.
+- The lobby links to the game's download page and shows the version it runs. The version comes from the
+  `VERSION` file at build time; `GAME_VERSION` in `server/.env` overrides it and `DOWNLOAD_URL` changes the
+  link.
 
 ## [0.5.1] - 2026-09-25
 
@@ -328,7 +333,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.0...v0.4.1

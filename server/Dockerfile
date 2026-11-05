@@ -29,6 +29,8 @@ COPY races/ /app/races/
 COPY schemes/ /app/schemes/
 COPY maps/ /app/maps/
 COPY --from=builder /build/dark-oberon-server /app/dark-oberon-server
+# The lobby shows this version unless GAME_VERSION overrides it.
+COPY VERSION /app/VERSION
 
 ENV DATA_DIR=/app
 ENV SERVER_BINARY=/app/dark-oberon-server

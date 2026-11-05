@@ -39,6 +39,7 @@ PORT_RANGE_END = int(os.environ.get("PORT_RANGE_END", "17009"))
 MAPS_DIR = Path(os.environ.get("MAPS_DIR", str(BASE_DIR / "maps")))
 WEB_PORT = int(os.environ.get("WEB_PORT", "8080"))
 GAME_PUBLIC_HOST = (os.environ.get("GAME_PUBLIC_HOST") or "").strip() or None
+DOWNLOAD_URL = (os.environ.get("DOWNLOAD_URL") or "").strip() or "https://oberon.cloud.digitalmind.cz/"
 
 # Accounts, sessions, housekeeping
 LOBBY_DATA_DIR = Path(os.environ.get("LOBBY_DATA_DIR", str(BASE_DIR / "lobby-data")))
@@ -70,6 +71,19 @@ def _secret_key() -> str:
         path.chmod(0o600)
     return path.read_text().strip()
 
+
+def _game_version() -> str:
+    version = (os.environ.get("GAME_VERSION") or "").strip()
+    if version:
+        return version
+    # No override: the VERSION file copied into the image at build time.
+    try:
+        return (BASE_DIR / "VERSION").read_text().strip()
+    except OSError:
+        return ""
+
+
+GAME_VERSION = _game_version()
 
 app = Flask(__name__, template_folder=str(WEB_DIR / "templates"),
             static_folder=str(WEB_DIR / "static"))
@@ -395,6 +409,11 @@ def _not_found(_e):
 
 
 # --- pages ----------------------------------------------------------------------
+
+@app.context_processor
+def _site_info():
+    return {"game_version": GAME_VERSION, "download_url": DOWNLOAD_URL}
+
 
 @app.route("/")
 def index():

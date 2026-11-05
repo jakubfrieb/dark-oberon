@@ -54,6 +54,7 @@ a:hover { color: var(--gold-hi); }
 
 .account {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: baseline;
   gap: 1.25rem;

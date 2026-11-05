@@ -30,6 +30,10 @@ services:
       - WEB_PORT=${WEB_PORT:-8080}
       # Empty = the lobby does not print a connect address.
       - GAME_PUBLIC_HOST=${GAME_PUBLIC_HOST:-}
+      # Version shown in the lobby. Empty = the VERSION file from the build.
+      - GAME_VERSION=${GAME_VERSION:-}
+      # Where the lobby's download link leads.
+      - DOWNLOAD_URL=${DOWNLOAD_URL:-https://oberon.cloud.digitalmind.cz/}
       # `-` = access log to stdout, `/dev/null` = quiet.
       - GUNICORN_ACCESS_LOG=${GUNICORN_ACCESS_LOG:--}
       - LOBBY_DATA_DIR=/app/lobby-data
