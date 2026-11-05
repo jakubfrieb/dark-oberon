@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+cd "$(dirname "$0")/.."
+docker compose -f docker/docker-compose.yml --env-file docker/.env logs -f web

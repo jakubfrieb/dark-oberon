@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark Oberon</title>
+<meta name="description" content="The plasticine real-time strategy game from 2005, back on modern systems: orcs, computer opponents, a map editor and internet play. Linux, Windows and Haiku.">
+<meta property="og:title" content="Dark Oberon">
+<meta property="og:description" content="The plasticine real-time strategy game from 2005, back on modern systems.">
+<meta property="og:image" content="https://oberon.cloud.digitalmind.cz/img/2-human-town.webp">
+<meta name="theme-color" content="#151412">
+<link rel="icon" href="/favicon.png">
+<link rel="alternate" hreflang="cs" href="https://oberon.cloud.digitalmind.cz/">
+<link rel="alternate" hreflang="en" href="https://oberon.cloud.digitalmind.cz/en/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<script defer data-domain="oberon.cloud.digitalmind.cz" src="https://plausible.cloud.digitalmind.cz/js/script.js"></script>
+<script defer src="/app.js"></script>
+</head>
+<body>
+
+<header class="menu-screen">
+  <nav class="topline" aria-label="Language and links">
+    <a href="https://github.com/jakubfrieb/dark-oberon">GitHub</a>
+    <a href="/" hreflang="cs" lang="cs">Česky</a>
+  </nav>
+  <aside class="coffee">
+    <p>Enjoying what I make? A coffee keeps it going. More of my weekend projects are on <a href="https://www.digitalmind.cz/en/weekend-projects/">digitalmind.cz</a>.</p>
+    <a class="coffee-button" href="https://buymeacoffee.com/digitalmindcz" target="_blank" rel="noopener"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3c-1 1.3 1 2 0 3.5M12 3c-1 1.3 1 2 0 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Support with a coffee</span></a>
+  </aside>
+  <h1 class="title"><img src="/img/title.png" alt="Dark Oberon" width="636" height="70"></h1>
+  <p class="lead">The plasticine real-time strategy game from 2005, back on modern systems.
+    With orcs, computer opponents, a map editor and internet play.</p>
+  <nav class="menu" aria-label="Main menu">
+    <ul>
+      <li><a class="cmd" id="dl-main" href="#download">Download the game</a></li>
+      <li><a class="cmd" href="https://oberon-game.cloud.digitalmind.cz">Play online</a></li>
+      <li><a class="cmd" href="#authors">Original authors</a></li>
+    </ul>
+    <div class="menu-meta">
+      <p data-version>Linux, Windows and Haiku</p>
+      <p class="live" id="live" hidden></p>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+<section class="section story" aria-labelledby="about-title">
+  <div class="prose">
+    <h2 id="about-title">Peasants made of plasticine</h2>
+    <p>Dark Oberon is a strategy game in the spirit of Warcraft II. Its authors modelled every
+      peasant, knight and castle in plasticine, photographed them and turned the photos into
+      sprites. That handmade look is what makes the game.</p>
+    <p>It was made in 2002–2005 as a student project at the Faculty of Mathematics and
+      Physics, Charles University in Prague, and released under the GPL. This version adds what the original was
+      missing.</p>
+  </div>
+  <figure class="shot">
+    <img src="/img/2-human-town.webp" alt="A human town among the plasticine forests" width="1600" height="900">
+    <figcaption>A human town among the plasticine forests.</figcaption>
+  </figure>
+</section>
+
+<section class="section" aria-labelledby="new-title">
+  <h2 id="new-title">What's new</h2>
+  <p class="intro">Graphics and sound moved from GLFW and FMOD, which nobody maintains any
+    more, to SDL2 and SDL2_mixer. That is why the game runs on Linux, on Windows 10 and 11, and
+    for the first time on Haiku.</p>
+  <div class="features">
+    <article class="feature">
+      <figure class="shot">
+        <img src="/img/1-orc-cpu.webp" alt="An orc base run by the computer" loading="lazy" width="1600" height="900">
+      </figure>
+      <div>
+        <h3>Orcs</h3>
+        <p>Humans finally have an opponent. Like the humans, the orc race has 16 units and
+          buildings, from the Peon and the Grunt to the Stronghold, the Bone Catapult and the
+          Goblin Zeppelin. The sprites are based on the originals, so they keep the plasticine
+          look.</p>
+        <p>You can play as red, blue or yellow orcs.</p>
+      </div>
+    </article>
+
+    <article class="feature">
+      <figure class="shot">
+        <img src="/img/8-vs-cpu.webp" alt="Game lobby: a human player against computer-controlled orcs" loading="lazy" width="960" height="540">
+      </figure>
+      <div>
+        <h3>Computer opponents</h3>
+        <p>Add computer players to any game, local or over the internet. They come in three
+          difficulty levels and with a random personality: the rusher strikes early, the turtle
+          builds towers and saves up for one big push, the merchant looks after the economy.</p>
+        <p>They gather an army, attack only when they have the upper hand, retreat from a lost
+          fight and remember who attacked them.</p>
+      </div>
+    </article>
+
+    <article class="feature">
+      <figure class="shot">
+        <img src="/img/5-web-lobby.webp" alt="The Oberon Cloud web lobby with a list of games" loading="lazy" width="1440" height="1000">
+      </figure>
+      <div>
+        <h3>Internet play</h3>
+        <p>The original only worked on a local network. Now games run on the Oberon Cloud
+          server, so there is nothing to set up and no ports to forward.</p>
+        <ol class="steps">
+          <li>Create an account in the <a href="https://oberon-game.cloud.digitalmind.cz">lobby</a>
+            (just a name and a password) and create a game.</li>
+          <li>Send your friends the address the lobby shows you.</li>
+          <li>In the game choose <b>Play → Connect</b> and type the address including the port.
+            Your friends don't need an account.</li>
+        </ol>
+        <p>Fill free slots with computer players. A game stops by itself after 30 minutes with
+          nobody connected.</p>
+      </div>
+    </article>
+
+    <article class="feature">
+      <figure class="shot">
+        <img src="/img/4-editor.webp" alt="Map editor: placing player buildings and units" loading="lazy" width="1600" height="900">
+      </figure>
+      <div>
+        <h3>A map editor and seven new maps</h3>
+        <p>The main menu has a map editor. Open an existing map or start a blank one, paint the
+          terrain, place trees, rocks and mines, and give each player their first buildings.</p>
+        <p>There are seven new balanced maps for 2, 4 and 6 players, from Twin Ponds to
+          Six Hills.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="section downloads" id="download" aria-labelledby="get-title">
+  <div class="prose">
+    <h2 id="get-title">Download</h2>
+    <p>The game is free. Unpack the archive and run it. There is nothing to install; any
+      graphics card with OpenGL will do.</p>
+  </div>
+  <ul class="platforms">
+    <li class="platform">
+      <h3><img class="os" src="/img/os/tux.svg" alt="" width="34" height="40">Linux</h3>
+      <a class="get" data-platform="linux" href="https://github.com/jakubfrieb/dark-oberon/releases/latest">Download<small></small></a>
+      <p>64-bit distributions with glibc 2.34 or newer (Debian 12, Ubuntu 22.04, Fedora 35).
+        Needs SDL2, SDL2_mixer and GLU:</p>
+      <code>sudo apt install libsdl2-2.0-0 libsdl2-mixer-2.0-0 libglu1-mesa</code>
+    </li>
+    <li class="platform">
+      <h3><img class="os" src="/img/os/windows.svg" alt="" width="45" height="40">Windows</h3>
+      <a class="get" data-platform="windows" href="https://github.com/jakubfrieb/dark-oberon/releases/latest">Download<small></small></a>
+      <p>Windows 10 and 11. Unzip anywhere and run <b>dark-oberon.exe</b>. The libraries
+        are included.</p>
+    </li>
+    <li class="platform">
+      <h3><img class="os-wordmark" src="/img/os/haiku.svg" alt="Haiku" width="179" height="40"></h3>
+      <a class="get" data-platform="haiku" href="https://github.com/jakubfrieb/dark-oberon/releases/latest">Download<small></small></a>
+      <p>Haiku R1/beta6, 64-bit. <a href="https://www.haiku-os.org/">Haiku</a> is a free operating system that carries on from BeOS. Install the libraries first:</p>
+      <code>pkgman install libsdl2 sdl2_mixer glu</code>
+    </li>
+  </ul>
+  <p class="fineprint">Older versions and the changelog are on
+    <a href="https://github.com/jakubfrieb/dark-oberon/releases">GitHub Releases</a>.
+    The source code and build instructions are in the <a href="https://github.com/jakubfrieb/dark-oberon">repository</a>.</p>
+</section>
+
+<section class="section" id="authors" aria-labelledby="credits-title">
+  <div class="credits-panel">
+    <h2 id="credits-title">Original authors</h2>
+    <p>Dark Oberon was created in 2002–2005 by six students at the Faculty of Mathematics and
+      Physics, Charles University, for the Project course (supervised by RNDr. Jakub Yaghob).
+      They modelled and photographed every unit, wrote the engine, the network code and the
+      data formats, and released it all under the GPL. This version would not exist without
+      them. Thank you!</p>
+    <div class="credit-cols">
+      <div>
+        <h3>Developers</h3>
+        <ul class="names devs">
+          <li><span class="nick">crazych</span> <span class="real">Jiří Krejsa</span></li>
+          <li><span class="nick">index</span> <span class="real">Michal Král</span></li>
+          <li><span class="nick">jojolaser</span> <span class="real">Marián Černý</span></li>
+          <li><span class="nick">libertik</span> <span class="real">Valéria Šventová</span></li>
+          <li><span class="nick">martinpp</span> <span class="real">Martin Košalko</span></li>
+          <li><span class="nick">peterpp</span> <span class="real">Peter Knut</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Music</h3>
+        <ul class="names">
+          <li><span class="nick">lealoo</span> <a class="real" href="http://www.lealoo.cz">www.lealoo.cz</a></li>
+        </ul>
+      </div>
+    </div>
+    <p>Original homepage: <a href="http://dark-oberon.sourceforge.net/">dark-oberon.sourceforge.net</a></p>
+    <p class="fork-note">This version is maintained by <a href="https://www.digitalmind.cz/en/weekend-projects/dark-oberon/">digitalmind.cz</a>.</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Dark Oberon is free software under the GNU GPL 2.0 or later.
+    Source code: <a href="https://github.com/jakubfrieb/dark-oberon">github.com/jakubfrieb/dark-oberon</a>.</p>
+  <p class="legal">Tux: Larry Ewing and The GIMP, SVG by Simon Budig and Garrett LeSage. Haiku® and the HAIKU
+    logo® are registered trademarks of Haiku, Inc.; Windows is a trademark of Microsoft Corporation.
+    The logos only mark the systems the game runs on; this site is not affiliated with their owners.</p>
+  <p>More weekend projects are on <a href="https://www.digitalmind.cz/en/weekend-projects/">digitalmind.cz</a>.</p>
+</footer>
+
+</body>
+</html>

@@ -9,6 +9,13 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+### Added
+- Product page for the game at <https://oberon.cloud.digitalmind.cz> (Czech at `/`, English at `/en/`),
+  styled after the game's main menu: what the fork adds, downloads for Linux, Windows and Haiku from the
+  newest GitHub release, a link to the Oberon Cloud lobby with the number of games running, and the
+  original authors. Source and deploy steps in `deploy/srv_dark-oberon/` (DigiCloud stack, Python
+  standard library only). The game is unchanged.
+
 ## [0.5.1] - 2026-09-25
 
 ### Fixed

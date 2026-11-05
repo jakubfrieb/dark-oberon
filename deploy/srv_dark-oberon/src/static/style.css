@@ -1,0 +1,314 @@
+/* Dark Oberon product page. The top of the page is the game's own main menu:
+   cracked stone, the plasticine knights, the gold title and a black panel with
+   a thin pale rim whose commands are plain gold serif words. Below it the page
+   stays on the stone, and only the credits get a panel again, as in the game. */
+
+:root {
+  --stone: #151412;
+  --stone-2: #1d1b18;
+  --panel: rgba(4, 4, 4, 0.88);
+  --rim: #b9b2a4;
+  --gold: #dcb660;
+  --gold-hi: #f3d98f;
+  --gold-dim: #9a7f45;
+  --clay: #eee6d8;
+  --clay-dim: #a9a397;
+  --clay-red: #d0493a;
+  --grass: #7cb84a;
+
+  --font-menu: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-text: "Alegreya", Georgia, serif;
+
+  --measure: 36rem;
+  --wide: 68rem;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--stone); color-scheme: dark; }
+
+body {
+  margin: 0;
+  color: var(--clay);
+  background: var(--stone);
+  font-family: var(--font-text);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--gold); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--gold-hi); }
+:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+
+h1, h2, h3 { font-family: var(--font-menu); font-weight: 700; color: var(--gold); line-height: 1.2; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.1rem); margin: 0 0 1rem; }
+h3 { font-size: 1.2rem; margin: 0 0 0.5rem; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---------- the menu screen ---------- */
+
+.menu-screen {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--gutter) 3rem;
+  text-align: center;
+  background:
+    linear-gradient(to bottom, rgba(10, 9, 8, 0.9) 0%, rgba(10, 9, 8, 0.3) 24%, rgba(10, 9, 8, 0) 42%, rgba(21, 20, 18, 0) 85%, var(--stone) 100%),
+    url("img/backdrop.jpg") center bottom / cover no-repeat,
+    var(--stone);
+}
+
+/* Narrow screens: show both knights at the bottom instead of a crop of the sword. */
+@media (max-width: 40rem) {
+  .menu-screen { background-size: auto, 135% auto, auto; }
+}
+
+.topline {
+  align-self: stretch;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.25rem;
+  padding: 0.9rem 0 0;
+  font-family: var(--font-menu);
+  font-size: 0.95rem;
+}
+.topline a { text-decoration: none; }
+
+/* Coffee link: a small in-game panel in the top right corner, like Uličky and Goot have. */
+.coffee {
+  position: absolute;
+  top: 3rem;
+  right: var(--gutter);
+  z-index: 2;
+  max-width: 16rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--rim);
+  text-align: right;
+}
+.coffee p { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.4; color: var(--clay-dim); }
+.coffee-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem 0.4rem;
+  border: 1px solid var(--gold);
+  font-family: var(--font-menu);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.coffee-button:hover, .coffee-button:focus-visible { background: var(--gold); color: var(--stone); }
+
+@media (max-width: 64rem) {
+  .coffee { position: static; align-self: flex-end; max-width: none; margin-top: 0.75rem; padding: 0; background: none; border: 0; }
+  .coffee p { display: none; }
+}
+
+.title { margin: clamp(1.5rem, 6vh, 4rem) 0 0; }
+.title img { width: min(40rem, 100%); margin: 0 auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.7)); }
+
+.lead {
+  max-width: 34rem;
+  margin: 1.25rem auto 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.3rem);
+  text-shadow: 0 1px 3px #000;
+}
+
+.menu {
+  width: min(24rem, 100%);
+  margin: clamp(1.5rem, 5vh, 3rem) auto 0;
+  padding: 1.6rem 1.5rem 1.3rem;
+  background: var(--panel);
+  border: 1px solid var(--rim);
+}
+
+.menu ul { list-style: none; margin: 0; padding: 0; }
+.menu li + li { margin-top: 0.35rem; }
+
+.cmd {
+  display: inline-block;
+  font-family: var(--font-menu);
+  font-weight: 500;
+  font-size: 1.45rem;
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+.cmd:hover, .cmd:focus-visible { color: var(--gold-hi); text-shadow: 0 0 12px rgba(243, 217, 143, 0.45); }
+
+.menu-meta {
+  margin: 1.1rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(185, 178, 164, 0.3);
+  font-size: 0.95rem;
+  color: var(--clay-dim);
+}
+.menu-meta p { margin: 0; }
+.live::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem; height: 0.5rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: var(--grass);
+  box-shadow: 0 0 6px var(--grass);
+  vertical-align: 0.1em;
+}
+
+/* ---------- body sections ---------- */
+
+main { padding: 0 var(--gutter); }
+
+.section {
+  max-width: var(--wide);
+  margin: 0 auto;
+  padding: clamp(3rem, 8vw, 5.5rem) 0;
+}
+
+.prose { max-width: var(--measure); }
+.prose p { margin: 0 0 1rem; }
+
+.story {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+.story .shot { margin: 0; }
+
+.shot img { border: 1px solid rgba(185, 178, 164, 0.45); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); }
+.shot figcaption { margin-top: 0.6rem; font-size: 0.95rem; font-style: italic; color: var(--clay-dim); }
+
+.features { display: grid; gap: clamp(3rem, 7vw, 5rem); }
+
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+.feature .shot { margin: 0; }
+.feature p { margin: 0 0 0.9rem; max-width: var(--measure); }
+
+@media (min-width: 52rem) {
+  .story { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: center; }
+  .feature { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 3rem; }
+  .feature:nth-child(even) .shot { order: 2; }
+}
+
+.steps { margin: 0.5rem 0 1rem; padding-left: 1.4rem; max-width: var(--measure); }
+.steps li { margin-bottom: 0.4rem; padding-left: 0.3rem; }
+.steps li::marker { font-family: var(--font-menu); color: var(--gold); }
+
+.textlink { font-family: var(--font-menu); font-size: 1.05rem; }
+
+/* ---------- downloads ---------- */
+
+.downloads { border-top: 1px solid rgba(185, 178, 164, 0.25); }
+
+.platforms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 2rem;
+  margin: 2rem 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+.platform h3 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.35rem; margin-bottom: 0.5rem; }
+.platform h3 { min-height: 2.5rem; }
+.os { width: auto; height: 2.5rem; flex: none; }
+.os-wordmark { width: auto; height: 2.5rem; }
+footer .legal { font-size: 0.85rem; }
+
+.intro { max-width: var(--measure); margin: 0 0 clamp(2rem, 5vw, 3.5rem); font-size: 1.2rem; }
+.platform p { margin: 0 0 0.6rem; font-size: 1rem; color: var(--clay-dim); }
+.platform code {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  background: rgba(0, 0, 0, 0.45);
+  border-left: 2px solid var(--gold-dim);
+  font-size: 0.85rem;
+  color: var(--clay);
+  overflow-wrap: anywhere;
+}
+
+.get {
+  display: inline-block;
+  margin: 0.2rem 0 0.8rem;
+  padding: 0.45rem 1.1rem 0.5rem;
+  border: 1px solid var(--gold);
+  font-family: var(--font-menu);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--gold);
+  text-decoration: none;
+}
+.get:hover, .get:focus-visible { background: var(--gold); color: var(--stone); }
+.get small { font-family: var(--font-text); font-weight: 400; font-size: 0.85rem; }
+
+.fineprint { font-size: 0.95rem; color: var(--clay-dim); max-width: var(--measure); }
+
+/* ---------- credits: the in-game credits panel ---------- */
+
+.credits-panel {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 5vw, 2.75rem);
+  background: var(--panel);
+  border: 1px solid var(--rim);
+}
+.credits-panel h2 { text-align: center; }
+.credits-panel > p { margin: 0 0 1rem; }
+
+.credit-cols {
+  display: grid;
+  gap: 1.5rem 2.5rem;
+  margin: 2rem 0;
+}
+@media (min-width: 40rem) {
+  .credit-cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+.names.devs { columns: 2; column-gap: 2rem; }
+.names.devs li { break-inside: avoid; }
+.credit-cols h3 { font-size: 1.05rem; color: var(--clay); letter-spacing: 0.06em; }
+
+.names { list-style: none; margin: 0; padding: 0; }
+.names li { margin: 0 0 0.45rem; line-height: 1.25; }
+.names .nick { display: block; font-style: italic; font-size: 1.45rem; color: var(--clay); }
+.names .real { font-size: 0.95rem; color: var(--clay-dim); }
+
+.fork-note {
+  border-top: 1px solid rgba(185, 178, 164, 0.3);
+  padding-top: 1.2rem;
+  font-size: 1rem;
+  color: var(--clay-dim);
+}
+
+/* ---------- footer ---------- */
+
+footer {
+  width: min(var(--wide), 100% - 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 2.5rem 0 3rem;
+  border-top: 1px solid rgba(185, 178, 164, 0.25);
+  font-size: 0.95rem;
+  color: var(--clay-dim);
+}
+footer p { margin: 0 0 0.6rem; max-width: 44rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .menu { animation: rise 0.7s ease-out 0.15s both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+}

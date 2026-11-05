@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Start the stack (creates docker/.env from the example on the first run).
+cd "$(dirname "$0")"
+[ -f docker/.env ] || cp docker/.env.example docker/.env
+docker compose -f docker/docker-compose.yml --env-file docker/.env up -d --build
+if [ "$1" = "-f" ]; then
+    docker compose -f docker/docker-compose.yml --env-file docker/.env logs -f
+fi

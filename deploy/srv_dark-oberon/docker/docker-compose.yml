@@ -1,0 +1,31 @@
+# DigiCloud project stack — Dark Oberon product page behind Traefik.
+# The game servers and the lobby are a separate stack (app_dark-oberon).
+# Compose V2: no `version:`. Custom build -> Watchtower off.
+services:
+  web:
+    restart: always
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME}-web:latest
+    container_name: ${COMPOSE_PROJECT_NAME}-web
+    env_file:
+      - .env
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.rule=Host(`${PROJECT_WEBSITE}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}.tls.certresolver=lets-encr
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}.loadbalancer.server.port=8080
+      - traefik.docker.network=public_proxy
+      - com.centurylinklabs.watchtower.enable=false
+    environment:
+      - TZ=Europe/Prague
+    mem_limit: 128m
+    networks:
+      - public_proxy
+
+networks:
+  public_proxy:
+    external: true
