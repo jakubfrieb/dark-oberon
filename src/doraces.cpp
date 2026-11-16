@@ -2016,8 +2016,8 @@ bool LoadRace(char *file_name, bool hyper_player)
   strcpy(actual->id_name, file_name);
 
   // load texture table
-  if (hyper_player) sprintf(racname, "%s%s.dat", SCH_PATH, file_name);
-  else sprintf(racname, "%s%s/%s.dat", RAC_PATH, file_name, file_name);
+  if (hyper_player) snprintf(racname, sizeof racname, "%s%s.dat", SCH_PATH, file_name);
+  else snprintf(racname, sizeof racname, "%s%s/%s.dat", RAC_PATH, file_name, file_name);
 
   if (!actual->tex_table.Load(racname, config.tex_mag_filter, config.tex_min_filter))
     goto error;
@@ -2029,8 +2029,8 @@ bool LoadRace(char *file_name, bool hyper_player)
 #endif
 
   // load race data
-  if (hyper_player) sprintf(racname, "%s%s.rac", SCH_PATH, file_name);
-  else sprintf(racname, "%s%s/%s.rac", RAC_PATH, file_name, file_name);
+  if (hyper_player) snprintf(racname, sizeof racname, "%s%s.rac", SCH_PATH, file_name);
+  else snprintf(racname, sizeof racname, "%s%s/%s.rac", RAC_PATH, file_name, file_name);
 
   Info(LogMsg("Loading race data from '%s'", racname));
 

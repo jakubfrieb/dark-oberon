@@ -45,8 +45,8 @@ class TCONF_FILE;
 
 /** Maximum length of line in configuration file. */
 #define FILE_MAX_LINE_LENGTH      1024
-/** Maximum length of configuration file name. */
-#define FILE_MAX_NAME_LENGTH      128
+/** Maximum length of configuration file name (full path incl. the --data / install directory). */
+#define FILE_MAX_NAME_LENGTH      4096
 
 
 /**

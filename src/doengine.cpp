@@ -831,7 +831,7 @@ bool TMAP_INFO_LIST::LoadMapInfo(bool basic, const char *file_name){
   int rac_count = 0, i;
   char id_name[1024], full_name[1024], schemes_name[1024]; //buffer for name, fullname and schemes ids
 
-  sprintf(mapname, "%s%s", MAP_PATH, file_name);
+  snprintf(mapname, sizeof mapname, "%s%s", MAP_PATH, file_name);
   if (!(cf = OpenConfFile(mapname)))
     return false;
   
@@ -866,7 +866,7 @@ bool TMAP_INFO_LIST::LoadMapInfo(bool basic, const char *file_name){
     if (ok) ok = cf->ReadStr(map_ext_info.scheme_id_name, "scheme", "", true);
     if (ok) {
       char pom[1024];
-      sprintf(pom, "%s%s%s", SCH_PATH, map_ext_info.scheme_id_name, ".sch");
+      snprintf(pom, sizeof pom, "%s%s%s", SCH_PATH, map_ext_info.scheme_id_name, ".sch");
       if ((cf_sch = OpenConfFile(pom))) {
         cf_sch->ReadStr(map_ext_info.scheme_name, "name", map_ext_info.scheme_id_name, false);
         CloseConfFile(cf_sch);
@@ -921,7 +921,7 @@ bool TMAP_INFO_LIST::LoadMapInfo(bool basic, const char *file_name){
         ok_race = true;
         
         // find out if file race.rac exists and read full name and scheme from it
-        sprintf(racname, "%s%s/%s.rac", RAC_PATH, id_name, id_name);
+        snprintf(racname, sizeof racname, "%s%s/%s.rac", RAC_PATH, id_name, id_name);
         if (!(cf_rac = OpenConfFile(racname))){
           ok_race = false;
           warn_race = true;

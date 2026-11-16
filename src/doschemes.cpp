@@ -778,11 +778,11 @@ bool LoadScheme(TSCHEME_NAME id_name)
 
   scheme.Clear();  // free loaded scheme
 
-  sprintf(schname, "%s%s%s", SCH_PATH, id_name, ".dat");
+  snprintf(schname, sizeof schname, "%s%s%s", SCH_PATH, id_name, ".dat");
 
   if (!scheme.tex_table.Load(schname, config.tex_mag_filter, config.tex_min_filter)) return false;
 
-  sprintf(schname, "%s%s%s", SCH_PATH, id_name, ".sch");
+  snprintf(schname, sizeof schname, "%s%s%s", SCH_PATH, id_name, ".sch");
 
   Info(LogMsg("Loading scheme from '%s'", schname));
 
