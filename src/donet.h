@@ -110,6 +110,10 @@ const int max_net_message_size = 255;
 
 extern TLOG_MESSAGE socket_error_message;
 
+/** Logs a warning about a dropped (malformed or unexpected) network message,
+ *  rate limited so that a flood of bad messages cannot fill the log. */
+void NetDropWarning (const char *text);
+
 //=========================================================================
 // TNET_ADDRESS
 //=========================================================================

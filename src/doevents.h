@@ -102,6 +102,7 @@ private:
   int player_id;              //!< Player identificator.
   int unit_id;                //!< Unit identificator.
   bool priority;              //!< Specified to which queue will be event stored.
+  bool from_net;              //!< Received from the network (DelinearizeEvent), checked again before processing.
   double time_stamp;          //!< Time stamp of event.
   int event;                  //!< Type of event. (states US_MOVE, US_ATTACK ....)
   int last_event;             //!< Type of event that was replaned. (if event was not replaned, US_NONE is set)
@@ -121,6 +122,9 @@ public:
   
   //!< Returns identificator of unit.
   int GetUnitID(void) {return unit_id;};
+
+  //!< Returns true for an event received from the network.
+  bool IsFromNet(void) {return from_net;};
 
   //!< Returns priority of event.
   bool GetPriority(void) {return priority;};

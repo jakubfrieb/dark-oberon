@@ -30,6 +30,8 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <ctime>
 
 #ifdef UNIX
 # include <cerrno>
@@ -56,6 +58,34 @@ using std::vector;
  *  String used for error message produced by macro SOCKET_ERROR_MESSAGE().
  */
 TLOG_MESSAGE socket_error_message;
+
+/** Warnings about dropped messages logged per window; the rest is counted. */
+static const int net_drop_warnings_per_window = 20;
+static const int net_drop_window_seconds = 60;
+static std::atomic<long> net_drop_window (0);
+static std::atomic<int> net_drop_count (0);
+
+/**
+ *  Logs a warning about a dropped network message. Anyone can connect to the
+ *  game port, so after net_drop_warnings_per_window warnings in one window the
+ *  other drops are only counted; the count is logged with the first drop of a
+ *  later window.
+ */
+void NetDropWarning (const char *text)
+{
+  const std::string copy (text);   // LogMsg() output lives in a shared buffer
+  const long window = static_cast<long> (time (NULL) / net_drop_window_seconds);
+  long old_window = net_drop_window.load ();
+
+  if (old_window != window && net_drop_window.compare_exchange_strong (old_window, window)) {
+    const int not_logged = net_drop_count.exchange (0) - net_drop_warnings_per_window;
+    if (not_logged > 0)
+      Warning (LogMsg ("%d more dropped network messages were not logged", not_logged));
+  }
+
+  if (net_drop_count.fetch_add (1) < net_drop_warnings_per_window)
+    Warning (copy.c_str ());
+}
 
 TPOOL<TNET_MESSAGE> * pool_net_messages;
 
@@ -902,8 +932,8 @@ TNET_MESSAGE_HANDLER::TNET_MESSAGE_HANDLER () {
 
 void TNET_MESSAGE_HANDLER::HandleMessage (TNET_MESSAGE *msg) {
   if (extended_function[msg->GetType ()] == NULL) {
-    Warning (LogMsg ("Dropping message of unknown type %d from %s", msg->GetType (),
-                     TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    NetDropWarning (LogMsg ("Dropping message of unknown type %d from %s", msg->GetType (),
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
     pool_net_messages->PutToPool(msg);
     return;
   }
@@ -913,8 +943,8 @@ void TNET_MESSAGE_HANDLER::HandleMessage (TNET_MESSAGE *msg) {
 
   /* Handlers stop at the first out-of-bounds Extract*() and ignore the message. */
   if (msg->ExtractFailed ())
-    Warning (LogMsg ("Dropped malformed message (type %d, size %d) from %s", msg->GetType (),
-                     msg->GetSize (), TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    NetDropWarning (LogMsg ("Dropped malformed message (type %d, size %d) from %s", msg->GetType (),
+                            msg->GetSize (), TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
 
   pool_net_messages->PutToPool(msg);
 }

@@ -129,8 +129,10 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
 
   /****************** Compute new values - textures, times (ALL UNITS) ********************************/
 
-  // RQ_UPGRADE_UNIT
-  if (proc_event->TestEvent(RQ_UPGRADE_UNIT)) {
+  // RQ_UPGRADE_UNIT (int1 = index in race->buildings; it may come from the network)
+  if (proc_event->TestEvent(RQ_UPGRADE_UNIT)
+      && proc_event->int1 >= 0 && proc_event->int1 < player->race->buildings_count
+      && TestItemType(player->race->buildings[proc_event->int1]->GetItemType())) {
     TFACTORY_ITEM * new_itm = static_cast<TFACTORY_ITEM *>(player->race->buildings[proc_event->int1]);
     
     ClearActions();
@@ -140,8 +142,9 @@ void TFACTORY_UNIT::ProcessEvent(TEVENT * proc_event)
     ChangeAnimation();
   }
 
-  // RQ_CREATE_UNIT
-  if (proc_event->TestEvent(RQ_CREATE_UNIT))
+  // RQ_CREATE_UNIT (int1 = index in race->units; it may come from the network)
+  if (proc_event->TestEvent(RQ_CREATE_UNIT)
+      && proc_event->int1 >= 0 && proc_event->int1 < player->race->units_count)
   {
     unit = NULL;
     new_prod_itm = static_cast<TFORCE_ITEM *>(player->race->units[proc_event->int1]);
