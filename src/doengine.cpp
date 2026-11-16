@@ -317,7 +317,7 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg);
 static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
-static void OnDisconnect (in_addr address, in_port_t port);
+static void OnDisconnect (in_addr address, in_port_t port, int fd);
 
 #if !HEADLESS
 void EditorMenuOnShow(TGUI_BOX *sender);
@@ -3931,7 +3931,7 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
 
   player_array.Lock ();
   
-  for (int id = 1; (id = player_array.GetPlayerID (msg->GetAddress (), msg->GetPort (), id)) != -1; id++) {
+  for (int id = 1; (id = host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor (), id)) != -1; id++) {
     if (!player_array.IsComputer (id)) {
       string name = player_array.GetPlayerName (id);
 
@@ -3982,7 +3982,7 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
     return;
   }
 
-  player_array.PlayerReady (msg->GetAddress (), msg->GetPort ());
+  player_array.PlayerReady (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()));
 
   if (leader_ready && player_array.AllRemoteReady ()) {
     allowed_to_start_process_function = true;
@@ -4069,6 +4069,7 @@ static void ProcessDisconnect (int player_id) {
 struct TDISCONNECT_DATA {
   in_addr address;
   in_port_t port;
+  int fd;   //!< Socket of the closed connection: identifies the player(s) behind it.
 };
 
 static int SDLCALL OnDisconnectThread (void *d) {
@@ -4097,7 +4098,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
     } else {
       player_array.Lock ();
 
-      int player_id = player_array.GetPlayerID (data->address, data->port, 0);
+      int player_id = host->GetPlayerIDByFileDescriptor (data->fd);
 
       if (player_id != -1) {
         string player_name = player_array.GetPlayerName (player_id);
@@ -4116,7 +4117,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Lock ();
 
-      for (int id = 0; (id = player_array.GetPlayerID (data->address, data->port, id)) != -1; id++) {
+      for (int id = 0; (id = host->GetPlayerIDByFileDescriptor (data->fd, id)) != -1; id++) {
         host->DisconnectAddress (id);
         ProcessDisconnect (id);
       }    
@@ -4129,11 +4130,12 @@ static int SDLCALL OnDisconnectThread (void *d) {
   return 0;
 }
 
-static void OnDisconnect (in_addr address, in_port_t port) {
+static void OnDisconnect (in_addr address, in_port_t port, int fd) {
   TDISCONNECT_DATA *data = NEW TDISCONNECT_DATA;
 
   data->address = address;
   data->port = port;
+  data->fd = fd;
 
   if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
     Critical ("Could not create OnDisconnect thread");

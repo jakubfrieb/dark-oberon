@@ -338,13 +338,12 @@ public:
   void SetStartPoint (int player_index, int value);
 
   int GetMyPlayerID ();
-  int GetPlayerID (in_addr address, in_port_t port, int min_id);
 
   void RunningOnFollower () { running_on_leader = false; }
 
   bool AllPlayersAreLocal ();
 
-  void PlayerReady (in_addr address, in_port_t port);
+  void PlayerReady (int id);
   bool AllRemoteReady ();
 
 private:

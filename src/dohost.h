@@ -153,7 +153,12 @@ public:
     talker->RemoveAddress (id);
   }
 
-  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t)) {
+  /** Returns the player id (>= @p from) whose connection is the socket @p fd, or -1. */
+  int GetPlayerIDByFileDescriptor (int fd, int from = 0) {
+    return talker->FindAddressByFileDescriptor (fd, from);
+  }
+
+  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int)) {
     listener->RegisterOnDisconnect (f);
   }
 

@@ -335,7 +335,7 @@ public:
   void ConsumerIsAttached (SDL_Thread *thread);
   int GetListenersFileDescriptor (in_addr address, in_port_t port);
 
-  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t));
+  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int));
 
 private:
   static int SDLCALL listener_thread_function (void *listener_class);
@@ -356,7 +356,7 @@ private:
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.
 
-  void (* on_disconnect)(in_addr, in_port_t);
+  void (* on_disconnect)(in_addr, in_port_t, int);  //!< Address, port and socket of the closed connection.
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
@@ -387,6 +387,8 @@ public:
 
   void DisconnectAddress (int id);
   void RemoveAddress (int id);
+
+  int FindAddressByFileDescriptor (int fd, unsigned from = 0);
 
   /** Returns pointer to outgoing message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()

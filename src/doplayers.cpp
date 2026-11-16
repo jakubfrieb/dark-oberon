@@ -1247,25 +1247,6 @@ int TPLAYER_ARRAY::GetMyPlayerID () {
   throw PlayerNotFoundException ();
 }
 
-int TPLAYER_ARRAY::GetPlayerID (in_addr address, in_port_t port, int min_id) {
-  int ret = -1;
-
-  Lock ();
-
-  /* XXX: the message comes from a random port, so we do not check the port. */
-
-  for (int i = min_id; i < GetCount (); i++) {
-    if (TNET_RESOLVER::NetworkToAscii (player[i].addr) == TNET_RESOLVER::NetworkToAscii (address)) {
-      ret = i;
-      break;
-    }
-  }
-
-  Unlock ();
-
-  return ret;
-}
-
 bool TPLAYER_ARRAY::AllPlayersAreLocal () {
   Lock ();
 
@@ -1281,18 +1262,11 @@ bool TPLAYER_ARRAY::AllPlayersAreLocal () {
   return !any_remote;
 }
 
-void TPLAYER_ARRAY::PlayerReady (in_addr address, in_port_t port) {
+void TPLAYER_ARRAY::PlayerReady (int id) {
   Lock ();
 
-  /* XXX: the message comes from a random port, so we do not check the port. */
-
-  for (int i = 0; i < GetCount (); i++) {
-    if (IsRemote (i) &&
-        TNET_RESOLVER::NetworkToAscii (player[i].addr) == TNET_RESOLVER::NetworkToAscii (address))
-    {
-      player[i].ready_to_start_game = true;
-    }
-  }
+  if (id >= 0 && id < GetCount () && IsRemote (id))
+    player[id].ready_to_start_game = true;
 
   Unlock ();
 }

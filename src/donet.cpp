@@ -623,7 +623,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
   }
 
   if (self->on_disconnect)
-    self->on_disconnect (data->address.sin_addr, data->address.sin_port);
+    self->on_disconnect (data->address.sin_addr, data->address.sin_port, fd);
 
   Debug ("Listener's subthread finished");
   return 0;
@@ -697,7 +697,7 @@ int TNET_LISTENER::GetListenersFileDescriptor (in_addr address, in_port_t port) 
   return fd;
 }
 
-void TNET_LISTENER::RegisterOnDisconnect (void (* f)(in_addr, in_port_t)) {
+void TNET_LISTENER::RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int)) {
   on_disconnect = f;
 }
 
@@ -877,6 +877,25 @@ void TNET_TALKER::RemoveAddress (int id) {
   remote_address.erase (remote_address.begin() + id);
 
   delete old;
+}
+
+/**
+ *  Returns the first index >= @p from whose connection is the socket @p fd, or -1.
+ *
+ *  The index is the player id. This identifies the sender of a received message (or the owner
+ *  of a closed connection) exactly; matching by IP address cannot tell apart players that share
+ *  an address (one machine, one NAT).
+ */
+int TNET_TALKER::FindAddressByFileDescriptor (int fd, unsigned from) {
+  if (fd < 0)
+    return -1;
+
+  for (unsigned i = from; i < remote_address.size (); i++) {
+    if (!remote_address[i]->IsEmpty () && remote_address[i]->GetFileDescriptor () == fd)
+      return i;
+  }
+
+  return -1;
 }
 
 void TNET_TALKER::RemoveAddressFromDisctinctAddresses (in_addr address,
