@@ -233,6 +233,11 @@ static void process_event(const SDL_Event *e)
       int w = 0, h = 0;
       SDL_GetWindowSize(g_win, &w, &h);
       dispatch_window_size(w, h);
+      /* Re-grab so the OS pointer clip rect follows the new size (Cocoa/Win32). */
+      if (SDL_GetWindowFlags(g_win) & SDL_WINDOW_INPUT_FOCUS) {
+        set_window_mouse_grab(SDL_FALSE);
+        set_window_mouse_grab(SDL_TRUE);
+      }
       break;
     }
     case SDL_WINDOWEVENT_EXPOSED:
