@@ -116,7 +116,14 @@ extern TLOG_MESSAGE socket_error_message;
 
 struct TNET_ADDRESS {
 public:
-  class ConnectingErrorException {};
+  class ConnectingErrorException {
+  public:
+    ConnectingErrorException (bool refused = false, const std::string &reason = "")
+      : refused (refused), reason (reason) {}
+
+    bool refused;        //!< Nobody listens on the address (ECONNREFUSED).
+    std::string reason;  //!< Socket error description, shown to the player.
+  };
 
   TNET_ADDRESS (in_addr address, in_port_t port);
   TNET_ADDRESS (in_addr address, in_port_t port, int fd);
