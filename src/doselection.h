@@ -122,6 +122,7 @@ public:
   bool CanDrawLines() { return can_move && timer > 0; }
 
   bool TestCanMove() { return can_move; }
+  TFACTORY_UNIT *GetMyFactory();    //!< Only selected unit if it is my finished factory, else NULL.
   bool TestCanSetRally();
   bool TestCanHide(TMAP_UNIT *over_unit);
   bool TestCanAttack(TMAP_UNIT *over_unit);

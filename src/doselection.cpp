@@ -806,6 +806,12 @@ void TSELECTION::UpdateAction(bool lock)
 
 void TSELECTION::DrawUnitsLines()
 {
+  // rally flag of selected factory
+  SDL_LockMutex(mutex);
+  TFACTORY_UNIT *fu = GetMyFactory();
+  if (fu) fu->DrawRallyFlag();
+  SDL_UnlockMutex(mutex);
+
   // move lines
   if (!CanDrawLines() || !can_move) return;
 
@@ -1212,16 +1218,25 @@ bool TSELECTION::MoveUnits(TPOSITION goal)
 }
 
 
-bool TSELECTION::TestCanSetRally()
+TFACTORY_UNIT *TSELECTION::GetMyFactory()
 {
   if (!OnlyOne() || !IsMy())
-    return false;
+    return NULL;
   TMAP_UNIT *u = GetFirstUnit();
   if (!u || !u->TestItemType(IT_FACTORY))
-    return false;
+    return NULL;
   if (u->TestState(US_IS_BEING_BUILT))
+    return NULL;
+  return static_cast<TFACTORY_UNIT *>(u);
+}
+
+
+bool TSELECTION::TestCanSetRally()
+{
+  TFACTORY_UNIT *fu = GetMyFactory();
+  if (!fu)
     return false;
-  TFACTORY_ITEM *fi = static_cast<TFACTORY_ITEM *>(u->GetPointerToItem());
+  TFACTORY_ITEM *fi = static_cast<TFACTORY_ITEM *>(fu->GetPointerToItem());
   return fi->HasAnyProduct();
 }
 
@@ -1380,6 +1395,8 @@ void TSELECTION::StopUnits() {}
 bool TSELECTION::ReactUnits() { return false; }
 
 bool TSELECTION::MoveUnits(TPOSITION) { return false; }
+
+TFACTORY_UNIT *TSELECTION::GetMyFactory() { return NULL; }
 
 bool TSELECTION::TestCanSetRally() { return false; }
 

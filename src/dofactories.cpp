@@ -643,6 +643,42 @@ void TFACTORY_UNIT::SetRallyGoalFromLocal(const TPOSITION_3D &goal)
 }
 
 
+/**
+ *  Method draws planted flag on the rally point.
+ */
+void TFACTORY_UNIT::DrawRallyFlag()
+{
+#if !HEADLESS
+  if (!rally_active) return;
+  if (view_segment != DRW_ALL_SEGMENTS && view_segment != rally_goal.segment) return;
+
+  SetMapPosition(rally_goal.x + 0.5f, rally_goal.y + 0.5f);
+
+  glDisable(GL_TEXTURE_2D);
+
+  // pole
+  glLineWidth(2.0f);
+  glColor3f(0.9f, 0.9f, 0.9f);
+  glBegin(GL_LINES);
+    glVertex2d(0, 0);
+    glVertex2d(0, 1.5f * DAT_MAPEL_DIAGONAL_SIZE);
+  glEnd();
+  glLineWidth(1.0f);
+
+  // pennant
+  glColor3f(1, 0.8f, 0);
+  glBegin(GL_TRIANGLES);
+    glVertex2d(0, 1.5f * DAT_MAPEL_DIAGONAL_SIZE);
+    glVertex2d(0, DAT_MAPEL_DIAGONAL_SIZE);
+    glVertex2d(DAT_MAPEL_STRAIGHT_SIZE_2, 1.25f * DAT_MAPEL_DIAGONAL_SIZE);
+  glEnd();
+
+  glColor4f(1, 1, 1, 1);
+  glEnable(GL_TEXTURE_2D);
+#endif
+}
+
+
 //=========================================================================
 // END
 //=========================================================================
