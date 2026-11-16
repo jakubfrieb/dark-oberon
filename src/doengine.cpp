@@ -3615,6 +3615,7 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
     TLEADER *leader = dynamic_cast<TLEADER *>(host);
     leader->SendPlayerArray (selected_map_name, true);
   }
+  state = ST_GAME;   // in the same hold: a disconnect from now on is an in-game one
   giant->Unlock ();
 
 #if HEADLESS
@@ -3627,10 +3628,6 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
     LeaderAllowStartIfAllReady ();
     giant->Unlock ();
   }
-#else
-  giant->Lock ();
-  state = ST_GAME;
-  giant->Unlock ();
 #endif
 }
 
@@ -3810,7 +3807,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
            assumed: connections from one address are matched in the order they arrive). */
         int fd;
 
-        for (int j = 0; j < 180; j++) {
+        for (int j = 0; j < 30; j++) {   // 15 s
           fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i));
           if (fd != -1)
             break;
@@ -7489,6 +7486,7 @@ void RunDedicatedServer(const char *map_basename, int port)
           TLEADER *leader = dynamic_cast<TLEADER *>(host);
           leader->SendPlayerArray(selected_map_name, true);
         }
+        state = ST_GAME;   // in the same hold: a disconnect from now on is an in-game one
         giant->Unlock();
 
         TTIME clock;
