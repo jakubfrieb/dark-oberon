@@ -2429,7 +2429,7 @@ bool TMAP::LoadMap(char *name) // load map from file
 
   Info(LogMsg("Loading map from '%s'", mapname));
 
-  strcpy(map.id_name, name);
+  snprintf(map.id_name, sizeof map.id_name, "%s", name);
 
   if (!(map.file = OpenConfFile(mapname)))
     return false;
