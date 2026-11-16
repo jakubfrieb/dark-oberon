@@ -370,7 +370,7 @@ public:
   unsigned GetGeneration ()
   { return generation; }
 
-  typedef void (* DISCONNECT_HANDLER)(unsigned generation, in_addr address, in_port_t port, int fd);
+  typedef void (* DISCONNECT_HANDLER)(unsigned generation, int fd);
   void RegisterOnDisconnect (DISCONNECT_HANDLER f);
 
 private:

@@ -363,9 +363,6 @@ void GLFWCALL WindowRefreshCallback ();
 void Menu(void);
 void Game(void);
 
-class TEVENT;
-/** Checks an event received from the network; NULL when valid, else the reason. */
-const char *ValidateNetEvent(TEVENT *ev, bool game_data);
 #if !HEADLESS
 void Editor(void);
 #endif

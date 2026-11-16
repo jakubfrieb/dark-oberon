@@ -660,7 +660,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
   self->ConnectionEnded (fd);
 
   if (self->on_disconnect)
-    self->on_disconnect (self->generation, data->address.sin_addr, data->address.sin_port, fd);
+    self->on_disconnect (self->generation, fd);
 
   Debug ("Listener's subthread finished");
   return 0;

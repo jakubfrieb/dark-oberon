@@ -89,6 +89,11 @@ void TLEADER::SendPingReply (double request_time) {
   SendMessage (m);
 }
 
+/**
+ *  Sends the player list to all followers. Keep in sync with PlayerArrayFits()
+ *  and NewPlayerArrayBytes() (doengine.cpp), which compute the size of this
+ *  message so that a roster change that would not fit is refused.
+ */
 void TLEADER::SendPlayerArray (string map_name, bool start_game) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_player_array, start_game);

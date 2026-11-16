@@ -2002,6 +2002,13 @@ bool LoadRace(char *file_name, bool hyper_player)
 
   Info (LogMsg ("Loading race '%s'", file_name));
 
+  /* The id is copied into TRACE::id_name (TRAC_NAME). */
+  if (strlen (file_name) >= sizeof (TRAC_NAME)) {
+    Error (LogMsg ("Race id '%.40s...' is too long (maximal race id length is %d characters).",
+                   file_name, RAC_MAX_NAME_LENGTH - 1));
+    return false;
+  }
+
   if ((hyper_player) && (races)) DeleteRaces();
 
   // create new race

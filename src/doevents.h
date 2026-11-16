@@ -112,6 +112,7 @@ private:
   TEVENT * queue_left;    //!< Pointer to next event in TQUEUE_EVENTS.
   TEVENT * queue_right;   //!< Pointer to previous event in TQUEUE_EVENTS.
 
+  static int GetLinearizedSize(void); // Exact size of a linearized event.
 
 public:
   T_SIMPLE simple1, simple2, simple3, simple4, simple5, simple6;
@@ -164,7 +165,6 @@ public:
   
   int LinearizeEvent(char * char_event); // Linearize event to array of chars (prepare event for net).
   bool DelinearizeEvent(char * char_event, int lin_event_len); // Delinearize event from array of chars (fill event with data in char).
-  static int GetLinearizedSize(void); // Exact size of a linearized event.
   
   TEVENT(void);   // Constructor only zeroize all data.
 };

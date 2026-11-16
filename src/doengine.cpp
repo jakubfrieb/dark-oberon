@@ -319,7 +319,7 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg);
 static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
-static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd);
+static void OnDisconnect (unsigned generation, int fd);
 static void LeaderAllowStartIfAllReady ();
 
 #if !HEADLESS
@@ -1391,11 +1391,11 @@ static bool IsMapRace (const string &race_id_name) {
 
 /**
  *  Returns true when @p id (a map or race id_name received from the network)
- *  can be used as a file name: bounded length, no path separators or "..".
+ *  can be used as a file name: no path separators or "..". The length is
+ *  bounded where the id is used (LoadMapInfo, IsMapRace, LoadRace).
  */
 static bool IsSafeNetId (const string &id) {
-  return id.length () < 128 && id.find_first_of ("/\\:") == string::npos
-         && id.find ("..") == string::npos;
+  return id.find_first_of ("/\\:") == string::npos && id.find ("..") == string::npos;
 }
 
 /**
@@ -1433,6 +1433,9 @@ static void AssignFreeMapRace (int player_index) {
  *  fits into one network message after its payload changes by @p extra_bytes.
  *  Pack() throws when it does not, so a roster change that would not fit must
  *  be refused. Caller holds player_array.
+ *
+ *  Keep in sync with TLEADER::SendPlayerArray (doleader.cpp): this and
+ *  NewPlayerArrayBytes() mirror its layout byte for byte.
  */
 static bool PlayerArrayFits (int extra_bytes) {
   int size = sizeof (double) + selected_map_name.length () + 1 + sizeof (uint32_t) + 1;
@@ -1456,6 +1459,59 @@ static int NewPlayerArrayBytes (const string &name, bool remote) {
     race = std::max (race, strlen (r->id_name));
 
   return name.length () + 1 + race + 1 + 3 + (remote ? sizeof (in_addr) + sizeof (in_port_t) : 0);
+}
+
+/**
+ *  Checks whether a player called @p name can join the lobby. Returns NULL
+ *  when he can, otherwise the reason. Computer players are limited by the
+ *  map; remote players may fill the lobby up to PL_MAX_PLAYERS (the leader can
+ *  still pick a bigger map, CanStartGame() checks the map limit). Caller holds
+ *  player_array.
+ */
+static const char *CannotAddPlayer (const string &name, bool remote) {
+  if (!remote && player_array.GetCount () >= map_info_list.map_ext_info.max_players + 1)
+    return "too many players for this map";
+  if (player_array.GetCount () >= PL_MAX_PLAYERS)
+    return "too many players";
+  if (!PlayerArrayFits (NewPlayerArrayBytes (name, remote)))
+    return "player list would not fit into a network message";
+
+  return NULL;
+}
+
+/**
+ *  Adds a computer player with a free race of the map to the lobby, if
+ *  CannotAddPlayer() allows it. Returns his index, or -1 (reason in @p why).
+ *  Caller holds player_array.
+ */
+static int AddLobbyComputer (const char **why = NULL) {
+  const char *reason = CannotAddPlayer ("Computer", false);
+  if (why)
+    *why = reason;
+  if (reason)
+    return -1;
+
+  player_array.AddComputerPlayer ();
+  if (host)
+    host->AddEmptyAddress ();
+
+  int index = player_array.GetCount () - 1;
+  AssignFreeMapRace (index);
+  return index;
+}
+
+/**
+ *  Leader: sets the race of lobby player @p index to @p race when it is a race
+ *  of the map and the player list still fits into a network message. Returns
+ *  false (race unchanged) otherwise. Caller holds player_array.
+ */
+static bool LeaderChangeRace (int index, const string &race) {
+  if (!IsMapRace (race)
+      || !PlayerArrayFits (int (race.length ()) - int (player_array.GetRaceIdName (index).length ())))
+    return false;
+
+  player_array.SetRaceIdName (index, race);
+  return true;
 }
 
 /**
@@ -2057,18 +2113,10 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     }
     if (host && host->GetType () == THOST::ht_leader) {
       player_array.Lock ();
-      {
-        int max_p = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount () >= max_p + 1 || player_array.GetCount () >= PL_MAX_PLAYERS
-            || !PlayerArrayFits (NewPlayerArrayBytes ("Computer", false))) {
+      if (AddLobbyComputer () < 0) {
 #if !HEADLESS
-          gui->ShowMessageBox ("Too many players for this map.", GUI_MB_OK);
+        gui->ShowMessageBox ("Too many players for this map.", GUI_MB_OK);
 #endif
-        } else {
-          player_array.AddComputerPlayer ();
-          host->AddEmptyAddress ();
-          AssignFreeMapRace (player_array.GetCount () - 1);
-        }
       }
       player_array.Unlock ();
       UpdatePlayersAndMenu ();
@@ -2509,8 +2557,29 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
     for (act = map_info_list.map_list, i = 0; (act != NULL) && (i < item_index); act = act->next, i++); // finds pointer to item_index.th map
 
     if (act != NULL) {
+      player_array.Lock ();
+
+      /* The new map (its name, scheme and races) can make the player list too
+         long for one network message: load it, check, and go back to the old
+         map before anything is sent. */
+      string old_map = selected_map_name;
+      std::vector<string> old_races;
+      for (i = 0; i < player_array.GetCount (); i++)
+        old_races.push_back (player_array.GetRaceIdName (i));
+
       MenuUpdateMapInfo (act->id_name, 0);
+
+      if (!old_map.empty () && !PlayerArrayFits (0)) {
+        Warning (LogMsg ("Map '%s' not selected: the player list would be too long", act->id_name));
+        MenuUpdateMapInfo (old_map, 0);
+        for (i = 0; i < player_array.GetCount (); i++)
+          player_array.SetRaceIdName (i, old_races[i]);
+        map_list->SetItem (map_info_list.GetMapName (old_map).c_str ());
+        gui->ShowMessageBox ("This map cannot be selected:\nthe player list would be too long.", GUI_MB_OK);
+      }
+
       UpdatePlayersAndMenu ();
+      player_array.Unlock ();
     }
   }
 }
@@ -2533,13 +2602,21 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
     if (list == pl_race_combo[i]->GetList ()) {
       string selected_race_name = list->GetItem (item_index);
       string selected_race_id = map_info_list.GetRacIdName (selected_race_name);
-      player_array.SetRaceIdName (i, selected_race_id);
 
       giant->Lock ();
 
-      if (host->GetType () == THOST::ht_follower)
-        dynamic_cast<TFOLLOWER *>(host)->ChangeRace (i,
-            player_array.GetPlayerName (i), selected_race_id);
+      if (host->GetType () == THOST::ht_leader) {
+        /* The same check as a race change from the network; on refusal the
+           menu sync below puts the combo box back to the player's race. */
+        if (!LeaderChangeRace (i, selected_race_id))
+          gui->ShowMessageBox ("This race cannot be chosen:\nthe player list would be too long.", GUI_MB_OK);
+      } else {
+        player_array.SetRaceIdName (i, selected_race_id);
+
+        if (host->GetType () == THOST::ht_follower)
+          dynamic_cast<TFOLLOWER *>(host)->ChangeRace (i,
+              player_array.GetPlayerName (i), selected_race_id);
+      }
 
       giant->Unlock ();
 
@@ -3633,17 +3710,11 @@ static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * 
   giant->Unlock ();
 
   player_array.Lock ();
-  {
-    int max_p = map_info_list.map_ext_info.max_players;
-    if (player_array.GetCount () >= max_p + 1 || player_array.GetCount () >= PL_MAX_PLAYERS
-        || !PlayerArrayFits (NewPlayerArrayBytes ("Computer", false))) {
-      Warning ("request_add_computer: too many players for this map");
-      player_array.Unlock ();
-      return;
-    }
-    player_array.AddComputerPlayer ();
-    host->AddEmptyAddress ();
-    AssignFreeMapRace (player_array.GetCount () - 1);
+  const char *why;
+  if (AddLobbyComputer (&why) < 0) {
+    NetDropWarning (LogMsg ("request_add_computer: %s", why));
+    player_array.Unlock ();
+    return;
   }
   player_array.Unlock ();
 
@@ -3671,7 +3742,7 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
   {
     string reason;
     if (!CanStartGame (reason)) {
-      Warning (LogMsg ("request_start: %s", reason.c_str ()));
+      NetDropWarning (LogMsg ("request_start: %s", reason.c_str ()));
       player_array.Unlock ();
       return;
     }
@@ -3729,15 +3800,16 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
 
   player_array.Lock ();
 
-  /* AddRemotePlayer throws when the array is full, and a player added after the start
-     would not have an entry in players[]; refuse before the follower gets an address. */
-  if (started || player_array.GetCount () >= PL_MAX_PLAYERS
-      || !PlayerArrayFits (NewPlayerArrayBytes (player_name, true))) {
+  /* AddRemotePlayer throws when the array is full, a player added after the start
+     would not have an entry in players[], and a second connect on the same
+     connection would add a ghost player; refuse before the follower gets an address. */
+  const char *why = started ? "game already started"
+                    : host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) != -1
+                      ? "already connected"
+                    : CannotAddPlayer (player_name, true);
+  if (why) {
     NetDropWarning (LogMsg ("Refusing connect request from %s: %s",
-                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (),
-                            started ? "game already started"
-                            : player_array.GetCount () >= PL_MAX_PLAYERS ? "too many players"
-                            : "player list would not fit into a network message"));
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (), why));
     player_array.Unlock ();
     giant->Unlock ();
     return;
@@ -3793,16 +3865,13 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   }
 
   /* Keep the current (valid) race when a client asks for an unknown one. */
-  if (!IsMapRace (new_race)
-      || !PlayerArrayFits (int (new_race.length ()) - int (player_array.GetRaceIdName (index).length ()))) {
+  if (!LeaderChangeRace (index, new_race)) {
     NetDropWarning (LogMsg ("change_race: ignoring unknown race '%.40s' for player %d",
                             new_race.c_str (), index));
     player_array.Unlock ();
     giant->Unlock ();
     return;
   }
-
-  player_array.SetRaceIdName (index, new_race);
 
   UpdatePlayersAndMenu ();
   player_array.Unlock ();
@@ -4215,7 +4284,7 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
  *
  *  @return NULL when the event is valid, otherwise a short reason.
  */
-const char *ValidateNetEvent (TEVENT *ev, bool game_data)
+static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 {
   if (game_data && (!started || players == NULL))
     return "game not running";
@@ -4355,6 +4424,27 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
 }
 
 /**
+ *  Takes player @p id out of the running game (players[] exists). Called with giant locked.
+ */
+static void DeactivatePlayer (int id) {
+  if (player_array.IsRemote (id))
+    players[id]->Disconnect ();
+  players[id]->active = false;
+}
+
+/**
+ *  Returns true while some player other than the hyper player and myself is still active
+ *  (players[] exists). Called with giant locked.
+ */
+static bool HasActiveOpponent () {
+  for (int i = 0; i < player_array.GetCount (); i++)
+    if (players[i] != hyper_player && players[i] != myself && players[i]->active)
+      return true;
+
+  return false;
+}
+
+/**
  *  On the leader: once the leader and every remote player have loaded the game, let all of them
  *  run. Called with giant locked.
  */
@@ -4369,21 +4459,14 @@ static void LeaderAllowStartIfAllReady () {
     departed = departed_before_start[i];
     Info (LogMsg ("Announcing that player %d left before the game started", departed));
     host->SendDisconnect (departed);
-    if (player_array.IsRemote (departed))
-      players[departed]->Disconnect ();
-    players[departed]->active = false;
+    DeactivatePlayer (departed);
   }
   departed_before_start.clear ();
 
 #if !HEADLESS
   /* Nobody left to play against: do not start a solo game. */
   if (departed != -1 && !won_lose) {
-    bool opponent = false;
-    for (int i = 0; i < player_array.GetCount (); i++)
-      if (players[i] != hyper_player && players[i] != myself && players[i]->active)
-        opponent = true;
-
-    if (!opponent) {   // the game stays stopped; leave it with Esc - Disconnect
+    if (!HasActiveOpponent ()) {   // the game stays stopped; leave it with Esc - Disconnect
       string message = LogMsg ("Player %d (%s) left\nbefore the game started.", departed,
                                player_array.GetPlayerName (departed).c_str ());
       action_key = 0;
@@ -4428,7 +4511,13 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
 static void ProcessDisconnect (int player_id) {
   giant->Lock ();
 
-  if (host == NULL || player_id < 0 || player_id >= player_array.GetCount ()) {
+  if (host == NULL) {
+    giant->Unlock ();
+    return;
+  }
+
+  if (player_id < 0 || player_id >= player_array.GetCount ()) {
+    NetDropWarning (LogMsg ("Ignoring disconnect of unknown player %d", player_id));
     giant->Unlock ();
     return;
   }
@@ -4453,10 +4542,10 @@ static void ProcessDisconnect (int player_id) {
     return;
   }
 
-  /* players[] exists only during a game and has player_array.GetCount() entries. */
-  if (players == NULL || player_id < 0 || player_id >= player_array.GetCount ()
-      || players[player_id] == NULL) {
-    NetDropWarning (LogMsg ("Ignoring disconnect of unknown player %d", player_id));
+  /* players[] exists only during a game and has player_array.GetCount() entries
+     (player_id was range-checked above). */
+  if (players == NULL || players[player_id] == NULL) {
+    NetDropWarning (LogMsg ("Ignoring disconnect of player %d without a game", player_id));
     giant->Unlock ();
     return;
   }
@@ -4468,13 +4557,7 @@ static void ProcessDisconnect (int player_id) {
     giant->Unlock ();
     return;
   }
-  bool exists_player;
-
-  if (player_array.IsRemote(player_id)) {
-    players[player_id]->Disconnect();
-  }
-  
-  players[player_id]->active = false;
+  DeactivatePlayer (player_id);
 
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
@@ -4485,15 +4568,7 @@ static void ProcessDisconnect (int player_id) {
     return;
   }
 
-  exists_player = false;
-  for (int i = 0; i < player_array.GetCount(); i++) {
-    if ((players[i] != hyper_player) && (players[i] != myself) && (players[i]->active == true)){
-      exists_player = true;
-      break;
-    }
-  }
-
-  if (!exists_player && !won_lose) {
+  if (!won_lose && !HasActiveOpponent ()) {
     action_key = 0;
     gui->ShowMessageBox("You WON!", GUI_MB_OK);
     allowed_to_start_process_function = true;
@@ -4505,8 +4580,6 @@ static void ProcessDisconnect (int player_id) {
 
 struct TDISCONNECT_DATA {
   unsigned generation;   //!< Listener (session) the connection belonged to.
-  in_addr address;
-  in_port_t port;
   int fd;   //!< Socket of the closed connection: identifies the player(s) behind it.
 };
 
@@ -4562,13 +4635,11 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Lock ();
 
-      /* On a follower, the link to the leader (registered with the leader's address and port
-       * in THOST) closing means the server is gone, not that the opponents hosted there
-       * (computer players) were beaten. The port check tells the leader's link apart from
-       * other clients on the same machine (they share the leader's IP). */
+      /* On a follower, the link to the leader (player 0's connection) closing means the
+       * server is gone, not that the opponents hosted there (computer players) were beaten.
+       * Asked before the loop below disconnects the addresses. */
       bool server_lost = host->GetType () == THOST::ht_follower
-                         && data->address.s_addr == host->GetRemoteAddress ().s_addr
-                         && data->port == htons (host->GetRemotePort ());
+                         && host->GetPlayerIDByFileDescriptor (data->fd) == 0;
       bool show_server_lost = server_lost && !won_lose;
       if (server_lost)
         won_lose = true;  // no "You WON!" from the disconnects below
@@ -4596,12 +4667,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
   return 0;
 }
 
-static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd) {
+static void OnDisconnect (unsigned generation, int fd) {
   TDISCONNECT_DATA *data = NEW TDISCONNECT_DATA;
 
   data->generation = generation;
-  data->address = address;
-  data->port = port;
   data->fd = fd;
 
   if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
@@ -7653,7 +7722,7 @@ void RunDedicatedServer(const char *map_basename, int port)
   }
 
   /* The server now sits in the lobby. OnDisconnectThread removes players who
-   * leave only in ST_PLAY_MENU; StartGame() switches to ST_GAME. */
+   * leave only in ST_PLAY_MENU; the start command (or request_start) sets ST_GAME. */
   giant->Lock();
   state = ST_PLAY_MENU;
   giant->Unlock();
@@ -7721,19 +7790,14 @@ void RunDedicatedServer(const char *map_basename, int port)
       }
       else if (strncmp(buf, "addcpu", 6) == 0) {
         player_array.Lock();
-        int max_p = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount() >= max_p + 1 || player_array.GetCount() >= PL_MAX_PLAYERS
-            || !PlayerArrayFits(NewPlayerArrayBytes("Computer", false))) {
-          Warning("addcpu: too many players for this map");
+        const char *why;
+        int idx = AddLobbyComputer(&why);
+        if (idx < 0) {
+          Warning(LogMsg("addcpu: %s", why));
           player_array.Unlock();
           continue;
         }
-        player_array.AddComputerPlayer();
-        if (host)
-          host->AddEmptyAddress();
         {
-          int idx = player_array.GetCount() - 1;
-          AssignFreeMapRace(idx);
 
           const char *arg = buf + 6;
           while (*arg == ' ' || *arg == '\t')
