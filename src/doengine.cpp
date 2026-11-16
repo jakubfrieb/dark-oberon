@@ -3777,6 +3777,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
     /* Fill the follower's talker array of remote addresses with addresses of
      * all remote players' hosts. For local players add empty address. */
+    bool dial_failed = false;
     for (i = 1; i < player_array.GetCount (); i++) {
       if (player_array.IsComputer (i)) {
         host->AddEmptyAddress ();
@@ -3801,7 +3802,22 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           host->AddEmptyAddress ();   // keep talker index == player id
         }
       } else if (player_array.IsRemote (i)) {
-        host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
+        /* Players connect to each other directly, the server does not relay. A peer we cannot
+           reach (behind NAT, firewall) used to throw out of here and terminate the client. */
+        try {
+          host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
+        } catch (TNET_ADDRESS::ConnectingErrorException &) {
+          string peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (player_array.GetAddress (i)).c_str (),
+                                player_array.GetPort (i));
+          Error (LogMsg ("%d: cannot connect to %s, game not started", i, peer.c_str ()));
+          string message = string (LogMsg ("Error:\nCannot connect to player %d (%s)\nat %s.\n\n", i,
+                                   player_array.GetPlayerName (i).c_str (), peer.c_str ()))
+            + "Players connect to each other directly:\nthey need port forwarding or the same network.";
+          action_key = MNU_DISCONNECT;
+          gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+          dial_failed = true;
+          break;
+        }
         host->GetListener ()->AddListenerByFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i), host->GetTalker ()->GetRemoteFiledescriptor (i));
         Debug (LogMsg ("%d: Adding remote address", i));
       } else {
@@ -3810,7 +3826,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
       }
     }
 
-    state = ST_GAME;
+    if (!dial_failed)
+      state = ST_GAME;
   }
 
   player_array.Unlock ();

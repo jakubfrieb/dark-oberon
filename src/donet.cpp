@@ -159,6 +159,7 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
     bool refused = (errno == ECONNREFUSED);
 #endif
     Error (SOCKET_ERROR_MESSAGE ("Address: Calling connect failed"));
+    do_close (fd);
     throw ConnectingErrorException (refused);
   }
 
