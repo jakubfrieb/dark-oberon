@@ -38,6 +38,9 @@
 /** SDL_mixer channel index for samples; -1 = not playing / N/A (music uses global channel). */
 #define SND_CH_NONE         (-1)
 
+/** Fade-out before shutdown (avoids speaker pop). */
+#define SND_FADEOUT_MS      150
+
 
 enum TSOUND_FORMAT {
   SF_WAV,
@@ -123,6 +126,7 @@ public:
   virtual void Play();
   virtual void Stop();
   virtual void SetLoop(bool lp);
+  virtual bool IsPlaying();
 
   virtual void RefreshSfxVolume(void);
 
@@ -131,6 +135,7 @@ public:
 
 protected:
   void _SetVolume();
+  bool _OwnsChannel();
 };
 
 
@@ -180,6 +185,7 @@ public:
 bool InitSound(void);
 void FmodUpdate(void);
 void FmodShutdown(void);
+void FmodFadeOut(void);
 void FmodApplySfxMasterVolume(T_BYTE vol_menu_0_100);
 
 #endif // #if SOUND

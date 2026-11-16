@@ -223,6 +223,9 @@ void DestroyAll(void)
   SaveConfig();
 
   // destroy structures
+#if SOUND
+  FmodFadeOut();
+#endif
   DestroyFonts();
   DeleteData();
 

@@ -99,6 +99,20 @@ void FmodShutdown(void)
 }
 
 
+/** Short fade-out of all channels and music so freeing data / closing audio does not pop. */
+void FmodFadeOut(void)
+{
+  if (!s_audio_ready)
+    return;
+  if (!Mix_Playing(-1) && !Mix_PlayingMusic())
+    return;
+
+  Mix_FadeOutChannel(-1, SND_FADEOUT_MS);
+  Mix_FadeOutMusic(SND_FADEOUT_MS);
+  SDL_Delay(SND_FADEOUT_MS + 30);
+}
+
+
 void FmodApplySfxMasterVolume(T_BYTE vol)
 {
   T_BYTE scaled;
@@ -126,12 +140,24 @@ void TCHANNEL::_SetVolume(void)
 }
 
 
+/** Channels are reused by Mix_PlayChannel(-1); snd_ch is valid only while it still plays our chunk. */
+bool TSAMPLE::_OwnsChannel(void)
+{
+  if (snd_ch < 0)
+    return false;
+  if (sample && Mix_Playing(snd_ch) && Mix_GetChunk(snd_ch) == sample)
+    return true;
+  snd_ch = SND_CH_NONE;
+  return false;
+}
+
+
 void TSAMPLE::_SetVolume(void)
 {
   int mixv;
   int base;
 
-  if (snd_ch < 0)
+  if (!_OwnsChannel())
     return;
   /* Data file does not set per-sample volume; VT_NONE must still obey SFX master. */
   base = (vol_type == VT_NONE) ? vol_byte_to_mix((T_BYTE)255) : vol_byte_to_mix(volume);
@@ -144,8 +170,7 @@ void TSAMPLE::_SetVolume(void)
 
 void TSAMPLE::RefreshSfxVolume(void)
 {
-  if (snd_ch >= 0 && Mix_Playing(snd_ch))
-    _SetVolume();
+  _SetVolume();
 }
 
 
@@ -170,6 +195,12 @@ bool TCHANNEL::IsPlaying(void)
   if (snd_ch < 0)
     return false;
   return Mix_Playing(snd_ch) != 0;
+}
+
+
+bool TSAMPLE::IsPlaying(void)
+{
+  return _OwnsChannel();
 }
 
 
@@ -240,7 +271,7 @@ void TSAMPLE::Play(void)
 
 void TSAMPLE::Stop(void)
 {
-  if (snd_ch >= 0) {
+  if (_OwnsChannel()) {
     Mix_HaltChannel(snd_ch);
     snd_ch = SND_CH_NONE;
   }
@@ -251,7 +282,7 @@ void TSAMPLE::SetLoop(bool lp)
 {
   loop = lp;
   /* Loop count is fixed at Play(); restart if playing. */
-  if (snd_ch >= 0 && Mix_Playing(snd_ch)) {
+  if (_OwnsChannel()) {
     T_BYTE sv = volume;
     TVOLUME_TYPE st = vol_type;
     Play();
