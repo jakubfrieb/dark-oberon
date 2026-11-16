@@ -371,6 +371,7 @@ SDL_Thread *process_thread = NULL;
 /** Menu "connect to server" background thread. */
 SDL_Thread *connecting_thread = NULL;
 static std::atomic<bool> connecting_thread_finished{true};
+static bool menu_size_changed = false;  //!< Menu GUI was built for another window size.
 
 // menus
 TGUI_PANEL *main_menu = NULL;
@@ -4986,8 +4987,6 @@ void SetOrderVisibility(bool vis)
 // GLFW Size Callback
 //========================================================================
 
-static bool menu_size_changed = false;  ///< Menu GUI was built for another window size.
-
 /**
  *  GLFW window size callback function. This function is called by GLFW every
  *  time the window size is changed.
@@ -5000,9 +4999,11 @@ void GLFWCALL SizeCallback(int w, int h)
   /* The real window size may arrive after the menu GUI was built (the window
    * manager clamped the requested size, or applied it asynchronously): rebuild
    * the menu, its projection and GUI for the real size. */
-  if ((state == ST_MAIN_MENU || state == ST_VIDEO_MENU)
-      && (w != config.scr_width || h != config.scr_height))
+  if ((state == ST_MAIN_MENU || state == ST_PLAY_MENU || state == ST_VIDEO_MENU)
+      && (w != config.scr_width || h != config.scr_height)) {
     menu_size_changed = true;
+    need_redraw->SetTrue();
+  }
 
   config.scr_width = w;
   config.scr_height = h;
@@ -5173,6 +5174,20 @@ void GLFWCALL WindowRefreshCallback () {
 //========================================================================
 
 /**
+ *  Returns true when the menu GUI can be rebuilt without losing what the user
+ *  is doing: the base panel of the menu state is shown and no message box.
+ */
+static bool MenuOnBasePanel()
+{
+  TGUI_MESSAGE_BOX *mb = gui->GetMessageBox();
+  if (mb && mb->IsVisible()) return false;
+
+  return (state == ST_MAIN_MENU && active_menu == main_menu)
+      || (state == ST_PLAY_MENU && active_menu == play_menu)
+      || (state == ST_VIDEO_MENU && active_menu == video_menu);
+}
+
+/**
  *  Main function for menu. Contains menu loop.
  */
 void Menu()
@@ -5207,7 +5222,7 @@ void Menu()
 
   // menu loop
   while ((state == ST_MAIN_MENU || state == ST_PLAY_MENU || state == ST_VIDEO_MENU)
-         && !menu_size_changed) {
+         && !(menu_size_changed && MenuOnBasePanel())) {
     // updates events
     clock.Update();
     mouse.Update(false, clock.GetShift());
