@@ -3697,6 +3697,24 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
+/**
+ *  The follower cannot get a direct connection to player @p id at the start: leave the game at
+ *  once, so the others are not kept waiting, then tell the player why. OK returns to the menu.
+ */
+static void AbortGameStart (int id, const char *reason) {
+  string peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (player_array.GetAddress (id)).c_str (),
+                        player_array.GetPort (id));
+  Error (LogMsg ("%d: %s %s, game not started", id, peer.c_str (), reason));
+
+  host->DisconnectAll ();
+
+  string message = string (LogMsg ("Error:\nPlayer %d (%s) at %s\n%s.\n\n", id,
+                                   player_array.GetPlayerName (id).c_str (), peer.c_str (), reason))
+    + "Players connect to each other directly:\nthey need port forwarding or the same network.";
+  action_key = MNU_DISCONNECT;
+  gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+}
+
 static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   giant->Lock ();
 
@@ -3783,7 +3801,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
         host->AddEmptyAddress ();
         Debug (LogMsg ("%d: Adding empty address (computer)", i));
       } else if (i < my_id) {
-        /* Wait until player with id < my_id gets connected to me. */
+        /* Wait until player with id < my_id gets connected to me (one player per IP address is
+           assumed: connections from one address are matched in the order they arrive). */
         int fd;
 
         for (int j = 0; j < 180; j++) {
@@ -3798,23 +3817,16 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i), fd);
           Debug (LogMsg ("%d: Adding address with file descriptor", i));
         } else {
-          Error (LogMsg ("%d: host not connected in 15 seconds...", i));
-          host->AddEmptyAddress ();   // keep talker index == player id
+          AbortGameStart (i, "did not connect to us");
+          dial_failed = true;
+          break;
         }
       } else if (player_array.IsRemote (i)) {
-        /* Players connect to each other directly, the server does not relay. A peer we cannot
-           reach (behind NAT, firewall) used to throw out of here and terminate the client. */
+        /* Players connect to each other directly, the server does not relay. */
         try {
           host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
         } catch (TNET_ADDRESS::ConnectingErrorException &) {
-          string peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (player_array.GetAddress (i)).c_str (),
-                                player_array.GetPort (i));
-          Error (LogMsg ("%d: cannot connect to %s, game not started", i, peer.c_str ()));
-          string message = string (LogMsg ("Error:\nCannot connect to player %d (%s)\nat %s.\n\n", i,
-                                   player_array.GetPlayerName (i).c_str (), peer.c_str ()))
-            + "Players connect to each other directly:\nthey need port forwarding or the same network.";
-          action_key = MNU_DISCONNECT;
-          gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+          AbortGameStart (i, "cannot be reached");
           dial_failed = true;
           break;
         }

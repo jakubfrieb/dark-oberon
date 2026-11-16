@@ -153,6 +153,12 @@ public:
     talker->RemoveAddress (id);
   }
 
+  /** Shuts down the connections to all remote hosts (player ids stay valid). */
+  void DisconnectAll () {
+    for (int id = 0; id < talker->GetAddressCount (); id++)
+      talker->DisconnectAddress (id);
+  }
+
   /** Returns the player id (>= @p from) whose connection is the socket @p fd, or -1. */
   int GetPlayerIDByFileDescriptor (int fd, int from = 0) {
     return talker->FindAddressByFileDescriptor (fd, from);
