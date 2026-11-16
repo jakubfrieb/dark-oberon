@@ -2115,6 +2115,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
       player_array.Lock ();
       if (AddLobbyComputer () < 0) {
 #if !HEADLESS
+        action_key = 0;   // OK only closes the box (it would repeat MNU_CREATE2)
         gui->ShowMessageBox ("Too many players for this map.", GUI_MB_OK);
 #endif
       }
@@ -2569,12 +2570,13 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
 
       MenuUpdateMapInfo (act->id_name, 0);
 
-      if (!old_map.empty () && !PlayerArrayFits (0)) {
+      if (!PlayerArrayFits (0)) {
         Warning (LogMsg ("Map '%s' not selected: the player list would be too long", act->id_name));
         MenuUpdateMapInfo (old_map, 0);
         for (i = 0; i < player_array.GetCount (); i++)
           player_array.SetRaceIdName (i, old_races[i]);
         map_list->SetItem (map_info_list.GetMapName (old_map).c_str ());
+        action_key = 0;   // OK only closes the box (it would repeat MNU_CREATE2)
         gui->ShowMessageBox ("This map cannot be selected:\nthe player list would be too long.", GUI_MB_OK);
       }
 
@@ -2608,8 +2610,10 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
       if (host->GetType () == THOST::ht_leader) {
         /* The same check as a race change from the network; on refusal the
            menu sync below puts the combo box back to the player's race. */
-        if (!LeaderChangeRace (i, selected_race_id))
+        if (!LeaderChangeRace (i, selected_race_id)) {
+          action_key = 0;   // OK only closes the box (it would repeat MNU_CREATE2)
           gui->ShowMessageBox ("This race cannot be chosen:\nthe player list would be too long.", GUI_MB_OK);
+        }
       } else {
         player_array.SetRaceIdName (i, selected_race_id);
 
@@ -7798,7 +7802,6 @@ void RunDedicatedServer(const char *map_basename, int port)
           continue;
         }
         {
-
           const char *arg = buf + 6;
           while (*arg == ' ' || *arg == '\t')
             arg++;
