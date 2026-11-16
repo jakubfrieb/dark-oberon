@@ -59,6 +59,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <map>
 #include <set>
 
@@ -318,7 +319,8 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg);
 static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
-static void OnDisconnect (in_addr address, in_port_t port);
+static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd);
+static void LeaderAllowStartIfAllReady ();
 
 #if !HEADLESS
 void EditorMenuOnShow(TGUI_BOX *sender);
@@ -508,6 +510,8 @@ TMAP_INFO_LIST map_info_list; //!< List of maps info in menu.
 THOST *host = NULL;
 bool connected = false;
 bool started = false;
+/** Leader: players who left before the start, announced when the game starts. */
+static std::vector<int> departed_before_start;
 bool allowed_to_start_process_function = true;
 bool won_lose = false;
 
@@ -1640,6 +1644,7 @@ bool Disconnect() {
 
   player_array.Clear();
   connected = false;
+  departed_before_start.clear ();
 
   THOST *to_delete = NULL;
 
@@ -3678,6 +3683,7 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
     TLEADER *leader = dynamic_cast<TLEADER *>(host);
     leader->SendPlayerArray (selected_map_name, true);
   }
+  state = ST_GAME;   // in the same hold: a disconnect from now on is an in-game one
   giant->Unlock ();
 
 #if HEADLESS
@@ -3687,19 +3693,9 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
   else {
     leader_ready = true;
     giant->Lock ();
-    if (host != NULL && host->GetType () == THOST::ht_leader) {
-      TLEADER *L = dynamic_cast<TLEADER *>(host);
-      if (player_array.AllRemoteReady ()) {
-        allowed_to_start_process_function = true;
-        L->SendAllowProcessFunction ();
-      }
-    }
+    LeaderAllowStartIfAllReady ();
     giant->Unlock ();
   }
-#else
-  giant->Lock ();
-  state = ST_GAME;
-  giant->Unlock ();
 #endif
 }
 
@@ -3724,6 +3720,13 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
     giant->Unlock ();
     return;
   }
+
+  /* The connection may have closed while this request waited in the queue. */
+  if (!host->GetListener ()->IsConnectionOpen (msg->GetFileDescriptor ())) {
+    giant->Unlock ();
+    return;
+  }
+
   player_array.Lock ();
 
   /* AddRemotePlayer throws when the array is full, and a player added after the start
@@ -3805,6 +3808,24 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   player_array.Unlock ();
 
   giant->Unlock ();
+}
+
+/**
+ *  The follower cannot get a direct connection to player @p id at the start: leave the game at
+ *  once, so the others are not kept waiting, then tell the player why. OK returns to the menu.
+ */
+static void AbortGameStart (int id, const char *reason) {
+  string peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (player_array.GetAddress (id)).c_str (),
+                        player_array.GetPort (id));
+  Error (LogMsg ("%d: %s %s, game not started", id, peer.c_str (), reason));
+
+  host->DisconnectAll ();
+
+  string message = string (LogMsg ("Error:\nPlayer %d (%s) at %s\n%s.\n\n", id,
+                                   player_array.GetPlayerName (id).c_str (), peer.c_str (), reason))
+    + "Players connect to each other directly:\nthey need port forwarding or the same network.";
+  action_key = MNU_DISCONNECT;
+  gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
 }
 
 static void ProcessPlayerArray (TNET_MESSAGE *msg) {
@@ -3972,16 +3993,18 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
     /* Fill the follower's talker array of remote addresses with addresses of
      * all remote players' hosts. For local players add empty address. */
+    bool dial_failed = false;
     for (i = 1; i < player_array.GetCount (); i++) {
       if (player_array.IsComputer (i)) {
         host->AddEmptyAddress ();
         Debug (LogMsg ("%d: Adding empty address (computer)", i));
       } else if (i < my_id) {
-        /* Wait until player with id < my_id gets connected to me. */
+        /* Wait until player with id < my_id gets connected to me (one player per IP address is
+           assumed: connections from one address are matched in the order they arrive). */
         int fd;
 
-        for (int j = 0; j < 180; j++) {
-          fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i));
+        for (int j = 0; j < 30; j++) {   // 15 s
+          fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i));
           if (fd != -1)
             break;
           Debug ("Still do not have that address");
@@ -3992,10 +4015,19 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i), fd);
           Debug (LogMsg ("%d: Adding address with file descriptor", i));
         } else {
-          Error (LogMsg ("%d: host not connected in 15 seconds...", i));
+          AbortGameStart (i, "did not connect to us");
+          dial_failed = true;
+          break;
         }
       } else if (player_array.IsRemote (i)) {
-        host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
+        /* Players connect to each other directly, the server does not relay. */
+        try {
+          host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));
+        } catch (TNET_ADDRESS::ConnectingErrorException &) {
+          AbortGameStart (i, "cannot be reached");
+          dial_failed = true;
+          break;
+        }
         host->GetListener ()->AddListenerByFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i), host->GetTalker ()->GetRemoteFiledescriptor (i));
         Debug (LogMsg ("%d: Adding remote address", i));
       } else {
@@ -4004,7 +4036,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
       }
     }
 
-    state = ST_GAME;
+    if (!dial_failed)
+      state = ST_GAME;
   }
 
   player_array.Unlock ();
@@ -4113,6 +4146,30 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
+/**
+ *  Returns the player who sent a chat message over the socket @p fd, or -1.
+ *
+ *  On a follower, chat over the link to the leader (talker index 0, the hyper player) comes
+ *  from the human playing on the leader: in the lobby that link is the only one.
+ */
+static int ChatSenderID (int fd) {
+  int id = host->GetPlayerIDByFileDescriptor (fd);
+
+  if (id > 0 && !player_array.IsComputer (id))
+    return id;
+
+  if (id == 0 && host->GetType () == THOST::ht_follower) {
+    for (int i = 1; i < player_array.GetCount (); i++) {
+      if (!player_array.IsComputer (i) && player_array.IsRemote (i)
+          && player_array.GetAddress (i).s_addr == host->GetRemoteAddress ().s_addr
+          && player_array.GetPort (i) == host->GetRemotePort ())
+        return i;
+    }
+  }
+
+  return -1;
+}
+
 static void ProcessChatMessage (TNET_MESSAGE *msg) {
   giant->Lock ();
 
@@ -4122,20 +4179,13 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   }
 
   player_array.Lock ();
-  
-  for (int id = 1; (id = player_array.GetPlayerID (msg->GetAddress (), msg->GetPort (), id)) != -1; id++) {
-    if (!player_array.IsComputer (id)) {
-      string name = player_array.GetPlayerName (id);
 
-      string text = msg->ExtractString ();
-      if (msg->ExtractFailed ())
-        break;
-
-      string message = name + ": " + text;
-
-      ost->AddText(message.c_str ());
-
-      break;
+  int id = ChatSenderID (msg->GetFileDescriptor ());
+  if (id != -1) {
+    string text = msg->ExtractString ();
+    if (!msg->ExtractFailed ()) {
+      string message = player_array.GetPlayerName (id) + ": " + text;
+      ost->AddText (message.c_str ());
     }
   }
 
@@ -4298,18 +4348,58 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
     return;
   }
 
-  player_array.PlayerReady (msg->GetAddress (), msg->GetPort ());
-
-  if (leader_ready && player_array.AllRemoteReady ()) {
-    allowed_to_start_process_function = true;
-
-    TLEADER *leader = dynamic_cast<TLEADER *>(host);
-    leader->SendAllowProcessFunction ();
-
-    gui->HideMessageBox ();
-  }
+  player_array.PlayerReady (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()));
+  LeaderAllowStartIfAllReady ();
 
   giant->Unlock ();
+}
+
+/**
+ *  On the leader: once the leader and every remote player have loaded the game, let all of them
+ *  run. Called with giant locked.
+ */
+static void LeaderAllowStartIfAllReady () {
+  if (host == NULL || host->GetType () != THOST::ht_leader
+      || !leader_ready || !player_array.AllRemoteReady ())
+    return;
+
+  /* Everybody still here has built players[] now: tell them who left before the start. */
+  int departed = -1;
+  for (unsigned i = 0; i < departed_before_start.size (); i++) {
+    departed = departed_before_start[i];
+    Info (LogMsg ("Announcing that player %d left before the game started", departed));
+    host->SendDisconnect (departed);
+    if (player_array.IsRemote (departed))
+      players[departed]->Disconnect ();
+    players[departed]->active = false;
+  }
+  departed_before_start.clear ();
+
+#if !HEADLESS
+  /* Nobody left to play against: do not start a solo game. */
+  if (departed != -1 && !won_lose) {
+    bool opponent = false;
+    for (int i = 0; i < player_array.GetCount (); i++)
+      if (players[i] != hyper_player && players[i] != myself && players[i]->active)
+        opponent = true;
+
+    if (!opponent) {   // the game stays stopped; leave it with Esc - Disconnect
+      string message = LogMsg ("Player %d (%s) left\nbefore the game started.", departed,
+                               player_array.GetPlayerName (departed).c_str ());
+      action_key = 0;
+      won_lose = true;
+      gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+      return;
+    }
+  }
+#endif
+
+  allowed_to_start_process_function = true;
+
+  TLEADER *leader = dynamic_cast<TLEADER *>(host);
+  leader->SendAllowProcessFunction ();
+
+  gui->HideMessageBox ();
 }
 
 static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
@@ -4338,7 +4428,27 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
 static void ProcessDisconnect (int player_id) {
   giant->Lock ();
 
-  if (host == NULL) {
+  if (host == NULL || player_id < 0 || player_id >= player_array.GetCount ()) {
+    giant->Unlock ();
+    return;
+  }
+
+  /* Leader, before the start: the player never sends net_protocol_synchronise; count him as
+     ready and announce him when the game starts (LeaderAllowStartIfAllReady). */
+  if (host->GetType () == THOST::ht_leader && !allowed_to_start_process_function) {
+    if (std::find (departed_before_start.begin (), departed_before_start.end (), player_id)
+        == departed_before_start.end ()) {
+      Info (LogMsg ("Player %d (%s) left before the game started.",
+                    player_id, player_array.GetPlayerName (player_id).c_str ()));
+      departed_before_start.push_back (player_id);
+      player_array.PlayerReady (player_id);
+    }
+    LeaderAllowStartIfAllReady ();
+    giant->Unlock ();
+    return;
+  }
+
+  if (!started) {   // players[] does not exist yet
     giant->Unlock ();
     return;
   }
@@ -4394,8 +4504,10 @@ static void ProcessDisconnect (int player_id) {
 }
 
 struct TDISCONNECT_DATA {
+  unsigned generation;   //!< Listener (session) the connection belonged to.
   in_addr address;
   in_port_t port;
+  int fd;   //!< Socket of the closed connection: identifies the player(s) behind it.
 };
 
 static int SDLCALL OnDisconnectThread (void *d) {
@@ -4405,8 +4517,8 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
   giant->Lock ();
 
-  if (host == NULL) {
-    Debug ("But there is no host");
+  if (host == NULL || host->GetListener ()->GetGeneration () != data->generation) {
+    Debug ("But not in this session");
     giant->Unlock ();
     delete data;
     return 0;
@@ -4416,15 +4528,22 @@ static int SDLCALL OnDisconnectThread (void *d) {
     Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
-      action_force = true;
-      MenuButtonOnClickKey (MNU_DISCONNECT);
+      int id = host->GetPlayerIDByFileDescriptor (data->fd);
 
-      action_key = 0;
-      gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
+      if (id == 0) {   // the link to the leader
+        action_force = true;
+        MenuButtonOnClickKey (MNU_DISCONNECT);
+
+        action_key = 0;
+        gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
+      } else if (id != -1) {   // another player, while the game is starting
+        Info (LogMsg ("Connection to player %d closed", id));
+        host->DisconnectAddress (id);
+      }
     } else {
       player_array.Lock ();
 
-      int player_id = player_array.GetPlayerID (data->address, data->port, 0);
+      int player_id = host->GetPlayerIDByFileDescriptor (data->fd);
 
       if (player_id != -1) {
         string player_name = player_array.GetPlayerName (player_id);
@@ -4443,11 +4562,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Lock ();
 
-      /* On a follower, the link to the leader (read via the talker's socket 0, registered with
-       * the leader's address and port in THOST) closing means the server is gone, not that the
-       * opponents hosted there (computer players) were beaten. The port check gates only this
-       * "server lost" detection (other clients on the same machine share the leader's IP); the
-       * disconnect loop below still matches players by address only. */
+      /* On a follower, the link to the leader (registered with the leader's address and port
+       * in THOST) closing means the server is gone, not that the opponents hosted there
+       * (computer players) were beaten. The port check tells the leader's link apart from
+       * other clients on the same machine (they share the leader's IP). */
       bool server_lost = host->GetType () == THOST::ht_follower
                          && data->address.s_addr == host->GetRemoteAddress ().s_addr
                          && data->port == htons (host->GetRemotePort ());
@@ -4455,7 +4573,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
       if (server_lost)
         won_lose = true;  // no "You WON!" from the disconnects below
 
-      for (int id = 0; (id = player_array.GetPlayerID (data->address, data->port, id)) != -1; id++) {
+      for (int id = 0; (id = host->GetPlayerIDByFileDescriptor (data->fd, id)) != -1; id++) {
         host->DisconnectAddress (id);
         ProcessDisconnect (id);
       }
@@ -4469,16 +4587,22 @@ static int SDLCALL OnDisconnectThread (void *d) {
       player_array.Unlock ();
   }
 
+  /* Nothing refers to the socket any more: let the listener close it. */
+  if (host != NULL)
+    host->GetListener ()->ReleaseConnection (data->fd);
+
   giant->Unlock ();
   delete data;
   return 0;
 }
 
-static void OnDisconnect (in_addr address, in_port_t port) {
+static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd) {
   TDISCONNECT_DATA *data = NEW TDISCONNECT_DATA;
 
+  data->generation = generation;
   data->address = address;
   data->port = port;
+  data->fd = fd;
 
   if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
     Critical ("Could not create OnDisconnect thread");
@@ -7282,13 +7406,7 @@ void Game(void)
       follower->SendSynchronise ();
     } else {
       leader_ready = true;
-
-      if (player_array.AllRemoteReady ()) {
-        allowed_to_start_process_function = true;
-
-        TLEADER *leader = dynamic_cast<TLEADER *>(host);
-        leader->SendAllowProcessFunction ();
-      }
+      LeaderAllowStartIfAllReady ();
     }
   }
 
@@ -7718,6 +7836,8 @@ void RunDedicatedServer(const char *map_basename, int port)
             continue;
           }
         }
+        /* Like request_start: run only once every remote player has loaded the game. */
+        allowed_to_start_process_function = player_array.AllPlayersAreLocal();
         player_array.Unlock();
 
         giant->Lock();
@@ -7725,6 +7845,7 @@ void RunDedicatedServer(const char *map_basename, int port)
           TLEADER *leader = dynamic_cast<TLEADER *>(host);
           leader->SendPlayerArray(selected_map_name, true);
         }
+        state = ST_GAME;   // in the same hold: a disconnect from now on is an in-game one
         giant->Unlock();
 
         TTIME clock;
@@ -7733,13 +7854,7 @@ void RunDedicatedServer(const char *map_basename, int port)
         else {
           leader_ready = true;
           giant->Lock();
-          if (host != NULL && host->GetType() == THOST::ht_leader) {
-            TLEADER *L = dynamic_cast<TLEADER *>(host);
-            if (player_array.AllRemoteReady()) {
-              allowed_to_start_process_function = true;
-              L->SendAllowProcessFunction();
-            }
-          }
+          LeaderAllowStartIfAllReady();
           giant->Unlock();
         }
       }

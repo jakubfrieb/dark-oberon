@@ -362,9 +362,16 @@ public:
   { return port; }
 
   void ConsumerIsAttached (SDL_Thread *thread);
-  int GetListenersFileDescriptor (in_addr address);
+  int GetListenersFileDescriptor (in_addr address, in_port_t port);
+  void ReleaseConnection (int fd);
+  bool IsConnectionOpen (int fd);
 
-  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t));
+  /** Distinguishes listeners of different sessions in late disconnect callbacks. */
+  unsigned GetGeneration ()
+  { return generation; }
+
+  typedef void (* DISCONNECT_HANDLER)(unsigned generation, in_addr address, in_port_t port, int fd);
+  void RegisterOnDisconnect (DISCONNECT_HANDLER f);
 
 private:
   static int SDLCALL listener_thread_function (void *listener_class);
@@ -373,16 +380,37 @@ private:
   SDL_Thread *thread;    //!< Listener thread handle.
   SDL_Thread *consumer_thread;
 
-  std::vector<int> subthread_fd;
-  std::vector<in_addr> subthread_address;
-  std::vector<SDL_Thread *> subthread_thread;
+  /** A connection read by a subthread; the listener owns (closes) its socket. */
+  struct CONNECTION {
+    enum State {
+      open,      //!< Being read.
+      ended,     //!< Peer closed it; still open until ReleaseConnection (the fd stays unique).
+      closed     //!< Socket closed; the fd number may belong to a newer connection.
+    };
+
+    int fd;
+    in_addr address;
+    in_port_t port;       //!< Remote port (host byte order).
+    bool own;             //!< We dialed it (AddListenerByFileDescriptor), e.g. the leader link.
+    bool claimed;         //!< Already assigned to a remote host.
+    State state;
+    SDL_Thread *thread;
+  };
+
+  void AddConnection (int fd, sockaddr_in address, bool own);
+  void ConnectionEnded (int fd);
+  static void CloseConnection (CONNECTION &c);
+
+  std::vector<CONNECTION> connections;
+  SDL_mutex *connections_lock;   //!< Guards #connections (the listener thread appends).
 
   int fd;   //!< File descriptior.
   in_port_t port;  //!< Port on which the listener is listening (0 = ephemeral).
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.
 
-  void (* on_disconnect)(in_addr, in_port_t);
+  DISCONNECT_HANDLER on_disconnect;
+  unsigned generation;
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
@@ -413,6 +441,12 @@ public:
 
   void DisconnectAddress (int id);
   void RemoveAddress (int id);
+
+  int FindAddressByFileDescriptor (int fd, int from = 0);
+
+  /** Returns the number of addresses (one per player id). */
+  int GetAddressCount ()
+  { return (int)remote_address.size (); }
 
   /** Returns pointer to outgoing message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()
