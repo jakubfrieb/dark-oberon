@@ -393,6 +393,8 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   consumer_thread = NULL;
 
   on_disconnect = NULL;
+  static unsigned next_generation = 0;
+  generation = ++next_generation;
   connections_lock = SDL_CreateMutex ();
   bind_sem = SDL_CreateSemaphore (0);
   listener_bind_ok = false;
@@ -423,10 +425,16 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
 TNET_LISTENER::~TNET_LISTENER () {
   incoming_messages->Die ();
 
-  if (fd >= 0) {
-    shutdown (fd, 2);
-    do_close (fd);
-    fd = -1;
+  /* Take the listening socket over (the thread sees -1) and close it: on Haiku only close()
+     wakes up the blocked accept(). */
+  SDL_LockMutex (connections_lock);
+  int listening = fd;
+  fd = -1;
+  SDL_UnlockMutex (connections_lock);
+
+  if (listening >= 0) {
+    shutdown (listening, 2);
+    do_close (listening);
   }
 
   /* Wait until listener thread is dead. */
@@ -522,10 +530,14 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
     self->AddConnection (new_fd, remote_addr, false);
   }
 
-  do_close (fd);
+  SDL_LockMutex (self->connections_lock);
+  if (fd >= 0) {   // not taken over by the destructor
+    do_close (fd);
+    fd = -1;
+  }
+  SDL_UnlockMutex (self->connections_lock);
 
-  /* Stop all subthreads: shut their sockets down and wait for them outside the lock (they take
-     it when they end), then close every socket that is still open. */
+  /* Stop the subthreads, wait for them outside the lock, then close what is still open. */
   vector<SDL_Thread *> threads;
 
   SDL_LockMutex (self->connections_lock);
@@ -541,10 +553,8 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   SDL_LockMutex (self->connections_lock);
   for (unsigned i = 0; i < self->connections.size (); i++) {
-    if (self->connections[i].state != CONNECTION::closed) {
-      do_close (self->connections[i].fd);
-      self->connections[i].state = CONNECTION::closed;
-    }
+    if (self->connections[i].state != CONNECTION::closed)
+      CloseConnection (self->connections[i]);
   }
   SDL_UnlockMutex (self->connections_lock);
 
@@ -618,7 +628,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
   self->ConnectionEnded (fd);
 
   if (self->on_disconnect)
-    self->on_disconnect (data->address.sin_addr, data->address.sin_port, fd);
+    self->on_disconnect (self->generation, data->address.sin_addr, data->address.sin_port, fd);
 
   Debug ("Listener's subthread finished");
   return 0;
@@ -637,11 +647,30 @@ void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port
   AddConnection (fd, remote_addr, true);
 }
 
-/**
- *  Starts a subthread reading the socket @p fd. The record and its thread are added in one
- *  lock hold, so the thread finds its record when it ends.
- */
+/** Closes the socket of @p c. Called with connections_lock held. */
+void TNET_LISTENER::CloseConnection (CONNECTION &c) {
+  do_close (c.fd);
+  c.state = CONNECTION::closed;
+}
+
+/** Starts a subthread reading @p fd; record and thread are added in one lock hold. */
 void TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own) {
+  /* Forget closed connections (port scans would grow the list), joining their threads. */
+  vector<SDL_Thread *> finished;
+
+  SDL_LockMutex (connections_lock);
+  for (unsigned i = 0; i < connections.size (); ) {
+    if (connections[i].state == CONNECTION::closed) {
+      finished.push_back (connections[i].thread);
+      connections.erase (connections.begin () + i);
+    } else
+      i++;
+  }
+  SDL_UnlockMutex (connections_lock);
+
+  for (unsigned i = 0; i < finished.size (); i++)
+    SDL_WaitThread (finished[i], NULL);
+
   CONNECTION c;
   c.fd = fd;
   c.address = address.sin_addr;
@@ -656,16 +685,15 @@ void TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own) {
   c.thread = SDL_CreateThread (listener_accept, "net_accept", data);
   if (c.thread == NULL) {
     SDL_UnlockMutex (connections_lock);
+    delete data;
+    do_close (fd);
     throw MutexException ();
   }
   connections.push_back (c);
   SDL_UnlockMutex (connections_lock);
 }
 
-/**
- *  The peer closed the connection @p fd. With a disconnect handler the socket stays open until
- *  the handler has forgotten it (ReleaseConnection); without one it is closed now.
- */
+/** Peer closed @p fd: keep it open for the disconnect handler (ReleaseConnection), if any. */
 void TNET_LISTENER::ConnectionEnded (int fd) {
   SDL_LockMutex (connections_lock);
 
@@ -673,10 +701,8 @@ void TNET_LISTENER::ConnectionEnded (int fd) {
     if (connections[i].fd == fd && connections[i].state == CONNECTION::open) {
       if (on_disconnect)
         connections[i].state = CONNECTION::ended;
-      else {
-        do_close (fd);
-        connections[i].state = CONNECTION::closed;
-      }
+      else
+        CloseConnection (connections[i]);
       break;
     }
   }
@@ -684,23 +710,32 @@ void TNET_LISTENER::ConnectionEnded (int fd) {
   SDL_UnlockMutex (connections_lock);
 }
 
-/**
- *  Closes the socket of an ended connection once nothing refers to its number any more (the
- *  disconnect handler has dropped the players behind it). An open connection with the same
- *  number is a newer one and is left alone.
- */
+/** Closes the ended connection @p fd once nothing refers to it (an open one is newer). */
 void TNET_LISTENER::ReleaseConnection (int fd) {
   SDL_LockMutex (connections_lock);
 
   for (unsigned i = 0; i < connections.size (); i++) {
     if (connections[i].fd == fd && connections[i].state == CONNECTION::ended) {
-      do_close (fd);
-      connections[i].state = CONNECTION::closed;
+      CloseConnection (connections[i]);
       break;
     }
   }
 
   SDL_UnlockMutex (connections_lock);
+}
+
+/** Returns true while the connection @p fd is still being read (not ended or closed). */
+bool TNET_LISTENER::IsConnectionOpen (int fd) {
+  bool open = false;
+
+  SDL_LockMutex (connections_lock);
+  for (unsigned i = 0; i < connections.size (); i++) {
+    if (connections[i].fd == fd && connections[i].state == CONNECTION::open)
+      open = true;
+  }
+  SDL_UnlockMutex (connections_lock);
+
+  return open;
 }
 
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
@@ -744,7 +779,7 @@ int TNET_LISTENER::GetListenersFileDescriptor (in_addr address, in_port_t port) 
   return fd;
 }
 
-void TNET_LISTENER::RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int)) {
+void TNET_LISTENER::RegisterOnDisconnect (DISCONNECT_HANDLER f) {
   on_disconnect = f;
 }
 

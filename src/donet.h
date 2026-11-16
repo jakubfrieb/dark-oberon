@@ -335,8 +335,14 @@ public:
   void ConsumerIsAttached (SDL_Thread *thread);
   int GetListenersFileDescriptor (in_addr address, in_port_t port);
   void ReleaseConnection (int fd);
+  bool IsConnectionOpen (int fd);
 
-  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int));
+  /** Distinguishes listeners of different sessions in late disconnect callbacks. */
+  unsigned GetGeneration ()
+  { return generation; }
+
+  typedef void (* DISCONNECT_HANDLER)(unsigned generation, in_addr address, in_port_t port, int fd);
+  void RegisterOnDisconnect (DISCONNECT_HANDLER f);
 
 private:
   static int SDLCALL listener_thread_function (void *listener_class);
@@ -345,8 +351,7 @@ private:
   SDL_Thread *thread;    //!< Listener thread handle.
   SDL_Thread *consumer_thread;
 
-  /** One connection read by a listener subthread. The listener owns the socket: talker
-   *  addresses only shut it down, and it is closed once nobody can refer to it any more. */
+  /** A connection read by a subthread; the listener owns (closes) its socket. */
   struct CONNECTION {
     enum State {
       open,      //!< Being read.
@@ -365,6 +370,7 @@ private:
 
   void AddConnection (int fd, sockaddr_in address, bool own);
   void ConnectionEnded (int fd);
+  static void CloseConnection (CONNECTION &c);
 
   std::vector<CONNECTION> connections;
   SDL_mutex *connections_lock;   //!< Guards #connections (the listener thread appends).
@@ -374,7 +380,8 @@ private:
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.
 
-  void (* on_disconnect)(in_addr, in_port_t, int);  //!< Address, port and socket of the closed connection.
+  DISCONNECT_HANDLER on_disconnect;
+  unsigned generation;
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
@@ -410,7 +417,7 @@ public:
 
   /** Returns the number of addresses (one per player id). */
   int GetAddressCount ()
-  { return remote_address.size (); }
+  { return (int)remote_address.size (); }
 
   /** Returns pointer to outgoing message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()

@@ -164,7 +164,7 @@ public:
     return talker->FindAddressByFileDescriptor (fd, from);
   }
 
-  void RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int)) {
+  void RegisterOnDisconnect (TNET_LISTENER::DISCONNECT_HANDLER f) {
     listener->RegisterOnDisconnect (f);
   }
 

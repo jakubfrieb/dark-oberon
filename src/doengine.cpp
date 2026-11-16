@@ -318,9 +318,8 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg);
 static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
-static void OnDisconnect (in_addr address, in_port_t port, int fd);
+static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd);
 static void LeaderAllowStartIfAllReady ();
-static void ApplyPendingDisconnects ();
 
 #if !HEADLESS
 void EditorMenuOnShow(TGUI_BOX *sender);
@@ -3652,6 +3651,12 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
   msg->Extract (&port, sizeof (port));
   player_name = msg->ExtractString ();
 
+  /* The connection may have closed while this request waited in the queue. */
+  if (!host->GetListener ()->IsConnectionOpen (msg->GetFileDescriptor ())) {
+    giant->Unlock ();
+    return;
+  }
+
   player_array.Lock ();
 
   dynamic_cast<TLEADER *>(host)->ConnectFollower (msg->GetAddress (), port, msg->GetFileDescriptor ());
@@ -4157,6 +4162,7 @@ static void ProcessDisconnect (int player_id) {
 }
 
 struct TDISCONNECT_DATA {
+  unsigned generation;   //!< Listener (session) the connection belonged to.
   in_addr address;
   in_port_t port;
   int fd;   //!< Socket of the closed connection: identifies the player(s) behind it.
@@ -4169,8 +4175,8 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
   giant->Lock ();
 
-  if (host == NULL) {
-    Debug ("But there is no host");
+  if (host == NULL || host->GetListener ()->GetGeneration () != data->generation) {
+    Debug ("But not in this session");
     giant->Unlock ();
     delete data;
     return 0;
@@ -4231,9 +4237,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
   return 0;
 }
 
-static void OnDisconnect (in_addr address, in_port_t port, int fd) {
+static void OnDisconnect (unsigned generation, in_addr address, in_port_t port, int fd) {
   TDISCONNECT_DATA *data = NEW TDISCONNECT_DATA;
 
+  data->generation = generation;
   data->address = address;
   data->port = port;
   data->fd = fd;
