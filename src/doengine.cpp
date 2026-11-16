@@ -152,6 +152,7 @@ using std::string;
 // video menu key
 #define MNU_FULLSCREEN        30
 #define MNU_VERT_SYNC         31
+#define MNU_CNC_MOUSE         39
 #define MNU_640               32
 #define MNU_800               33
 #define MNU_1024              34
@@ -2233,6 +2234,11 @@ void MenuCheckBoxOnClick(intptr_t key)
     config.file->WriteStr("mipmap_filter", "linear");
     break;
 
+  case MNU_CNC_MOUSE:
+    config.cnc_mouse = !config.cnc_mouse;
+    config.file->WriteBool("cnc_mouse", config.cnc_mouse);
+    break;
+
 #if SOUND
 
   case MNU_MENU_MUSIC:
@@ -2541,6 +2547,123 @@ void MenuSliderOnChange(TGUI_BOX *sender, GLfloat pos)
 //========================================================================
 
 /**
+ *  Issues command of selected units according to actual mouse cursor
+ *  (right click, or left click in C&C mouse mode).
+ */
+static void MouseCommand(void)
+{
+  if (selection->TestCanSetRally() && map.IsInMap(mouse.map_pos.x, mouse.map_pos.y) && !mouse.over_unit) {
+    TFACTORY_UNIT *fu = static_cast<TFACTORY_UNIT *>(selection->GetFirstUnit());
+    T_BYTE seg = view_segment;
+    if (seg == DRW_ALL_SEGMENTS)
+      seg = fu->GetPosition().segment;
+    TPOSITION_3D goal;
+    goal.SetPosition(mouse.map_pos.x, mouse.map_pos.y, seg);
+    fu->SetRallyGoalFromLocal(goal);
+    mouse.action = UA_NONE;
+  } else switch (mouse.cursor_id) {
+  case MC_SELECT:
+  case MC_CAN_MOVE:
+  case MC_CANT_MOVE:
+
+    if (selection->MoveUnits(mouse.map_pos)) 
+    {
+      mouse.action = UA_NONE;
+    }
+    break;
+
+  case MC_CAN_ATTACK:
+  case MC_CANT_ATTACK:
+  case MC_CAN_MINE:
+  case MC_CANT_MINE:
+  case MC_CAN_REPAIR:
+  case MC_CANT_REPAIR:
+  case MC_CAN_HIDE:
+  case MC_CANT_HIDE:
+
+    if (selection->ReactUnits()) {
+      mouse.action = UA_NONE;
+    }
+    break;
+
+  case MC_CAN_BUILD:
+  case MC_CANT_BUILD:
+    {
+      TBUILDING_UNIT *building;
+      TWORKER_UNIT *build_worker = selection->GetBuildWorker();
+
+      if (myself->build_item && build_worker &&
+          (building = build_worker->StartBuild(myself->build_item, mouse.map_pos, false))) {
+
+        // other units iterract with new building
+        TNODE_OF_UNITS_LIST *ul = selection->GetUnitsList();
+        for (; ul; ul = ul->next)
+          (ul->unit != mouse.over_unit && ul->unit->SelectReaction(building, UA_REPAIR));
+
+        // reset mouse action
+        myself->build_item = NULL;
+        mouse.action = UA_NONE;
+        UncheckBuildButton();
+      }
+    }
+    break;
+
+  case MC_EJECT:
+    mouse.over_unit->EjectUnits();
+
+    mouse.action = UA_NONE;
+    break;
+
+  default: break;
+  }
+
+#if SOUND
+  // error sound
+  switch (mouse.cursor_id) {
+  case MC_CANT_MOVE:
+  case MC_CANT_ATTACK:
+  case MC_CANT_MINE:
+  case MC_CANT_REPAIR:
+  case MC_CANT_BUILD:
+    myself->race->snd_error.Play();
+    break;
+
+  default: break;
+  }
+#endif
+}
+
+
+/**
+ *  Tests if cursor identifier means a command of selected units in C&C mouse mode.
+ */
+static bool IsMouseCommandCursor(TMOUSE_CURSOR cursor_id)
+{
+  switch (cursor_id) {
+  case MC_CANT_MOVE:
+    return mouse.action != UA_NONE;   // click outside map deselects
+
+  case MC_CAN_MOVE:
+  case MC_CAN_ATTACK:
+  case MC_CANT_ATTACK:
+  case MC_CAN_MINE:
+  case MC_CANT_MINE:
+  case MC_CAN_REPAIR:
+  case MC_CANT_REPAIR:
+  case MC_CAN_HIDE:
+  case MC_CANT_HIDE:
+  case MC_CAN_BUILD:
+  case MC_CANT_BUILD:
+  case MC_EJECT:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+
+/**
  *   Callback function for events in game.
  */
 void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
@@ -2551,6 +2674,15 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
   case GLFW_MOUSE_BUTTON_LEFT:
     mouse.down_x = mouse.x;
     mouse.down_y = mouse.y;
+
+    // C&C mouse: command is issued on mouse up (if it is not a selection rectangle)
+    if (config.cnc_mouse && IsMouseCommandCursor(mouse.cursor_id)) {
+      mouse.down_cursor_id = mouse.cursor_id;
+      mouse.down_circle_id = mouse.circle_id;
+
+      mouse.draw_selection = true;
+      break;
+    }
 
     if (mouse.cursor_id == MC_ARROW || 
       mouse.cursor_id == MC_CAN_MOVE || mouse.cursor_id == MC_CAN_BUILD || 
@@ -2575,85 +2707,14 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
     break;
 
   case GLFW_MOUSE_BUTTON_RIGHT:
-    if (selection->TestCanSetRally() && map.IsInMap(mouse.map_pos.x, mouse.map_pos.y) && !mouse.over_unit) {
-      TFACTORY_UNIT *fu = static_cast<TFACTORY_UNIT *>(selection->GetFirstUnit());
-      T_BYTE seg = view_segment;
-      if (seg == DRW_ALL_SEGMENTS)
-        seg = fu->GetPosition().segment;
-      TPOSITION_3D goal;
-      goal.SetPosition(mouse.map_pos.x, mouse.map_pos.y, seg);
-      fu->SetRallyGoalFromLocal(goal);
+    if (config.cnc_mouse) {
+      myself->build_item = NULL;
       mouse.action = UA_NONE;
-    } else switch (mouse.cursor_id) {
-    case MC_SELECT:
-    case MC_CAN_MOVE:
-    case MC_CANT_MOVE:
+      UncheckBuildButton();
 
-      if (selection->MoveUnits(mouse.map_pos)) 
-      {
-        mouse.action = UA_NONE;
-      }
-      break;
-
-    case MC_CAN_ATTACK:
-    case MC_CANT_ATTACK:
-    case MC_CAN_MINE:
-    case MC_CANT_MINE:
-    case MC_CAN_REPAIR:
-    case MC_CANT_REPAIR:
-    case MC_CAN_HIDE:
-    case MC_CANT_HIDE:
-
-      if (selection->ReactUnits()) {
-        mouse.action = UA_NONE;
-      }
-      break;
-
-    case MC_CAN_BUILD:
-    case MC_CANT_BUILD:
-      {
-        TBUILDING_UNIT *building;
-        TWORKER_UNIT *build_worker = selection->GetBuildWorker();
-
-        if (myself->build_item && build_worker &&
-            (building = build_worker->StartBuild(myself->build_item, mouse.map_pos, false))) {
-
-          // other units iterract with new building
-          TNODE_OF_UNITS_LIST *ul = selection->GetUnitsList();
-          for (; ul; ul = ul->next)
-            (ul->unit != mouse.over_unit && ul->unit->SelectReaction(building, UA_REPAIR));
-
-          // reset mouse action
-          myself->build_item = NULL;
-          mouse.action = UA_NONE;
-          UncheckBuildButton();
-        }
-      }
-      break;
-
-    case MC_EJECT:
-      mouse.over_unit->EjectUnits();
-
-      mouse.action = UA_NONE;
-      break;
-
-    default: break;
+      selection->UnselectAll();
     }
-
-#if SOUND
-    // error sound
-    switch (mouse.cursor_id) {
-    case MC_CANT_MOVE:
-    case MC_CANT_ATTACK:
-    case MC_CANT_MINE:
-    case MC_CANT_REPAIR:
-    case MC_CANT_BUILD:
-      myself->race->snd_error.Play();
-      break;
-
-    default: break;
-    }
-#endif
+    else MouseCommand();
 
     break;
   }
@@ -2670,12 +2731,22 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
   switch (button) {
   case GLFW_MOUSE_BUTTON_LEFT:
 
-    if (mouse.draw_selection) {
+    // C&C mouse: click with command cursor (cursor is changed to selection one by dragging)
+    if (mouse.draw_selection && config.cnc_mouse && IsMouseCommandCursor(mouse.cursor_id)) {
+      MouseCommand();
+      mouse.draw_selection = false;
+    }
+
+    else if (mouse.draw_selection) {
       if (mouse.cursor_id != MC_SELECT_PLUS)
         selection->UnselectAll();   // unselects all selected units
 
       // mouse selection
       if (fabs(x - mouse.down_x) > MC_SELECT_RADIUS || fabs(y - mouse.down_y) > MC_SELECT_RADIUS) {
+        // C&C mouse keeps pending action on mouse down, selection rectangle cancels it
+        mouse.action = UA_NONE;
+        myself->build_item = NULL;
+
         mouse.RectSelect();
 
         if (selection->IsEmpty() && mouse.over_unit)                 // selects all unit in selection rectangle
@@ -4317,6 +4388,10 @@ void CreateMenuGUI()
 
   check = panel->AddCheckBox(MNU_VERT_SYNC, 50, 350, check_width, 17, "v. synchronisation");
   check->SetChecked(config.vert_sync);
+  check->SetOnMouseClick(MenuCheckBoxOnClick);
+
+  check = panel->AddCheckBox(MNU_CNC_MOUSE, 50, 330, check_width, 17, "C&C mouse controls");
+  check->SetChecked(config.cnc_mouse);
   check->SetOnMouseClick(MenuCheckBoxOnClick);
 
   panel->AddLabel(0, 30, 300, gui_table.GetTexture(DAT_TGID_LABELS, 1));

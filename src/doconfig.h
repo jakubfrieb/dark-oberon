@@ -73,6 +73,9 @@ struct TCONFIG;
 /** Default configuration's show_disconnect_warning.
  *  @sa TCONFIG::show_disconnect_warning */
 #define CFG_DEF_SHOW_DISCONNECT_WARNING true
+/** Default configuration's C&C mouse controls.
+ *  @sa TCONFIG::cnc_mouse */
+#define CFG_DEF_CNC_MOUSE       false
 /** Default configuration's warfog alpha.
  *  @sa TCONFIG::warfog_alpha */
 #define CFG_DEF_WARFOG_ALPHA    40
@@ -173,6 +176,7 @@ struct TCONFIG {
   char player_name[PL_MAX_PLAYER_NAME_LENGTH];    //!< Player name.
   char address[PL_MAX_ADDRESS_LENGTH];            //!< Last conntected address.
   T_BYTE sensitivity;      //!< Mouse sensitivity. [1..100]
+  bool cnc_mouse;          //!< Specifies, if left click commands selected units and right click unselects (Command & Conquer style).
 
   int tex_mag_filter;     //!< Magnification texture filter. [GL_NEAREST, GL_LINEAR]
   int tex_min_filter;     //!< Minification texture filter. [GL_NEAREST, GL_LINEAR, GL_LINEAR_MIPMAP_NEAREST, ...]
