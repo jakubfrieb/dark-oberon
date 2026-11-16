@@ -54,6 +54,7 @@
 
 #include <atomic>
 #include <cctype>
+#include <climits>
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -1366,6 +1367,115 @@ void SetActiveMenu(TGUI_PANEL *menu)
 
 
 /**
+ *  Returns true when @p race_id_name is one of the races of the selected map.
+ */
+static bool IsMapRace (const string &race_id_name) {
+  for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next)
+    if (race_id_name == r->id_name)
+      return true;
+
+  return false;
+}
+
+/**
+ *  Returns true when @p id (a map or race id_name received from the network)
+ *  can be used as a file name: bounded length, no path separators or "..".
+ */
+static bool IsSafeNetId (const string &id) {
+  return id.length () < 128 && id.find_first_of ("/\\:") == string::npos
+         && id.find ("..") == string::npos;
+}
+
+/**
+ *  Returns id_name of the first race of the selected map which no player uses
+ *  yet, or an empty string when all races are taken. Caller holds player_array.
+ */
+static string FirstFreeMapRace () {
+  for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
+    bool taken = false;
+    for (int j = 0; j < player_array.GetCount (); j++)
+      if (player_array.GetRaceIdName (j) == string (r->id_name)) {
+        taken = true;
+        break;
+      }
+    if (!taken)
+      return r->id_name;
+  }
+
+  return "";
+}
+
+/**
+ *  Gives player @p player_index the first free race of the selected map. When
+ *  every race is taken the race is left unchanged (usually ""), and
+ *  CanStartGame() then refuses to start. Caller holds player_array.
+ */
+static void AssignFreeMapRace (int player_index) {
+  string race = FirstFreeMapRace ();
+  if (!race.empty ())
+    player_array.SetRaceIdName (player_index, race);
+}
+
+/**
+ *  Returns true when the player array message (TLEADER::SendPlayerArray) still
+ *  fits into one network message after its payload changes by @p extra_bytes.
+ *  Pack() throws when it does not, so a roster change that would not fit must
+ *  be refused. Caller holds player_array.
+ */
+static bool PlayerArrayFits (int extra_bytes) {
+  int size = sizeof (double) + selected_map_name.length () + 1 + sizeof (uint32_t) + 1;
+
+  for (int i = 0; i < player_array.GetCount (); i++) {
+    size += player_array.GetPlayerName (i).length () + 1 + player_array.GetRaceIdName (i).length () + 1 + 3;
+    if (player_array.IsRemote (i))
+      size += sizeof (in_addr) + sizeof (in_port_t);
+  }
+
+  return size + extra_bytes <= max_net_message_size - TNET_MESSAGE::GetHeaderSize ();
+}
+
+/**
+ *  Bytes a new player adds to the player array message (with the longest race
+ *  id of the map, AssignFreeMapRace() picks the race later).
+ */
+static int NewPlayerArrayBytes (const string &name, bool remote) {
+  size_t race = 0;
+  for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next)
+    race = std::max (race, strlen (r->id_name));
+
+  return name.length () + 1 + race + 1 + 3 + (remote ? sizeof (in_addr) + sizeof (in_port_t) : 0);
+}
+
+/**
+ *  Checks whether the game can start with the current players: not more players
+ *  than the map allows, every player has a race of the map and races differ.
+ *  On failure @p reason gets a message for the user. Caller holds player_array.
+ */
+static bool CanStartGame (string &reason) {
+  int max_players = map_info_list.map_ext_info.max_players;
+  if (player_array.GetCount () > max_players + 1) {
+    reason = string ("Too many players! Maximum count\n of players for this map is ")
+             + std::to_string (max_players) + ".";
+    return false;
+  }
+
+  for (int i = 1; i < player_array.GetCount (); i++)
+    if (!IsMapRace (player_array.GetRaceIdName (i))) {
+      reason = "Player " + std::to_string (i) + " (" + player_array.GetPlayerName (i)
+               + ") has no valid race!";
+      return false;
+    }
+
+  if (!player_array.EveryPlayerHasDifferentRace ()) {
+    reason = "Every player must have different race!";
+    return false;
+  }
+
+  return true;
+}
+
+
+/**
  *  Synchronises player_array with game menu.
  */
 void SynchronisePlayersAndMenu () {
@@ -1936,30 +2046,15 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
       player_array.Lock ();
       {
         int max_p = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount () >= max_p + 1) {
+        if (player_array.GetCount () >= max_p + 1 || player_array.GetCount () >= PL_MAX_PLAYERS
+            || !PlayerArrayFits (NewPlayerArrayBytes ("Computer", false))) {
 #if !HEADLESS
           gui->ShowMessageBox ("Too many players for this map.", GUI_MB_OK);
 #endif
         } else {
           player_array.AddComputerPlayer ();
           host->AddEmptyAddress ();
-          int idx = player_array.GetCount () - 1;
-          string chosen;
-          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-            bool taken = false;
-            for (int j = 0; j < player_array.GetCount (); j++) {
-              if (player_array.GetRaceIdName (j) == string (r->id_name)) {
-                taken = true;
-                break;
-              }
-            }
-            if (!taken) {
-              chosen = r->id_name;
-              break;
-            }
-          }
-          if (!chosen.empty ())
-            player_array.SetRaceIdName (idx, chosen);
+          AssignFreeMapRace (player_array.GetCount () - 1);
         }
       }
       player_array.Unlock ();
@@ -1991,28 +2086,11 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
 
     {
-      int max_players = map_info_list.map_ext_info.max_players;
-      enum { none, too_many_players, not_different_races } error = none;
+      string reason;
 
-      if (player_array.GetCount () > max_players + 1)
-        error = too_many_players;
-      else if (!player_array.EveryPlayerHasDifferentRace ())
-        error = not_different_races;
-
-      if (error != none) {
-        switch (error) {
-        case too_many_players:
-          action_key = 0;
-          gui->ShowMessageBox ((string ("Too many players! Maximum count\n of players for this map is ") + char(max_players + '0') + ".").c_str(), GUI_MB_OK);
-          break;
-        case not_different_races:
-          action_key = 0;
-          gui->ShowMessageBox ("Every player must have different race!", GUI_MB_OK);
-          break;
-        case none:
-          /* Will never happen. */
-          break;
-        }
+      if (!CanStartGame (reason)) {
+        action_key = 0;
+        gui->ShowMessageBox (reason.c_str (), GUI_MB_OK);
         player_array.Unlock ();
         break;
       }
@@ -3544,30 +3622,15 @@ static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * 
   player_array.Lock ();
   {
     int max_p = map_info_list.map_ext_info.max_players;
-    if (player_array.GetCount () >= max_p + 1) {
+    if (player_array.GetCount () >= max_p + 1 || player_array.GetCount () >= PL_MAX_PLAYERS
+        || !PlayerArrayFits (NewPlayerArrayBytes ("Computer", false))) {
       Warning ("request_add_computer: too many players for this map");
       player_array.Unlock ();
       return;
     }
     player_array.AddComputerPlayer ();
     host->AddEmptyAddress ();
-    int idx = player_array.GetCount () - 1;
-    string chosen;
-    for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-      bool taken = false;
-      for (int j = 0; j < player_array.GetCount (); j++) {
-        if (player_array.GetRaceIdName (j) == string (r->id_name)) {
-          taken = true;
-          break;
-        }
-      }
-      if (!taken) {
-        chosen = r->id_name;
-        break;
-      }
-    }
-    if (!chosen.empty ())
-      player_array.SetRaceIdName (idx, chosen);
+    AssignFreeMapRace (player_array.GetCount () - 1);
   }
   player_array.Unlock ();
 
@@ -3592,16 +3655,13 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
   player_array.Lock ();
   allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
 
-  int max_players = map_info_list.map_ext_info.max_players;
-  if (player_array.GetCount () > max_players + 1) {
-    Warning ("request_start: too many players for this map");
-    player_array.Unlock ();
-    return;
-  }
-  if (!player_array.EveryPlayerHasDifferentRace ()) {
-    Warning ("request_start: every player must have a different race");
-    player_array.Unlock ();
-    return;
+  {
+    string reason;
+    if (!CanStartGame (reason)) {
+      Warning (LogMsg ("request_start: %s", reason.c_str ()));
+      player_array.Unlock ();
+      return;
+    }
   }
   player_array.Unlock ();
 
@@ -3652,11 +3712,37 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
   msg->Extract (&port, sizeof (port));
   player_name = msg->ExtractString ();
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
   player_array.Lock ();
+
+  /* AddRemotePlayer throws when the array is full, and a player added after the start
+     would not have an entry in players[]; refuse before the follower gets an address. */
+  if (started || player_array.GetCount () >= PL_MAX_PLAYERS
+      || !PlayerArrayFits (NewPlayerArrayBytes (player_name, true))) {
+    NetDropWarning (LogMsg ("Refusing connect request from %s: %s",
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (),
+                            started ? "game already started"
+                            : player_array.GetCount () >= PL_MAX_PLAYERS ? "too many players"
+                            : "player list would not fit into a network message"));
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
+  }
 
   dynamic_cast<TLEADER *>(host)->ConnectFollower (msg->GetAddress (), port, msg->GetFileDescriptor ());
 
   player_array.AddRemotePlayer (player_name, msg->GetAddress (), port);
+
+  /* The leader is authoritative for races: give the new player a free race of
+   * the map right away. Clients send their race only when the combo box
+   * changes, so without this a joined player kept race "" on a dedicated
+   * server and the game could not start (and addcpu could pick the race the
+   * client's combo showed). */
+  AssignFreeMapRace (player_array.GetCount () - 1);
+
   UpdatePlayersAndMenu ();
 
   player_array.Unlock ();
@@ -3680,10 +3766,26 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   string name = msg->ExtractString ();
   string new_race = msg->ExtractString ();
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
+
   player_array.Lock ();
 
-  if (player_array.GetPlayerName (index) != name) {
-    Warning ("Players not synchronised");
+  if (index < 1 || index >= player_array.GetCount ()
+      || player_array.GetPlayerName (index) != name) {
+    NetDropWarning ("Players not synchronised");
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
+  }
+
+  /* Keep the current (valid) race when a client asks for an unknown one. */
+  if (!IsMapRace (new_race)
+      || !PlayerArrayFits (int (new_race.length ()) - int (player_array.GetRaceIdName (index).length ()))) {
+    NetDropWarning (LogMsg ("change_race: ignoring unknown race '%.40s' for player %d",
+                            new_race.c_str (), index));
     player_array.Unlock ();
     giant->Unlock ();
     return;
@@ -3705,69 +3807,154 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     return;
   }
 
-  double time;
-  msg->Extract (&time, sizeof time);
-
-  /* If the time, when the message originated is less greater than actual time,
-   * we have wrong time and we'll correct it according to the received time. */
-  if (AppGetTimeSeconds() < time)
-    AppSetTimeSeconds(time);
-
-  player_array.Lock ();
+  /* Parse and check the whole message before anything is changed: it replaces
+   * the roster, the clock and the selected map. */
+  struct NET_PLAYER {
+    string name, race;
+    bool computer, on_leader, local;
+    int start_point;
+    in_addr addr;
+    in_port_t port;
+  } rec[PL_MAX_PLAYERS];
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
+  bool start_game = (msg->GetSubtype() == 1);
+
+  double time;
+  msg->Extract (&time, sizeof time);
 
   string net_map_name = msg->ExtractString ();    // Map name.
   uint32_t remote_map_hash;
   msg->Extract (&remote_map_hash, sizeof remote_map_hash);
-  MenuUpdateMapInfo (net_map_name, remote_map_hash);
-  T_BYTE player_count = msg->ExtractByte ();    // Count of players.
+  int player_count = msg->ExtractByte ();    // Count of players.
 
-  /* Clear the array completely, remove hyper player too. */
-  player_array.Clear ();
-  player_array.RemovePlayer (0);
+  const char *invalid = NULL;
+  if (player_count < 1 || player_count > PL_MAX_PLAYERS)
+    invalid = "player count";
 
-  int i;
-
-  for (i = 0; i < player_count; i++) {
-    string name = msg->ExtractString ();
-    string race = msg->ExtractString ();
-    bool computer = msg->ExtractByte () != 0;
-    bool on_leader = !msg->ExtractByte ();
-    int start_point = msg->ExtractByte ();
-
-    if (on_leader) {
-      player_array.AddRemotePlayer (name, follower->GetRemoteAddress (), follower->GetRemotePort (), computer);
-    } else {
-      in_addr addr;
-      in_port_t port;
-
-      msg->Extract (&addr, sizeof (in_addr));
-      msg->Extract (&port, sizeof (in_port_t));
+  int local_humans = 0;
+  for (int i = 0; !invalid && i < player_count && !msg->ExtractFailed (); i++) {
+    NET_PLAYER &p = rec[i];
+    p.name = msg->ExtractString ();
+    p.race = msg->ExtractString ();
+    p.computer = msg->ExtractByte () != 0;
+    p.on_leader = !msg->ExtractByte ();
+    p.start_point = msg->ExtractByte ();
+    p.local = false;
+    if (!p.on_leader) {
+      msg->Extract (&p.addr, sizeof (in_addr));
+      msg->Extract (&p.port, sizeof (in_port_t));
 
       /* Check, if the actual player is a local or a remote player.
        * Without HasMyAddress() we'd compare against an uninitialised 0.0.0.0:0
        * and accidentally classify the first player as remote on race conditions
        * where the leader's player_array message arrives before our address echo.
        */
-      if (follower->HasMyAddress () &&
-          TNET_RESOLVER::NetworkToAscii (addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
-          port == follower->GetMyPort ())
-      {
-        player_array.AddLocalPlayer (name, race, computer);
-      } else
-        player_array.AddRemotePlayer (name, addr, port, computer);
-          
+      p.local = follower->HasMyAddress () &&
+          TNET_RESOLVER::NetworkToAscii (p.addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
+          p.port == follower->GetMyPort ();
+      if (p.local && !p.computer)
+        local_humans++;
     }
-
-    player_array.SetStartPoint (i, start_point);
-    player_array.SetRaceIdName (i, race);
+    // race ids become file names (LoadRace)
+    if (!IsSafeNetId (p.race))
+      invalid = "race id";
+    else if (p.start_point >= PL_MAX_START_POINTS)
+      invalid = "start point";
   }
+
+  if (msg->ExtractFailed ()) {    // truncated: the handler logs it
+    giant->Unlock ();
+    return;
+  }
+
+  if (!invalid && !std::isfinite (time))
+    invalid = "time";
+  else if (!invalid && (net_map_name.empty () || !IsSafeNetId (net_map_name)))
+    invalid = "map name";
+  else if (!invalid && (started || state == ST_GAME))
+    invalid = "game already started";
+  else if (!invalid && start_game && (!rec[0].on_leader || rec[0].computer || local_humans != 1))
+    invalid = "players of the game";
+
+  if (invalid) {
+    NetDropWarning (LogMsg ("Ignoring player array from the leader (%s)", invalid));
+    giant->Unlock ();
+    return;
+  }
+
+  player_array.Lock ();
+
+  MenuUpdateMapInfo (net_map_name, remote_map_hash);
+
+  /* With the map known, races must be its races ("" is an unset race, the
+   * hyper player has the scheme) and start points must exist. Without the map
+   * the game cannot start anyway (StartGame reports it). */
+  if (!selected_map_name.empty ()) {
+    for (int i = 0; !invalid && i < player_count; i++) {
+      if (i == 0 ? (!rec[i].race.empty () && rec[i].race != map_info_list.map_ext_info.scheme_id_name)
+                 : (!rec[i].race.empty () && !IsMapRace (rec[i].race)))
+        invalid = "race of the map";
+      else if (i > 0 && rec[i].start_point >= player_array.GetStartPointsCount ())
+        invalid = "start point of the map";
+    }
+  }
+
+  if (invalid) {
+    NetDropWarning (LogMsg ("Ignoring player array from the leader (%s)", invalid));
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
+  }
+
+  /* If the time, when the message originated is less greater than actual time,
+   * we have wrong time and we'll correct it according to the received time. */
+  if (AppGetTimeSeconds() < time)
+    AppSetTimeSeconds(time);
+
+  /* Clear the array completely, remove hyper player too. */
+  player_array.Clear ();
+  player_array.RemovePlayer (0);
+
+  int i;
+  int my_index_without_race = -1;
+
+  for (i = 0; i < player_count; i++) {
+    const NET_PLAYER &p = rec[i];
+
+    if (p.on_leader)
+      player_array.AddRemotePlayer (p.name, follower->GetRemoteAddress (), follower->GetRemotePort (), p.computer);
+    else if (p.local) {
+      player_array.AddLocalPlayer (p.name, p.race, p.computer);
+      if (!IsMapRace (p.race))
+        my_index_without_race = i;
+    } else
+      player_array.AddRemotePlayer (p.name, p.addr, p.port, p.computer);
+
+    player_array.SetStartPoint (i, p.start_point);
+    player_array.SetRaceIdName (i, p.race);
+  }
+
+
+  /* Leaders without the race default (before this fix) give a joined player
+   * race "". Pick a race no other player uses; the menu sync below shows it in
+   * our combo box (or keeps the combo's race if none is free). */
+  if (!start_game && my_index_without_race >= 0)
+    AssignFreeMapRace (my_index_without_race);
 
   UpdatePlayersAndMenu ();
 
+  /* Tell the leader the repaired race, so both sides agree (the leader answers
+   * with a valid race, so this is sent at most once per invalid state). */
+  if (!start_game && my_index_without_race >= 0) {
+    string shown_race = player_array.GetRaceIdName (my_index_without_race);
+    if (IsMapRace (shown_race))
+      follower->ChangeRace (my_index_without_race,
+                            player_array.GetPlayerName (my_index_without_race),
+                            shown_race);
+  }
+
   /* Start the game if requested. */
-  bool start_game = (msg->GetSubtype() == 1);
   if (start_game) {
     int my_id = player_array.GetMyPlayerID ();
     Debug (LogMsg ("My_id is %d", my_id));
@@ -3837,6 +4024,11 @@ static void ProcessHello (TNET_MESSAGE *msg) {
   double time;
   msg->Extract (&time, sizeof time);
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
+
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
   double time_shift = (received - follower->GetPingRequestTime ()) / 2;
@@ -3865,6 +4057,11 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
   double request_time;
   msg->Extract (&request_time, sizeof request_time);
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
+
   leader->SendPingReply (request_time);
 
   giant->Unlock ();
@@ -3887,6 +4084,11 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
 
   msg->Extract (&request_time, sizeof request_time);
   msg->Extract (&time, sizeof time);
+
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
 
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
@@ -3917,7 +4119,11 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
     if (!player_array.IsComputer (id)) {
       string name = player_array.GetPlayerName (id);
 
-      string message = name + ": " + msg->ExtractString ();
+      string text = msg->ExtractString ();
+      if (msg->ExtractFailed ())
+        break;
+
+      string message = name + ": " + text;
 
       ost->AddText(message.c_str ());
 
@@ -3928,6 +4134,112 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   player_array.Unlock ();
 
   giant->Unlock ();
+}
+
+/**
+ *  Checks an event received from the network before it is queued.
+ *
+ *  Unit code uses event fields as indexes (players[], map fields, directions)
+ *  and some local-only requests carry pointers, so only the event types that
+ *  peers really send are accepted, with the fields those types use:
+ *  - unit states broadcast by the owner of the unit (TFORCE_UNIT::SendEvent,
+ *    TBUILDING_UNIT::SendEvent, TSOURCE_UNIT::SendEvent), only for units of
+ *    other hosts' players;
+ *  - requests sent with SendNetEvent() or TPLAYER_UNIT::SendRequest() to a
+ *    remote owner.
+ *  Item indexes (RQ_CREATE_UNIT, RQ_UPGRADE_UNIT) depend on the receiving unit
+ *  and are checked where they are used.
+ *
+ *  Events of map units arrive while the receiver may still be loading the
+ *  map (StartGame), so ProcessNetEvent() checks only what needs no game data
+ *  (@p game_data false); the update loop checks network events fully before
+ *  processing them.
+ *
+ *  @return NULL when the event is valid, otherwise a short reason.
+ */
+const char *ValidateNetEvent (TEVENT *ev, bool game_data)
+{
+  if (game_data && (!started || players == NULL))
+    return "game not running";
+
+  const int pid = ev->GetPlayerID ();
+  if (pid < 0 || pid >= player_array.GetCount () || (game_data && players[pid] == NULL))
+    return "player";
+
+  /* abs(INT_MIN) stays negative: THASHTABLE_UNITS::HashFunction would index
+   * before the hash table. */
+  if (ev->GetUnitID () == INT_MIN)
+    return "unit id";
+
+  if (!std::isfinite (ev->GetTimeStamp ()))
+    return "time stamp";
+
+  bool position = true;       // simple1..3 = x, y, segment
+  bool direction = true;      // simple4 = direction
+  bool impact = false;        // US_ATTACKING: simple5, simple6, int1 = impact x, y, segment
+  int player_field = -1;      // simple<N> holds a player id
+
+  switch (ev->GetEvent ()) {
+  // states broadcast by the unit owner
+  case US_STAY: case US_MOVE: case US_ANCHORING: case US_LANDING: case US_UNLANDING:
+  case US_LEFT_ROTATING: case US_RIGHT_ROTATING: case US_UNLOADING: case US_HIDING:
+  case US_EJECTING: case US_REPAIRING: case US_CONSTRUCTING: case US_DYING: case US_ZOMBIE:
+  case US_DELETE:
+    break;
+  case US_MINING:     player_field = 5; break;    // source owner
+  case US_ATTACKING:  impact = true; break;
+
+  // requests
+  case RQ_FIRE_OFF: case RQ_END_MINE: case RQ_END_UNLOAD: case RQ_CREATE_UNIT:
+    break;
+  case RQ_FEEDING:    player_field = 6; break;    // target owner
+  case RQ_IMPACT: case RQ_SYNC_RALLY:
+    direction = false; break;
+  case RQ_UPGRADE_UNIT:                           // simple4 = item type
+    direction = false; break;
+  case RQ_CREATE_PROJECTILE:                      // simple4..6 = impact position
+    direction = false;
+    if (game_data && (ev->simple4 >= map.width || ev->simple5 >= map.height || ev->simple6 >= DAT_SEGMENTS_COUNT))
+      return "position";
+    break;
+  case RQ_CAN_MINE:                               // simple1 = worker owner, no position
+    position = direction = false;
+    player_field = 1;
+    break;
+  case RQ_CHANGE_SEGMENT: case RQ_MINE_SOUND: case RQ_PRODUCING: case RQ_TRY_TO_LEAVE:
+  case RQ_SYNC_LIFE: case RQ_SYNC_MAT_AMOUNT: case RQ_SYNC_PROGRESS:
+    position = direction = false;
+    break;
+
+  /* Everything else is local-only: path/nearest/group requests carry pointers
+   * (RQ_PATH_FINDING, RQ_NEAREST_SEARCHING, RQ_GROUP_MOVING), the other states
+   * and requests are never sent to other hosts. */
+  default:
+    return "event type";
+  }
+
+  /* A host broadcasts states only for its own units; units simulated here
+   * never get their state from the network. */
+  if (ev->GetEvent () < RQ_FIRST && !player_array.IsRemote (pid))
+    return "state of a local unit";
+
+  if (game_data && position && (ev->simple1 >= map.width || ev->simple2 >= map.height || ev->simple3 >= DAT_SEGMENTS_COUNT))
+    return "position";
+
+  if (direction && ev->simple4 >= LAY_DIRECTIONS_COUNT && ev->simple4 != static_cast<T_SIMPLE> (LAY_UNDEFINED))
+    return "direction";
+
+  if (impact && (ev->int1 < 0 || ev->int1 >= DAT_SEGMENTS_COUNT
+                 || (game_data && (ev->simple5 >= map.width || ev->simple6 >= map.height))))
+    return "impact position";
+
+  if (player_field > 0) {
+    const int p = (player_field == 1) ? ev->simple1 : (player_field == 5) ? ev->simple5 : ev->simple6;
+    if (p >= player_array.GetCount () || (game_data && players[p] == NULL))
+      return "player field";
+  }
+
+  return NULL;
 }
 
 static void ProcessNetEvent (TNET_MESSAGE *msg) {
@@ -3943,14 +4255,28 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
     pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
   }
 
-  int size = msg->GetSize();
-  char data[128];
+  int size = msg->GetPayloadSize();
+  char data[max_net_message_size];
   TEVENT *pevent;
 
   msg->Extract(data, size);
   
   pevent = pool_events->GetFromPool();
-  pevent->DelinearizeEvent(data, size);
+
+  const char *invalid = NULL;
+  if (!pevent->DelinearizeEvent(data, size))
+    invalid = "size";
+  else
+    invalid = ValidateNetEvent(pevent, false);
+
+  if (invalid) {
+    NetDropWarning (LogMsg ("Dropping invalid event message (%s; size %d, event %d) from %s", invalid, size,
+                            pevent->GetEvent(), TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    pool_events->PutToPool(pevent);
+    giant->Unlock ();
+    return;
+  }
+
   queue_events->PutEvent(pevent);
 
   giant->Unlock ();
@@ -3994,7 +4320,10 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
 
 static void ProcessDisconnect (TNET_MESSAGE *msg) {
   T_BYTE player_id = msg->ExtractByte();
-  
+
+  if (msg->ExtractFailed ())
+    return;
+
   ProcessDisconnect(player_id);
 }
 
@@ -4002,6 +4331,14 @@ static void ProcessDisconnect (int player_id) {
   giant->Lock ();
 
   if (host == NULL) {
+    giant->Unlock ();
+    return;
+  }
+
+  /* players[] exists only during a game and has player_array.GetCount() entries. */
+  if (players == NULL || player_id < 0 || player_id >= player_array.GetCount ()
+      || players[player_id] == NULL) {
+    NetDropWarning (LogMsg ("Ignoring disconnect of unknown player %d", player_id));
     giant->Unlock ();
     return;
   }
@@ -5417,7 +5754,15 @@ static int SDLCALL ProcessFunction(void *arg)
 
       act_event = queue_events->GetFirstEvent();
 
-      act_unit = ((TPLAYER_UNIT *)players[act_event->GetPlayerID()]->hash_table_units.GetUnitPointer(act_event->GetUnitID()));
+      // events from the network get their full check (map, players) only now
+      const char *invalid = act_event->IsFromNet() ? ValidateNetEvent(act_event, true) : NULL;
+      if (invalid) {
+        NetDropWarning(LogMsg("Dropping invalid event (%s; event %d, player %d)", invalid,
+                              act_event->GetEvent(), act_event->GetPlayerID()));
+        act_unit = NULL;
+      }
+      else
+        act_unit = ((TPLAYER_UNIT *)players[act_event->GetPlayerID()]->hash_table_units.GetUnitPointer(act_event->GetUnitID()));
 
       // process event only in case that unit exists
       if (act_unit) {
@@ -7157,6 +7502,12 @@ void RunDedicatedServer(const char *map_basename, int port)
     return;
   }
 
+  /* The server now sits in the lobby. OnDisconnectThread removes players who
+   * leave only in ST_PLAY_MENU; StartGame() switches to ST_GAME. */
+  giant->Lock();
+  state = ST_PLAY_MENU;
+  giant->Unlock();
+
   /* Without GUI, hyper player never gets its race from MenuUpdateMapInfo. */
   player_array.Lock();
   player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
@@ -7221,7 +7572,8 @@ void RunDedicatedServer(const char *map_basename, int port)
       else if (strncmp(buf, "addcpu", 6) == 0) {
         player_array.Lock();
         int max_p = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount() >= max_p + 1) {
+        if (player_array.GetCount() >= max_p + 1 || player_array.GetCount() >= PL_MAX_PLAYERS
+            || !PlayerArrayFits(NewPlayerArrayBytes("Computer", false))) {
           Warning("addcpu: too many players for this map");
           player_array.Unlock();
           continue;
@@ -7231,22 +7583,7 @@ void RunDedicatedServer(const char *map_basename, int port)
           host->AddEmptyAddress();
         {
           int idx = player_array.GetCount() - 1;
-          string chosen;
-          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-            bool taken = false;
-            for (int j = 0; j < player_array.GetCount(); j++) {
-              if (player_array.GetRaceIdName(j) == string(r->id_name)) {
-                taken = true;
-                break;
-              }
-            }
-            if (!taken) {
-              chosen = r->id_name;
-              break;
-            }
-          }
-          if (!chosen.empty())
-            player_array.SetRaceIdName(idx, chosen);
+          AssignFreeMapRace(idx);
 
           const char *arg = buf + 6;
           while (*arg == ' ' || *arg == '\t')
@@ -7347,16 +7684,13 @@ void RunDedicatedServer(const char *map_basename, int port)
       }
       else if (strncmp(buf, "start", 5) == 0) {
         player_array.Lock();
-        int max_players = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount() > max_players + 1) {
-          Warning("start: too many players for this map");
-          player_array.Unlock();
-          continue;
-        }
-        if (!player_array.EveryPlayerHasDifferentRace()) {
-          Warning("start: every player must have a different race");
-          player_array.Unlock();
-          continue;
+        {
+          string reason;
+          if (!CanStartGame(reason)) {
+            Warning(LogMsg("start: %s", reason.c_str()));
+            player_array.Unlock();
+            continue;
+          }
         }
         player_array.Unlock();
 

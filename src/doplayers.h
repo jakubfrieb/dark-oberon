@@ -334,6 +334,7 @@ public:
 
   void ChooseRandomStartPoints ();
   void SetStartPointsCount (int value);
+  int GetStartPointsCount () { return start_points_count; }
   int GetStartPoint (int player_index);
   void SetStartPoint (int player_index, int value);
 

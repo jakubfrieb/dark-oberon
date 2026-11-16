@@ -102,6 +102,7 @@ private:
   int player_id;              //!< Player identificator.
   int unit_id;                //!< Unit identificator.
   bool priority;              //!< Specified to which queue will be event stored.
+  bool from_net;              //!< Received from the network (DelinearizeEvent), checked again before processing.
   double time_stamp;          //!< Time stamp of event.
   int event;                  //!< Type of event. (states US_MOVE, US_ATTACK ....)
   int last_event;             //!< Type of event that was replaned. (if event was not replaned, US_NONE is set)
@@ -121,6 +122,9 @@ public:
   
   //!< Returns identificator of unit.
   int GetUnitID(void) {return unit_id;};
+
+  //!< Returns true for an event received from the network.
+  bool IsFromNet(void) {return from_net;};
 
   //!< Returns priority of event.
   bool GetPriority(void) {return priority;};
@@ -159,7 +163,8 @@ public:
   void SetEventProps(int n_player_id, int n_unit_id, bool n_priority, double n_time_stamp, int n_event, int n_last_event, int n_request_id, T_SIMPLE n_simple1, T_SIMPLE n_simple2, T_SIMPLE n_simple3, T_SIMPLE n_simple4, T_SIMPLE n_simple5, T_SIMPLE n_simple6, intptr_t n_int1,intptr_t n_int2=0); // sets event's properties
   
   int LinearizeEvent(char * char_event); // Linearize event to array of chars (prepare event for net).
-  void DelinearizeEvent(char * char_event, int lin_event_len); // Delinearize event from array of chars (fill event with data in char).
+  bool DelinearizeEvent(char * char_event, int lin_event_len); // Delinearize event from array of chars (fill event with data in char).
+  static int GetLinearizedSize(void); // Exact size of a linearized event.
   
   TEVENT(void);   // Constructor only zeroize all data.
 };

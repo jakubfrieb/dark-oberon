@@ -64,6 +64,7 @@ TEVENT::TEVENT(void)
   player_id = 0;
   unit_id = 0;
   priority = false;
+  from_net = false;
   event = US_NONE;
   last_event = US_NONE;
   time_stamp = 0;
@@ -87,6 +88,7 @@ void TEVENT::Clear(bool all)
   player_id = 0;
   unit_id = 0;
   priority = false;
+  from_net = false;
   event = US_NONE;
   last_event = US_NONE;
   time_stamp = 0;
@@ -109,6 +111,7 @@ void TEVENT::SetEventProps(int n_player_id, int n_unit_id, bool n_priority, doub
   // identification values
   player_id = n_player_id;
   unit_id = n_unit_id;
+  from_net = false;
   
   // if event is in queue and priority is chnged -> event will be stored to another priority queue
   if ((queue_left || queue_right) && (priority != n_priority)) {
@@ -156,6 +159,9 @@ void TEVENT::SetEventProps(int n_player_id, int n_unit_id, bool n_priority, doub
  *
  *  @return Count of characters written to char_event (size of linearized
  *          event).
+ *
+ *  @note Keep the field list in sync with DelinearizeEvent() and
+ *        GetLinearizedSize() (received events must have exactly that size).
  */
 int TEVENT::LinearizeEvent(char *char_event)
 {
@@ -189,10 +195,16 @@ int TEVENT::LinearizeEvent(char *char_event)
  *
  *  @param char_event    Linearized event where data are taken from.
  *  @param lin_event_len Size of linearized event.
+ *
+ *  @return false (event left unchanged) if @p lin_event_len is not exactly
+ *          the size LinearizeEvent() produces.
  */
-void TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
+bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 {
   int pos = 0;
+
+  if (lin_event_len != GetLinearizedSize ())
+    return false;
 
 #define unpack(variable) \
   memcpy (&variable, char_event + pos, sizeof (variable)); \
@@ -216,6 +228,19 @@ void TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 #undef unpack
 
   priority = false;
+  from_net = true;
+  return true;
+}
+
+/**
+ *  Size of the linearized event (the fields packed by LinearizeEvent()).
+ */
+int TEVENT::GetLinearizedSize(void)
+{
+  return sizeof (player_id) + sizeof (unit_id) + sizeof (time_stamp) + sizeof (event)
+    + sizeof (last_event) + sizeof (request_id) + sizeof (simple1) + sizeof (simple2)
+    + sizeof (simple3) + sizeof (simple4) + sizeof (simple5) + sizeof (simple6)
+    + sizeof (int1) + sizeof (int2);
 }
 
 

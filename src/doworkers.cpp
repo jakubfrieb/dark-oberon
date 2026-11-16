@@ -392,8 +392,11 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
     SetLife((float)proc_event->int1);
   }
 
-  // RQ_CREATE_UNIT
-  if (proc_event->TestEvent(RQ_CREATE_UNIT))
+  // RQ_CREATE_UNIT (int1 = index in race->buildings, simple1/2 = corner; they may come from the network)
+  if (proc_event->TestEvent(RQ_CREATE_UNIT)
+      && proc_event->int1 >= 0 && proc_event->int1 < player->race->buildings_count
+      && proc_event->simple1 + player->race->buildings[proc_event->int1]->GetWidth() <= map.width
+      && proc_event->simple2 + player->race->buildings[proc_event->int1]->GetHeight() <= map.height)
   {
     TBUILDING_UNIT * new_building = NULL;
     TBUILDING_ITEM * new_itm = static_cast<TBUILDING_ITEM *>(player->race->buildings[proc_event->int1]);
@@ -612,8 +615,9 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
 #endif
 
   
-  // RQ_CREATE_PROJECTILE
-  if (proc_event->TestEvent(RQ_CREATE_PROJECTILE))
+  // RQ_CREATE_PROJECTILE (only units with a missile weapon; the request may come from the network)
+  if (proc_event->TestEvent(RQ_CREATE_PROJECTILE)
+      && itm->CanAttack() && itm->GetArmament()->GetOffensive()->GetProjectileItem())
   {
     TGUN *p_gun = itm->GetArmament()->GetOffensive();
     TPROJECTILE_ITEM* pritem = static_cast<TPROJECTILE_ITEM*>(p_gun->GetProjectileItem());

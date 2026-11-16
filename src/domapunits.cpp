@@ -730,8 +730,9 @@ void TMAP_UNIT::ProcessEvent(TEVENT * proc_event)
     return;
   }
  
-  // RQ_CREATE_PROJECTILE
-  if (proc_event->TestEvent(RQ_CREATE_PROJECTILE))
+  // RQ_CREATE_PROJECTILE (only units with a missile weapon; the request may come from the network)
+  if (proc_event->TestEvent(RQ_CREATE_PROJECTILE)
+      && itm->CanAttack() && itm->GetArmament()->GetOffensive()->GetProjectileItem())
   {
     TGUN *p_gun = itm->GetArmament()->GetOffensive();
     TPROJECTILE_ITEM* pritem = static_cast<TPROJECTILE_ITEM*>(p_gun->GetProjectileItem());
