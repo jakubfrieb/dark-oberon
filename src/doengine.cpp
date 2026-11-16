@@ -5916,7 +5916,13 @@ static int SDLCALL ProcessFunction(void *arg)
 
       // process event only in case that unit exists
       if (act_unit) {
-      
+        /* The event goes back to the pool below, so the unit must not keep pointing at it.
+         * Only local units are cleared below, but a remote unit can get a pevent too (the
+         * server command `spawn ... fight` moves the units of every player). Its stale pevent
+         * was later used by another unit, and ~TPLAYER_UNIT took it out of the queue and
+         * deleted it when the remote unit was deleted (e.g. its player disconnected). */
+        if (act_unit->pevent == act_event)
+          act_unit->pevent = NULL;
 
         // local (not remote) units
         if (!player_array.IsRemote(act_event->GetPlayerID())) {
