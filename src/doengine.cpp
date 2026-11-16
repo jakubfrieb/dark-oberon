@@ -7213,6 +7213,12 @@ void RunDedicatedServer(const char *map_basename, int port)
     return;
   }
 
+  /* The server now sits in the lobby. OnDisconnectThread removes players who
+   * leave only in ST_PLAY_MENU; StartGame() switches to ST_GAME. */
+  giant->Lock();
+  state = ST_PLAY_MENU;
+  giant->Unlock();
+
   /* Without GUI, hyper player never gets its race from MenuUpdateMapInfo. */
   player_array.Lock();
   player_array.SetRaceIdName(0, map_info_list.map_ext_info.scheme_id_name);
