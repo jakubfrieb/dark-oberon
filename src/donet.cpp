@@ -153,8 +153,13 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
   }
 
   if (connect (fd, (sockaddr *)&socket_address, sizeof (socket_address)) == -1) {
+#ifdef WINDOWS
+    bool refused = (WSAGetLastError () == WSAECONNREFUSED);
+#else
+    bool refused = (errno == ECONNREFUSED);
+#endif
     Error (SOCKET_ERROR_MESSAGE ("Address: Calling connect failed"));
-    throw ConnectingErrorException ();
+    throw ConnectingErrorException (refused);
   }
 
   EnableKeepalive (fd);

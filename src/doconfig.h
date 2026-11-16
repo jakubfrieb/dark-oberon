@@ -61,6 +61,8 @@ struct TCONFIG;
 /** Default server address (may include :port; see parse_server_address in doengine.cpp).
  *  @sa TCONFIG::address */
 #define CFG_DEF_ADDRESS         "oberon-game.cloud.digitalmind.cz:17000"
+/** Web lobby where internet games are created and listed. */
+#define CFG_LOBBY_URL           "https://oberon-game.cloud.digitalmind.cz"
 /** Default configuration's mouse sensitivity.
  *  @sa TCONFIG::ip_address */
 #define CFG_DEF_SENSITIVITY     40

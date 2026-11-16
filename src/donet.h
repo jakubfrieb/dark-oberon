@@ -116,7 +116,12 @@ extern TLOG_MESSAGE socket_error_message;
 
 struct TNET_ADDRESS {
 public:
-  class ConnectingErrorException {};
+  class ConnectingErrorException {
+  public:
+    ConnectingErrorException (bool is_refused = false) : refused (is_refused) {}
+
+    bool refused;  //!< Nobody listens on the address (ECONNREFUSED).
+  };
 
   TNET_ADDRESS (in_addr address, in_port_t port);
   TNET_ADDRESS (in_addr address, in_port_t port, int fd);

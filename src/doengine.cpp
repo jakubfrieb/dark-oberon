@@ -629,8 +629,13 @@ static void connecting_in_menu_thread_impl (void *_data) {
     action_key = MNU_DISCONNECT;
     gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
     
-  } catch (TNET_ADDRESS::ConnectingErrorException &) {
-    string message = string ("Error:\nError connecting to host ") + server_name;
+  } catch (TNET_ADDRESS::ConnectingErrorException &e) {
+    string message;
+    if (e.refused)
+      message = string ("Error:\nNobody is hosting a game at\n") + server_name + ":" + std::to_string (port)
+        + " (connection refused).\n\nCreate or join a game in the web lobby:\n" + CFG_LOBBY_URL;
+    else
+      message = string ("Error:\nError connecting to host ") + server_name;
     action_key = MNU_DISCONNECT;
     gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
 
