@@ -4561,6 +4561,7 @@ void CreateMenuGUI()
   // messagebox
   panel = gui->GetMessageBox();
   SetMenuPanel();
+  panel->SetAlpha(1.0f);  // modal: do not let menu buttons below show through
   panel->SetPadding(15);
 
   button = gui->GetMessageBox()->GetButton(GUI_MB_OK);
@@ -4607,7 +4608,7 @@ void CreateMenuGUI()
   list->SetFontColor(0, 0, 0);
   list->SetOnChange(EditorMapListOnChange);
 
-  button = panel->AddButton(MNU_EDITOR_OPEN, 230, 268, 90, 22, "Open");
+  button = panel->AddButton(MNU_EDITOR_OPEN, 230, 223, 90, 22, "Open");
   SetMenuButton(true);
   button->SetFontColor(0, 0, 0);
 
@@ -6135,6 +6136,7 @@ void EditorRebuildPalette(void)
         }
       }
 
+      cy -= 8;
       editor_palette_sbox->AddLabel(0, 4, cy - 12, "--- Units ---");
       cy -= 20;
       for (int ui = 0; ui < hr->units_count; ui++) {
@@ -6162,6 +6164,7 @@ void EditorRebuildPalette(void)
         }
       }
 
+      cy -= 8;
       editor_palette_sbox->AddLabel(0, 4, cy - 12, "--- Buildings ---");
       cy -= 20;
       for (int bi = 0; bi < hr->buildings_count; bi++) {
@@ -6222,7 +6225,7 @@ void EditorRebuildPalette(void)
     button->SetFaceColor(0.6f, 0.6f, 0.6f);
     button->SetHoverColor(1, 1, 1);
     button->SetOnMouseClick(EditorNavButtonOnClick);
-    cy -= 34;
+    cy -= 46;
     char cap[64];
     snprintf(cap, sizeof(cap), "P%d: pick category", editor_selected_pid);
     editor_palette_sbox->AddLabel(0, 4, cy, cap);
