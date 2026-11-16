@@ -152,7 +152,6 @@ using std::string;
 // video menu key
 #define MNU_FULLSCREEN        30
 #define MNU_VERT_SYNC         31
-#define MNU_CNC_MOUSE         39
 #define MNU_640               32
 #define MNU_800               33
 #define MNU_1024              34
@@ -167,6 +166,9 @@ using std::string;
 #define MNU_MF_NONE           42
 #define MNU_MF_NEAREST        43
 #define MNU_MF_LINEAR         44
+
+// controls keys
+#define MNU_CNC_MOUSE         45
 
 // audio menu key
 #define MNU_MASTER_VOL        50
@@ -2547,6 +2549,17 @@ void MenuSliderOnChange(TGUI_BOX *sender, GLfloat pos)
 //========================================================================
 
 /**
+ *  Cancels pending mouse action (panel action or building placement).
+ */
+static void CancelMouseAction(void)
+{
+  myself->build_item = NULL;
+  mouse.action = UA_NONE;
+  UncheckBuildButton();
+}
+
+
+/**
  *  Issues command of selected units according to actual mouse cursor
  *  (right click, or left click in C&C mouse mode).
  */
@@ -2601,9 +2614,7 @@ static void MouseCommand(void)
           (ul->unit != mouse.over_unit && ul->unit->SelectReaction(building, UA_REPAIR));
 
         // reset mouse action
-        myself->build_item = NULL;
-        mouse.action = UA_NONE;
-        UncheckBuildButton();
+        CancelMouseAction();
       }
     }
     break;
@@ -2641,7 +2652,9 @@ static bool IsMouseCommandCursor(TMOUSE_CURSOR cursor_id)
 {
   switch (cursor_id) {
   case MC_CANT_MOVE:
-    return mouse.action != UA_NONE;   // click outside map deselects
+    // outside map: with pending panel action it is a (failing) command like right click,
+    // otherwise the click unselects as in classic mode
+    return mouse.action != UA_NONE;
 
   case MC_CAN_MOVE:
   case MC_CAN_ATTACK:
@@ -2708,10 +2721,7 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
 
   case GLFW_MOUSE_BUTTON_RIGHT:
     if (config.cnc_mouse) {
-      myself->build_item = NULL;
-      mouse.action = UA_NONE;
-      UncheckBuildButton();
-
+      CancelMouseAction();
       selection->UnselectAll();
     }
     else MouseCommand();
@@ -2736,7 +2746,6 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
       MouseCommand();
       mouse.draw_selection = false;
     }
-
     else if (mouse.draw_selection) {
       if (mouse.cursor_id != MC_SELECT_PLUS)
         selection->UnselectAll();   // unselects all selected units
@@ -2744,8 +2753,7 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
       // mouse selection
       if (fabs(x - mouse.down_x) > MC_SELECT_RADIUS || fabs(y - mouse.down_y) > MC_SELECT_RADIUS) {
         // C&C mouse keeps pending action on mouse down, selection rectangle cancels it
-        mouse.action = UA_NONE;
-        myself->build_item = NULL;
+        if (config.cnc_mouse) CancelMouseAction();
 
         mouse.RectSelect();
 
