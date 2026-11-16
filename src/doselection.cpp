@@ -806,6 +806,12 @@ void TSELECTION::UpdateAction(bool lock)
 
 void TSELECTION::DrawUnitsLines()
 {
+  // rally flag of selected factory
+  SDL_LockMutex(mutex);
+  if (TestCanSetRally())
+    static_cast<TFACTORY_UNIT *>(GetFirstUnit())->DrawRallyFlag();
+  SDL_UnlockMutex(mutex);
+
   // move lines
   if (!CanDrawLines() || !can_move) return;
 

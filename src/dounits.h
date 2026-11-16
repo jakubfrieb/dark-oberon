@@ -1222,6 +1222,7 @@ public:
   bool HasRallyPoint() const { return rally_active; }
   const TPOSITION_3D &GetRallyGoal() const { return rally_goal; }
   void SetRallyGoalFromLocal(const TPOSITION_3D &goal);
+  void DrawRallyFlag();
 
 private:
   TPRODUCEABLE_NODE* order[UNI_MAX_ORDER_LENGTH];     //!< Order of the units to production.

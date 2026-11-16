@@ -643,6 +643,55 @@ void TFACTORY_UNIT::SetRallyGoalFromLocal(const TPOSITION_3D &goal)
 }
 
 
+/**
+ *  Method draws planted flag on the rally point and line from the factory to it.
+ */
+void TFACTORY_UNIT::DrawRallyFlag()
+{
+#if !HEADLESS
+  if (!rally_active) return;
+  if (view_segment != DRW_ALL_SEGMENTS && view_segment != rally_goal.segment) return;
+
+  GLfloat fx = GetPosition().x + GetUnitWidth() / 2.0f;
+  GLfloat fy = GetPosition().y + GetUnitHeight() / 2.0f;
+  GLfloat gx = rally_goal.x + 0.5f;
+  GLfloat gy = rally_goal.y + 0.5f;
+
+  SetMapPosition(0, 0);
+
+  glDisable(GL_TEXTURE_2D);
+
+  // line from factory
+  glColor4f(0, 1, 0, 0.5);
+  glBegin(GL_LINES);
+    glVertex2d(DAT_MAPEL_STRAIGHT_SIZE_2 * (fx - fy), DAT_MAPEL_DIAGONAL_SIZE_2 * (fx + fy));
+    glVertex2d(DAT_MAPEL_STRAIGHT_SIZE_2 * (gx - gy), DAT_MAPEL_DIAGONAL_SIZE_2 * (gx + gy));
+  glEnd();
+
+  MapPosition(gx, gy);
+
+  // pole
+  glLineWidth(2.0f);
+  glColor3f(0.9f, 0.9f, 0.9f);
+  glBegin(GL_LINES);
+    glVertex2d(0, 0);
+    glVertex2d(0, 1.5 * DAT_MAPEL_DIAGONAL_SIZE);
+  glEnd();
+  glLineWidth(1.0f);
+
+  // pennant
+  glColor3f(1, 0.8f, 0);
+  glBegin(GL_TRIANGLES);
+    glVertex2d(0, 1.5 * DAT_MAPEL_DIAGONAL_SIZE);
+    glVertex2d(0, DAT_MAPEL_DIAGONAL_SIZE);
+    glVertex2d(DAT_MAPEL_STRAIGHT_SIZE_2, 1.25 * DAT_MAPEL_DIAGONAL_SIZE);
+  glEnd();
+
+  glEnable(GL_TEXTURE_2D);
+#endif
+}
+
+
 //=========================================================================
 // END
 //=========================================================================
