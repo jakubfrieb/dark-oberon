@@ -116,6 +116,11 @@ def test_pages_show_version_and_download_link(lobby, path):
     assert 'href="https://download.example.org/"' in html
 
 
+def test_index_links_to_self_hosting_guide(lobby):
+    html = lobby.app.test_client().get("/").get_data(as_text=True)
+    assert 'href="https://github.com/jakubfrieb/dark-oberon#run-your-own-server"' in html
+
+
 def test_version_falls_back_to_version_file(lobby, tmp_path, monkeypatch):
     monkeypatch.delenv("GAME_VERSION")
     (tmp_path / "VERSION").write_text("1.2.3\n")

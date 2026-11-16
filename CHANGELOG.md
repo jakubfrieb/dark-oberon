@@ -9,6 +9,10 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+### Added
+- The lobby says that the server can be self-hosted and links to a new "Run your own server" section
+  in the README: setup, home network and Raspberry Pi, ports, settings, HTTPS proxy, updating and stopping.
+
 ## [0.6.0] - 2026-11-05
 
 ### Added

@@ -147,11 +147,56 @@ at **<https://oberon-game.cloud.digitalmind.cz>** shows every game that's runnin
 When you're done, the host clicks **Stop game** in the lobby. Games stop by themselves when
 nobody has been connected for 30 minutes, and after 8 hours at most.
 
-> Running your own server? `server/` has a ready-made Docker setup: the lobby web UI plus
-> headless game servers in one container. Copy `server/.env.example` to `server/.env`, set
-> `GAME_PUBLIC_HOST` and run `server/up-server`. Accounts are stored in the `lobby-data` Docker
-> volume. Behind an HTTPS reverse proxy also set `TRUSTED_PROXIES=1` and `SESSION_COOKIE_SECURE=1`.
-> The lobby shows the version from the `VERSION` file at build time; `GAME_VERSION` overrides it.
+Prefer to run the games yourself? See [Run your own server](#run-your-own-server).
+
+## Run your own server
+
+The lobby and the game servers can be self-hosted. `server/` has a ready-made Docker setup: the
+lobby web UI plus headless game servers in one container. You need Docker with Compose, and the
+game's TCP ports must be reachable by the players.
+
+```bash
+git clone https://github.com/jakubfrieb/dark-oberon.git
+cd dark-oberon
+cp server/.env.example server/.env
+# In server/.env set GAME_PUBLIC_HOST to the hostname or IP players connect to.
+server/up-server --build --no-logs
+```
+
+The lobby then runs on port 8080 of your machine. Players create and join games the same way as on
+[Oberon Cloud](#play-over-the-internet-oberon-cloud), with your server's address. All players of one
+game need the same version of the game.
+
+**At home or on a Raspberry Pi:** for games on your home network, set `GAME_PUBLIC_HOST` to the
+machine's local IP, for example `192.168.1.50`, and open the lobby at `http://192.168.1.50:8080`.
+Friends outside your network need your public IP or hostname, with the game ports forwarded on your
+router. On a Raspberry Pi use a 64-bit system (arm64). The server builds for arm64 and ran a test
+battle under emulation, but it has not been tried on a real Pi yet. The image is built on the Pi
+itself, so the first build takes a while.
+
+**Ports:** the web UI uses `WEB_HOST_PORT` (default 8080). Each running game uses one TCP port from
+`PORT_RANGE_START` to `PORT_RANGE_END` (default 17000 to 17009, so up to 10 games at once). Open the
+game ports in your firewall or forward them on your router.
+
+**Settings** live in `server/.env`, and `server/.env.example` describes all of them. The most useful ones:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GAME_PUBLIC_HOST` | empty | Hostname or IP in the game addresses. Empty = the lobby shows no address. |
+| `LOBBY_IDLE_MINUTES` | `30` | Stop a game when no human player has been connected for this long. |
+| `LOBBY_MAX_GAME_HOURS` | `8` | Stop any game after this many hours. |
+| `GAME_VERSION` | empty | Version shown in the lobby. Empty = the `VERSION` file from the build. |
+| `DOWNLOAD_URL` | the game's page | Where the lobby's download link leads. |
+
+**Behind an HTTPS reverse proxy** also set `TRUSTED_PROXIES=1` and `SESSION_COOKIE_SECURE=1`. Put proxy
+labels and networks into `server/docker-compose.override.yml` (gitignored), which `up-server` loads
+automatically.
+
+**Updating:** run `git pull`, then `server/up-server --build --no-logs`. Rebuilding ends the games
+running at that moment. Accounts are kept in the `lobby-data` Docker volume.
+
+**Stopping:** `docker compose -f server/docker-compose.yml down`. Add
+`-f server/docker-compose.override.yml` if you use an override file.
 
 ## Build and run
 
