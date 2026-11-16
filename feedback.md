@@ -86,3 +86,16 @@ Ke každé položce se doplní: příčina (soubor:řádek), návrh opravy, výs
 6. **F6** Options → Video → „C&C mouse controls“: levý = příkaz (výběr zůstává), rychlé tažení = výběr, pravý (dva prsty) = zrušit výběr.
 7. **F7** Connect na výchozí adresu, když nikdo nehostuje → hláška s odkazem na lobby.
 8. **F8** Editor: vstupní menu, paleta objektů/hráčů v 800×600 a ve tvém rozlišení → nic se nepřekrývá.
+
+## Nalezeno při testu kompatibility RC1 (2026-11-16)
+
+Kompatibilita: 0.6.0 ↔ 0.7.0-rc.1 funguje oběma směry (server i klient), protokol se nezměnil (žádný handshake verze, jen hash mapy). Lobby z masteru lokálně OK; produkční lobby nasazeno na 0.7.0-rc.1.
+
+Nové chyby — existují už v 0.6.0, nejsou regrese RC:
+
+| #  | Popis | Závažnost |
+|----|-------|-----------|
+| N1 | Když hráč na dedikovaném serveru nechá rasu ve výběru na výchozí hodnotě, hru nejde spustit (`Error loading race ''`, `StartGame failed`); se dvěma lidmi klienti „běží“, ale server ne. Klient posílá rasu jen při `OnChange` dropdownu. | vysoká |
+| N2 | Příkazy hráče, který se připojil jako druhý, se nezobrazují u prvního (opačně funguje). Ověřeno jen na localhostu, i v čisté 0.6.0. | vysoká |
+| N3 | 0.6.0 server spadl (`stack smashing`) s dlouhou cestou v `--data` (~130 znaků); produkce používá `/app`. | nízká |
+| N4 | Když server skončí uprostřed hry, klient ukáže „You WON!“. | nízká |
