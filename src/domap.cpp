@@ -2244,7 +2244,7 @@ bool TMAP::EditorWriteBlankPlasticMap(const char *basename_no_ext, int w, int h,
   }
 
   TFILE_NAME mapname;
-  sprintf(mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
+  snprintf(mapname, sizeof mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
 
   FILE *f = fopen(mapname, "w");
   if (!f)
@@ -2302,7 +2302,7 @@ bool TMAP::SaveMapToFile(const char *basename_no_ext)
     return false;
 
   TFILE_NAME mapname;
-  sprintf(mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
+  snprintf(mapname, sizeof mapname, "%s%s%s", MAP_PATH, basename_no_ext, ".map");
 
   FILE *out = fopen(mapname, "w");
   if (!out)
@@ -2425,11 +2425,11 @@ bool TMAP::LoadMap(char *name) // load map from file
   // create segments units
   for (int i = 0; i < DAT_SEGMENTS_COUNT; i++) map.segment_units[i] = NEW TSEG_UNITS(i);
 
-  sprintf(mapname, "%s%s%s", MAP_PATH, name, ".map");
+  snprintf(mapname, sizeof mapname, "%s%s%s", MAP_PATH, name, ".map");
 
   Info(LogMsg("Loading map from '%s'", mapname));
 
-  strcpy(map.id_name, name);
+  snprintf(map.id_name, sizeof map.id_name, "%s", name);
 
   if (!(map.file = OpenConfFile(mapname)))
     return false;
