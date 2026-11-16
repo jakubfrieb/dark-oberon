@@ -196,11 +196,14 @@ TNET_ADDRESS::~TNET_ADDRESS () {
   Disconnect ();
 }
 
+/**
+ *  Shuts the connection down. The socket itself is closed by the listener that reads it
+ *  (TNET_LISTENER::ReleaseConnection), so its number cannot be reused while a player still
+ *  refers to it.
+ */
 void TNET_ADDRESS::Disconnect () {
-  if (connected) {
+  if (connected)
     shutdown (fd, 2);
-    do_close (fd);
-  }
 
   connected = false;
 }
@@ -264,7 +267,6 @@ void TNET_MESSAGE::Send (int fd) {
     if ((len = send (fd, start + pos, size - pos, 0)) == -1) {
       Warning (SOCKET_ERROR_MESSAGE ("Error sending message, closing the connection"));
       shutdown (fd, 2);
-      do_close (fd);
       throw TNET_MESSAGE::SendError ();
     }
 
@@ -391,7 +393,7 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   consumer_thread = NULL;
 
   on_disconnect = NULL;
-  subthread_lock = SDL_CreateMutex ();
+  connections_lock = SDL_CreateMutex ();
   bind_sem = SDL_CreateSemaphore (0);
   listener_bind_ok = false;
 
@@ -441,7 +443,7 @@ TNET_LISTENER::~TNET_LISTENER () {
   }
 
   delete incoming_messages;
-  SDL_DestroyMutex (subthread_lock);
+  SDL_DestroyMutex (connections_lock);
 }
 
 /**
@@ -517,34 +519,34 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
     EnableKeepalive (new_fd);
 
-    SDL_LockMutex (self->subthread_lock);
-    self->subthread_fd.push_back (new_fd);
-    self->subthread_address.push_back (remote_addr.sin_addr);
-    self->subthread_port.push_back (ntohs (remote_addr.sin_port));
-    self->subthread_claimed.push_back (false);
-    SDL_UnlockMutex (self->subthread_lock);
-
-    TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (new_fd,
-        remote_addr, self);
-
-    SDL_Thread *t;
-    t = SDL_CreateThread (listener_accept, "net_accept", data);
-
-    if (t == NULL)
-      throw MutexException ();
-
-    SDL_LockMutex (self->subthread_lock);
-    self->subthread_thread.push_back (t);
-    SDL_UnlockMutex (self->subthread_lock);
+    self->AddConnection (new_fd, remote_addr, false);
   }
 
   do_close (fd);
 
-  /* Shutdown all running listener threads. */
-  for (unsigned i = 0; i < self->subthread_thread.size (); i++) {
-    shutdown (self->subthread_fd[i], 2);
-    SDL_WaitThread (self->subthread_thread[i], NULL);
+  /* Stop all subthreads: shut their sockets down and wait for them outside the lock (they take
+     it when they end), then close every socket that is still open. */
+  vector<SDL_Thread *> threads;
+
+  SDL_LockMutex (self->connections_lock);
+  for (unsigned i = 0; i < self->connections.size (); i++) {
+    if (self->connections[i].state == CONNECTION::open)
+      shutdown (self->connections[i].fd, 2);
+    threads.push_back (self->connections[i].thread);
   }
+  SDL_UnlockMutex (self->connections_lock);
+
+  for (unsigned i = 0; i < threads.size (); i++)
+    SDL_WaitThread (threads[i], NULL);
+
+  SDL_LockMutex (self->connections_lock);
+  for (unsigned i = 0; i < self->connections.size (); i++) {
+    if (self->connections[i].state != CONNECTION::closed) {
+      do_close (self->connections[i].fd);
+      self->connections[i].state = CONNECTION::closed;
+    }
+  }
+  SDL_UnlockMutex (self->connections_lock);
 
   end_sockets ();
 
@@ -569,22 +571,13 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
 
   while (1) {
     if ((pos = recv (fd, reinterpret_cast<char*>(buf), 1, 0)) == -1) {
-      /* Report the lost connection like a closed one (on_disconnect below); returning here
-         used to leave the player in the game as a ghost. */
-#ifndef WINDOWS
-      int err = errno;
-#endif
+      /* Reported like a closed connection (ConnectionEnded below). */
       Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost", peer.c_str ())));
-#ifndef WINDOWS
-      if (err != EBADF)   // EBADF: already closed by the talker after a send error
-#endif
-        do_close (fd);
       break;
     }
 
     if (pos == 0) {
       Info (LogMsg ("Listener: %s closed the connection", peer.c_str ()));
-      do_close (fd);
       break;
     }
 
@@ -594,7 +587,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
     if (*size < TNET_MESSAGE::GetHeaderSize ()) {
       Warning (LogMsg ("Listener: dropping connection from %s: invalid message size %d",
                        peer.c_str (), *size));
-      do_close (fd);
+      shutdown (fd, 2);
       break;
     }
 
@@ -613,7 +606,7 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
     } while (pos != *size);
 
     if (!complete) {
-      do_close (fd);
+      shutdown (fd, 2);
       break;
     }
 
@@ -621,6 +614,8 @@ int SDLCALL TNET_LISTENER::listener_accept (void *d) {
     msg->Init_receive(data->address.sin_addr, data->address.sin_port, fd, buf);
     self->incoming_messages->PutMessage (msg);
   }
+
+  self->ConnectionEnded (fd);
 
   if (self->on_disconnect)
     self->on_disconnect (data->address.sin_addr, data->address.sin_port, fd);
@@ -639,22 +634,73 @@ void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port
   remote_addr.sin_addr = address;
   memset (remote_addr.sin_zero, '\0', 8);       /* clear the rest of the structure */
 
-  TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (fd, remote_addr, this);
+  AddConnection (fd, remote_addr, true);
+}
 
-  SDL_Thread *t;
-  t = SDL_CreateThread (listener_accept, "net_accept", data);
+/**
+ *  Starts a subthread reading the socket @p fd. The record and its thread are added in one
+ *  lock hold, so the thread finds its record when it ends.
+ */
+void TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own) {
+  CONNECTION c;
+  c.fd = fd;
+  c.address = address.sin_addr;
+  c.port = ntohs (address.sin_port);
+  c.own = own;
+  c.claimed = own;   // our own connection already belongs to a talker address
+  c.state = CONNECTION::open;
 
-  if (t == NULL)
+  TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (fd, address, this);
+
+  SDL_LockMutex (connections_lock);
+  c.thread = SDL_CreateThread (listener_accept, "net_accept", data);
+  if (c.thread == NULL) {
+    SDL_UnlockMutex (connections_lock);
     throw MutexException ();
+  }
+  connections.push_back (c);
+  SDL_UnlockMutex (connections_lock);
+}
 
-  SDL_LockMutex (subthread_lock);
-  subthread_fd.push_back (fd);
-  subthread_address.push_back (remote_addr.sin_addr);
-  subthread_port.push_back (port);
-  /* Our own outgoing connection: it already belongs to a talker address. */
-  subthread_claimed.push_back (true);
-  subthread_thread.push_back (t);
-  SDL_UnlockMutex (subthread_lock);
+/**
+ *  The peer closed the connection @p fd. With a disconnect handler the socket stays open until
+ *  the handler has forgotten it (ReleaseConnection); without one it is closed now.
+ */
+void TNET_LISTENER::ConnectionEnded (int fd) {
+  SDL_LockMutex (connections_lock);
+
+  for (unsigned i = 0; i < connections.size (); i++) {
+    if (connections[i].fd == fd && connections[i].state == CONNECTION::open) {
+      if (on_disconnect)
+        connections[i].state = CONNECTION::ended;
+      else {
+        do_close (fd);
+        connections[i].state = CONNECTION::closed;
+      }
+      break;
+    }
+  }
+
+  SDL_UnlockMutex (connections_lock);
+}
+
+/**
+ *  Closes the socket of an ended connection once nothing refers to its number any more (the
+ *  disconnect handler has dropped the players behind it). An open connection with the same
+ *  number is a newer one and is left alone.
+ */
+void TNET_LISTENER::ReleaseConnection (int fd) {
+  SDL_LockMutex (connections_lock);
+
+  for (unsigned i = 0; i < connections.size (); i++) {
+    if (connections[i].fd == fd && connections[i].state == CONNECTION::ended) {
+      do_close (fd);
+      connections[i].state = CONNECTION::closed;
+      break;
+    }
+  }
+
+  SDL_UnlockMutex (connections_lock);
 }
 
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
@@ -662,38 +708,39 @@ void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
 }
 
 /**
- *  Returns the file descriptor of the connection to the host at @p address:@p port, or -1.
+ *  Returns the socket of the open connection to the host at @p address:@p port, or -1.
  *
- *  A connection we opened ourselves (AddListenerByFileDescriptor, e.g. to the leader) matches
- *  only by address and port. A connection a peer opened to us comes from a random port, so it
- *  matches by address only, and each one is handed out once, in the order they were accepted.
- *  Matching by address alone used to return the connection to the leader for every peer on the
- *  leader's address (localhost, one NAT): events for that peer then went to the leader.
+ *  A connection we dialed (e.g. to the leader) matches by address and port. A connection a peer
+ *  dialed comes from a random port, so it matches by address only; each one is handed out once,
+ *  in the order they were accepted.
  */
 int TNET_LISTENER::GetListenersFileDescriptor (in_addr address, in_port_t port) {
   const string wanted = TNET_RESOLVER::NetworkToAscii (address);
   int found = -1;
 
-  /* The listener thread appends accepted connections concurrently. */
-  SDL_LockMutex (subthread_lock);
+  SDL_LockMutex (connections_lock);
 
-  for (unsigned i = 0; found == -1 && i < subthread_address.size (); i++) {
-    if (subthread_port[i] == port && TNET_RESOLVER::NetworkToAscii (subthread_address[i]) == wanted)
+  for (unsigned i = 0; found == -1 && i < connections.size (); i++) {
+    const CONNECTION &c = connections[i];
+    if (c.state == CONNECTION::open && c.own && c.port == port
+        && TNET_RESOLVER::NetworkToAscii (c.address) == wanted)
       found = i;
   }
 
-  for (unsigned i = 0; found == -1 && i < subthread_address.size (); i++) {
-    if (!subthread_claimed[i] && TNET_RESOLVER::NetworkToAscii (subthread_address[i]) == wanted)
+  for (unsigned i = 0; found == -1 && i < connections.size (); i++) {
+    const CONNECTION &c = connections[i];
+    if (c.state == CONNECTION::open && !c.own && !c.claimed
+        && TNET_RESOLVER::NetworkToAscii (c.address) == wanted)
       found = i;
   }
 
   int fd = -1;
   if (found != -1) {
-    subthread_claimed[found] = true;
-    fd = subthread_fd[found];
+    connections[found].claimed = true;
+    fd = connections[found].fd;
   }
 
-  SDL_UnlockMutex (subthread_lock);
+  SDL_UnlockMutex (connections_lock);
   return fd;
 }
 
@@ -882,15 +929,14 @@ void TNET_TALKER::RemoveAddress (int id) {
 /**
  *  Returns the first index >= @p from whose connection is the socket @p fd, or -1.
  *
- *  The index is the player id. This identifies the sender of a received message (or the owner
- *  of a closed connection) exactly; matching by IP address cannot tell apart players that share
- *  an address (one machine, one NAT).
+ *  The index is the player id, so this tells which player sent a message or lost its
+ *  connection, also when several players share one IP address (one machine, one NAT).
  */
-int TNET_TALKER::FindAddressByFileDescriptor (int fd, unsigned from) {
-  if (fd < 0)
+int TNET_TALKER::FindAddressByFileDescriptor (int fd, int from) {
+  if (fd < 0 || from < 0)
     return -1;
 
-  for (unsigned i = from; i < remote_address.size (); i++) {
+  for (int i = from; i < (int)remote_address.size (); i++) {
     if (!remote_address[i]->IsEmpty () && remote_address[i]->GetFileDescriptor () == fd)
       return i;
   }

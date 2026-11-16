@@ -334,6 +334,7 @@ public:
 
   void ConsumerIsAttached (SDL_Thread *thread);
   int GetListenersFileDescriptor (in_addr address, in_port_t port);
+  void ReleaseConnection (int fd);
 
   void RegisterOnDisconnect (void (* f)(in_addr, in_port_t, int));
 
@@ -344,12 +345,29 @@ private:
   SDL_Thread *thread;    //!< Listener thread handle.
   SDL_Thread *consumer_thread;
 
-  std::vector<int> subthread_fd;
-  std::vector<in_addr> subthread_address;
-  std::vector<in_port_t> subthread_port;   //!< Remote port (host byte order).
-  std::vector<bool> subthread_claimed;     //!< Connection already assigned to a remote host.
-  std::vector<SDL_Thread *> subthread_thread;
-  SDL_mutex *subthread_lock;   //!< Guards the subthread_* vectors (listener thread appends).
+  /** One connection read by a listener subthread. The listener owns the socket: talker
+   *  addresses only shut it down, and it is closed once nobody can refer to it any more. */
+  struct CONNECTION {
+    enum State {
+      open,      //!< Being read.
+      ended,     //!< Peer closed it; still open until ReleaseConnection (the fd stays unique).
+      closed     //!< Socket closed; the fd number may belong to a newer connection.
+    };
+
+    int fd;
+    in_addr address;
+    in_port_t port;       //!< Remote port (host byte order).
+    bool own;             //!< We dialed it (AddListenerByFileDescriptor), e.g. the leader link.
+    bool claimed;         //!< Already assigned to a remote host.
+    State state;
+    SDL_Thread *thread;
+  };
+
+  void AddConnection (int fd, sockaddr_in address, bool own);
+  void ConnectionEnded (int fd);
+
+  std::vector<CONNECTION> connections;
+  SDL_mutex *connections_lock;   //!< Guards #connections (the listener thread appends).
 
   int fd;   //!< File descriptior.
   in_port_t port;  //!< Port on which the listener is listening (0 = ephemeral).
@@ -388,7 +406,11 @@ public:
   void DisconnectAddress (int id);
   void RemoveAddress (int id);
 
-  int FindAddressByFileDescriptor (int fd, unsigned from = 0);
+  int FindAddressByFileDescriptor (int fd, int from = 0);
+
+  /** Returns the number of addresses (one per player id). */
+  int GetAddressCount ()
+  { return remote_address.size (); }
 
   /** Returns pointer to outgoing message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()

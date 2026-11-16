@@ -4137,6 +4137,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
       player_array.Unlock ();
   }
 
+  /* Nothing refers to the socket any more: let the listener close it. */
+  if (host != NULL)
+    host->GetListener ()->ReleaseConnection (data->fd);
+
   giant->Unlock ();
   delete data;
   return 0;
