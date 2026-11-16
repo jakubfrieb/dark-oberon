@@ -1366,6 +1366,49 @@ void SetActiveMenu(TGUI_PANEL *menu)
 
 
 /**
+ *  Returns true when @p race_id_name is one of the races of the selected map.
+ */
+static bool IsMapRace (const string &race_id_name) {
+  for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next)
+    if (race_id_name == r->id_name)
+      return true;
+
+  return false;
+}
+
+/**
+ *  Returns id_name of the first race of the selected map which no player uses
+ *  yet, or an empty string when all races are taken. Caller holds player_array.
+ */
+static string FirstFreeMapRace () {
+  for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
+    bool taken = false;
+    for (int j = 0; j < player_array.GetCount (); j++)
+      if (player_array.GetRaceIdName (j) == string (r->id_name)) {
+        taken = true;
+        break;
+      }
+    if (!taken)
+      return r->id_name;
+  }
+
+  return "";
+}
+
+/**
+ *  Returns index (>= 1) of the first player whose race is not a race of the
+ *  selected map, or -1 when all races are valid. Caller holds player_array.
+ */
+static int FirstPlayerWithInvalidRace () {
+  for (int i = 1; i < player_array.GetCount (); i++)
+    if (!IsMapRace (player_array.GetRaceIdName (i)))
+      return i;
+
+  return -1;
+}
+
+
+/**
  *  Synchronises player_array with game menu.
  */
 void SynchronisePlayersAndMenu () {
@@ -1992,12 +2035,14 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
     {
       int max_players = map_info_list.map_ext_info.max_players;
-      enum { none, too_many_players, not_different_races } error = none;
+      enum { none, too_many_players, not_different_races, invalid_race } error = none;
 
       if (player_array.GetCount () > max_players + 1)
         error = too_many_players;
       else if (!player_array.EveryPlayerHasDifferentRace ())
         error = not_different_races;
+      else if (FirstPlayerWithInvalidRace () >= 0)
+        error = invalid_race;
 
       if (error != none) {
         switch (error) {
@@ -2008,6 +2053,10 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         case not_different_races:
           action_key = 0;
           gui->ShowMessageBox ("Every player must have different race!", GUI_MB_OK);
+          break;
+        case invalid_race:
+          action_key = 0;
+          gui->ShowMessageBox ("Every player must choose a race!", GUI_MB_OK);
           break;
         case none:
           /* Will never happen. */
@@ -3603,6 +3652,16 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
     player_array.Unlock ();
     return;
   }
+  {
+    int bad = FirstPlayerWithInvalidRace ();
+    if (bad >= 0) {
+      Warning (LogMsg ("request_start: player %d (%s) has no valid race '%s'",
+                       bad, player_array.GetPlayerName (bad).c_str (),
+                       player_array.GetRaceIdName (bad).c_str ()));
+      player_array.Unlock ();
+      return;
+    }
+  }
   player_array.Unlock ();
 
   giant->Lock ();
@@ -3657,6 +3716,19 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
   dynamic_cast<TLEADER *>(host)->ConnectFollower (msg->GetAddress (), port, msg->GetFileDescriptor ());
 
   player_array.AddRemotePlayer (player_name, msg->GetAddress (), port);
+
+  /* The leader is authoritative for races: give the new player a free race of
+   * the map right away. Clients send their race only when the combo box
+   * changes, so without this a joined player kept race "" on a dedicated
+   * server and the game could not start (and addcpu could pick the race the
+   * client's combo showed). */
+  {
+    string race = FirstFreeMapRace ();
+    if (race.empty () && map_info_list.rac_list)
+      race = map_info_list.rac_list->id_name;
+    player_array.SetRaceIdName (player_array.GetCount () - 1, race);
+  }
+
   UpdatePlayersAndMenu ();
 
   player_array.Unlock ();
@@ -3682,8 +3754,18 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
 
   player_array.Lock ();
 
-  if (player_array.GetPlayerName (index) != name) {
+  if (index < 1 || index >= player_array.GetCount ()
+      || player_array.GetPlayerName (index) != name) {
     Warning ("Players not synchronised");
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
+  }
+
+  /* Keep the current (valid) race when a client asks for an unknown one. */
+  if (!IsMapRace (new_race)) {
+    Warning (LogMsg ("change_race: ignoring unknown race '%s' for player %d",
+                     new_race.c_str (), index));
     player_array.Unlock ();
     giant->Unlock ();
     return;
@@ -3728,6 +3810,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   player_array.RemovePlayer (0);
 
   int i;
+  int my_index_without_race = -1;
 
   for (i = 0; i < player_count; i++) {
     string name = msg->ExtractString ();
@@ -3755,6 +3838,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           port == follower->GetMyPort ())
       {
         player_array.AddLocalPlayer (name, race, computer);
+        if (!IsMapRace (race))
+          my_index_without_race = i;
       } else
         player_array.AddRemotePlayer (name, addr, port, computer);
           
@@ -3766,8 +3851,21 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
   UpdatePlayersAndMenu ();
 
-  /* Start the game if requested. */
   bool start_game = (msg->GetSubtype() == 1);
+
+  /* Older leaders (<= 0.7.0-rc.1) give a joined player race "". The menu sync
+   * above put the race shown in our combo box into player_array; tell the
+   * leader, so both sides agree (the leader answers with a valid race, so this
+   * is sent at most once per invalid state). */
+  if (!start_game && my_index_without_race >= 0) {
+    string shown_race = player_array.GetRaceIdName (my_index_without_race);
+    if (IsMapRace (shown_race))
+      follower->ChangeRace (my_index_without_race,
+                            player_array.GetPlayerName (my_index_without_race),
+                            shown_race);
+  }
+
+  /* Start the game if requested. */
   if (start_game) {
     int my_id = player_array.GetMyPlayerID ();
     Debug (LogMsg ("My_id is %d", my_id));
@@ -7357,6 +7455,16 @@ void RunDedicatedServer(const char *map_basename, int port)
           Warning("start: every player must have a different race");
           player_array.Unlock();
           continue;
+        }
+        {
+          int bad = FirstPlayerWithInvalidRace();
+          if (bad >= 0) {
+            Warning(LogMsg("start: player %d (%s) has no valid race '%s' - pick a race in the lobby",
+                           bad, player_array.GetPlayerName(bad).c_str(),
+                           player_array.GetRaceIdName(bad).c_str()));
+            player_array.Unlock();
+            continue;
+          }
         }
         player_array.Unlock();
 
