@@ -141,7 +141,7 @@ void TCHANNEL::_SetVolume(void)
 
 
 /* Channels are reused by Mix_PlayChannel(-1); snd_ch is valid only while it still plays our chunk. */
-bool TSAMPLE::_OwnsChannel(void)
+bool TSAMPLE::IsPlaying(void)
 {
   if (snd_ch < 0)
     return false;
@@ -157,7 +157,7 @@ void TSAMPLE::_SetVolume(void)
   int mixv;
   int base;
 
-  if (!_OwnsChannel())
+  if (!IsPlaying())
     return;
   /* Data file does not set per-sample volume; VT_NONE must still obey SFX master. */
   base = (vol_type == VT_NONE) ? vol_byte_to_mix((T_BYTE)255) : vol_byte_to_mix(volume);
@@ -195,12 +195,6 @@ bool TCHANNEL::IsPlaying(void)
   if (snd_ch < 0)
     return false;
   return Mix_Playing(snd_ch) != 0;
-}
-
-
-bool TSAMPLE::IsPlaying(void)
-{
-  return _OwnsChannel();
 }
 
 
@@ -271,7 +265,7 @@ void TSAMPLE::Play(void)
 
 void TSAMPLE::Stop(void)
 {
-  if (_OwnsChannel()) {
+  if (IsPlaying()) {
     Mix_HaltChannel(snd_ch);
     snd_ch = SND_CH_NONE;
   }
@@ -282,7 +276,7 @@ void TSAMPLE::SetLoop(bool lp)
 {
   loop = lp;
   /* Loop count is fixed at Play(); restart if playing. */
-  if (_OwnsChannel()) {
+  if (IsPlaying()) {
     T_BYTE sv = volume;
     TVOLUME_TYPE st = vol_type;
     Play();

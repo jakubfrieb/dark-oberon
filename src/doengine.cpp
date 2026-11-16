@@ -2572,7 +2572,7 @@ static void CancelMouseAction(void)
 static void MouseCommand(void)
 {
   if (selection->TestCanSetRally() && map.IsInMap(mouse.map_pos.x, mouse.map_pos.y) && !mouse.over_unit) {
-    TFACTORY_UNIT *fu = static_cast<TFACTORY_UNIT *>(selection->GetFirstUnit());
+    TFACTORY_UNIT *fu = selection->GetMyFactory();
     T_BYTE seg = view_segment;
     if (seg == DRW_ALL_SEGMENTS)
       seg = fu->GetPosition().segment;
@@ -2580,7 +2580,7 @@ static void MouseCommand(void)
     goal.SetPosition(mouse.map_pos.x, mouse.map_pos.y, seg);
     fu->SetRallyGoalFromLocal(goal);
     mouse.action = UA_NONE;
-  } else switch (mouse.cursor_id) {
+  } else switch (mouse.cursor_id) {  // command cursors must stay in sync with IsMouseCommandCursor()
   case MC_SELECT:
   case MC_CAN_MOVE:
   case MC_CANT_MOVE:
@@ -2656,7 +2656,7 @@ static void MouseCommand(void)
  */
 static bool IsMouseCommandCursor(TMOUSE_CURSOR cursor_id)
 {
-  switch (cursor_id) {
+  switch (cursor_id) {  // must stay in sync with the cursor cases of MouseCommand()
   case MC_CANT_MOVE:
     // outside map: with pending panel action it is a (failing) command like right click,
     // otherwise the click unselects as in classic mode
@@ -2746,11 +2746,12 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
   if (!started) return;
 
   switch (button) {
-  case GLFW_MOUSE_BUTTON_LEFT:
+  case GLFW_MOUSE_BUTTON_LEFT: {
+    bool dragged = fabs(x - mouse.down_x) > MC_SELECT_RADIUS || fabs(y - mouse.down_y) > MC_SELECT_RADIUS;
 
-    // C&C mouse: click with command cursor (not dragged, cursor may not be updated yet)
-    if (mouse.draw_selection && config.cnc_mouse && IsMouseCommandCursor(mouse.cursor_id) &&
-      fabs(x - mouse.down_x) <= MC_SELECT_RADIUS && fabs(y - mouse.down_y) <= MC_SELECT_RADIUS)
+    // C&C mouse: click started with command cursor on mouse down (not dragged,
+    // fast drag may not have updated the cursor yet)
+    if (mouse.draw_selection && config.cnc_mouse && IsMouseCommandCursor(mouse.down_cursor_id) && !dragged)
     {
       MouseCommand();
       mouse.draw_selection = false;
@@ -2760,7 +2761,7 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
         selection->UnselectAll();   // unselects all selected units
 
       // mouse selection
-      if (fabs(x - mouse.down_x) > MC_SELECT_RADIUS || fabs(y - mouse.down_y) > MC_SELECT_RADIUS) {
+      if (dragged) {
         // C&C mouse keeps pending action on mouse down, selection rectangle cancels it
         if (config.cnc_mouse) CancelMouseAction();
 
@@ -2783,6 +2784,7 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
     // map moving by radar
     if (radar.GetMoving()) radar.SetMoving(false);
     break;
+  }
 
   case GLFW_MOUSE_BUTTON_MIDDLE:
     map.drag_moving = false;
@@ -3216,12 +3218,7 @@ void GameOnKeyDown(int key)
       state = ST_PLAY_MENU;
     }
     else {
-      myself->build_item = NULL;
-      mouse.action = UA_NONE;
-
-      // uncheck build button
-      UncheckBuildButton();
-
+      CancelMouseAction();
       selection->UpdateAction();
     }
     break;
@@ -5225,7 +5222,7 @@ void GLFWCALL MousePosCallback(int x, int y)
 
 /**
  *  Zooms the map keeping the point under the mouse cursor fixed.
- *  Zero delta is ignored (Zoom(0) would reset the zoom).
+ *  Zero delta is ignored (it equals MAP_ZOOM_RESET, which would reset the zoom).
  */
 static void ZoomToMouse(int dzoom)
 {
@@ -5338,7 +5335,7 @@ void Menu()
   mouse.ResetCursor();
   gui->MouseMove(GLfloat(mouse.x), GLfloat(mouse.y));  // update gui under mouse
 
-  // menu loop
+  // menu loop (menu_size_changed rebuilds like ST_RESET_VIDEO_MENU: main loop calls Menu() again)
   while ((state == ST_MAIN_MENU || state == ST_PLAY_MENU || state == ST_VIDEO_MENU)
          && !(menu_size_changed && MenuOnBasePanel())) {
     // updates events
@@ -7026,8 +7023,8 @@ void Game(void)
   else {
 
 #if SOUND
-  if (state == ST_QUIT) FmodFadeOut();
-  sounds_table.sounds[DAT_SID_GAME_MUSIC]->Stop();
+  // on quit the music is faded out with all sounds in DestroyAll()
+  if (state != ST_QUIT) sounds_table.sounds[DAT_SID_GAME_MUSIC]->Stop();
 #endif
 
   }

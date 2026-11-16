@@ -806,21 +806,19 @@ void TSELECTION::UpdateAction(bool lock)
 
 void TSELECTION::DrawUnitsLines()
 {
-  // rally flag of selected factory
   SDL_LockMutex(mutex);
+
+  // rally flag of selected factory
   TFACTORY_UNIT *fu = GetMyFactory();
   if (fu) fu->DrawRallyFlag();
-  SDL_UnlockMutex(mutex);
 
   // move lines
-  if (!CanDrawLines() || !can_move) return;
+  if (CanDrawLines() && can_move) {
+    TNODE_OF_UNITS_LIST *n;
 
-  SDL_LockMutex(mutex);
-
-  TNODE_OF_UNITS_LIST *n;
-
-  for (n = units; n; n = n->next) {
-    static_cast<TFORCE_UNIT *>(n->unit)->DrawLine();
+    for (n = units; n; n = n->next) {
+      static_cast<TFORCE_UNIT *>(n->unit)->DrawLine();
+    }
   }
 
   SDL_UnlockMutex(mutex);

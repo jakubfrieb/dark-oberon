@@ -137,7 +137,6 @@ public:
 
 protected:
   void _SetVolume();
-  bool _OwnsChannel();
 };
 
 
