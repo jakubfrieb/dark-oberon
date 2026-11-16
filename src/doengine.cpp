@@ -58,6 +58,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <map>
 #include <set>
 
@@ -509,9 +510,8 @@ TMAP_INFO_LIST map_info_list; //!< List of maps info in menu.
 THOST *host = NULL;
 bool connected = false;
 bool started = false;
-/** Players reported disconnected before players[] existed (net_protocol_disconnect can arrive
- *  while the game is still starting); applied at the end of StartGame. */
-static std::vector<int> pending_disconnects;
+/** Leader: players who left before the start, announced when the game starts. */
+static std::vector<int> departed_before_start;
 bool allowed_to_start_process_function = true;
 bool won_lose = false;
 
@@ -1527,7 +1527,7 @@ bool Disconnect() {
 
   player_array.Clear();
   connected = false;
-  pending_disconnects.clear ();
+  departed_before_start.clear ();
 
   THOST *to_delete = NULL;
 
@@ -4023,25 +4023,47 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
  *  run. Called with giant locked.
  */
 static void LeaderAllowStartIfAllReady () {
-  if (host == NULL || host->GetType () != THOST::ht_leader)
+  if (host == NULL || host->GetType () != THOST::ht_leader
+      || !leader_ready || !player_array.AllRemoteReady ())
     return;
 
-  if (leader_ready && player_array.AllRemoteReady ()) {
-    allowed_to_start_process_function = true;
-
-    TLEADER *leader = dynamic_cast<TLEADER *>(host);
-    leader->SendAllowProcessFunction ();
-
-    gui->HideMessageBox ();
+  /* Everybody still here has built players[] now: tell them who left before the start. */
+  int departed = -1;
+  for (unsigned i = 0; i < departed_before_start.size (); i++) {
+    departed = departed_before_start[i];
+    Info (LogMsg ("Announcing that player %d left before the game started", departed));
+    host->SendDisconnect (departed);
+    if (player_array.IsRemote (departed))
+      players[departed]->Disconnect ();
+    players[departed]->active = false;
   }
-}
+  departed_before_start.clear ();
 
-static void ApplyPendingDisconnects () {
-  std::vector<int> ids;
-  ids.swap (pending_disconnects);
+#if !HEADLESS
+  /* Nobody left to play against: do not start a solo game. */
+  if (departed != -1 && !won_lose) {
+    bool opponent = false;
+    for (int i = 0; i < player_array.GetCount (); i++)
+      if (players[i] != hyper_player && players[i] != myself && players[i]->active)
+        opponent = true;
 
-  for (unsigned i = 0; i < ids.size (); i++)
-    ProcessDisconnect (ids[i]);
+    if (!opponent) {   // the game stays stopped; leave it with Esc - Disconnect
+      string message = LogMsg ("Player %d (%s) left\nbefore the game started.", departed,
+                               player_array.GetPlayerName (departed).c_str ());
+      action_key = 0;
+      won_lose = true;
+      gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+      return;
+    }
+  }
+#endif
+
+  allowed_to_start_process_function = true;
+
+  TLEADER *leader = dynamic_cast<TLEADER *>(host);
+  leader->SendAllowProcessFunction ();
+
+  gui->HideMessageBox ();
 }
 
 static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
@@ -4072,8 +4094,22 @@ static void ProcessDisconnect (int player_id) {
     return;
   }
 
-  if (!started) {
-    pending_disconnects.push_back (player_id);
+  /* Leader, before the start: the player never sends net_protocol_synchronise; count him as
+     ready and announce him when the game starts (LeaderAllowStartIfAllReady). */
+  if (host->GetType () == THOST::ht_leader && !allowed_to_start_process_function) {
+    if (std::find (departed_before_start.begin (), departed_before_start.end (), player_id)
+        == departed_before_start.end ()) {
+      Info (LogMsg ("Player %d (%s) left before the game started.",
+                    player_id, player_array.GetPlayerName (player_id).c_str ()));
+      departed_before_start.push_back (player_id);
+      player_array.PlayerReady (player_id);
+    }
+    LeaderAllowStartIfAllReady ();
+    giant->Unlock ();
+    return;
+  }
+
+  if (!started) {   // players[] does not exist yet
     giant->Unlock ();
     return;
   }
@@ -4092,15 +4128,6 @@ static void ProcessDisconnect (int player_id) {
   }
   
   players[player_id]->active = false;
-
-  /* A player who leaves before the start (e.g. could not reach another player) never sends
-     net_protocol_synchronise, and players who never got a connection to him would not notice
-     he left: tell everybody, and do not keep the others waiting for him. */
-  if (host->GetType () == THOST::ht_leader && !allowed_to_start_process_function) {
-    host->SendDisconnect (player_id);
-    player_array.PlayerReady (player_id);
-    LeaderAllowStartIfAllReady ();
-  }
 
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
@@ -5693,8 +5720,6 @@ bool StartGame(double stime)
   
   // clear menu structures
   map_info_list.ClearRacList();
-
-  ApplyPendingDisconnects ();
   return true;
 
 error:
@@ -7448,6 +7473,8 @@ void RunDedicatedServer(const char *map_basename, int port)
           player_array.Unlock();
           continue;
         }
+        /* Like request_start: run only once every remote player has loaded the game. */
+        allowed_to_start_process_function = player_array.AllPlayersAreLocal();
         player_array.Unlock();
 
         giant->Lock();
