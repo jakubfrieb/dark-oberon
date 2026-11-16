@@ -3921,6 +3921,30 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
+/**
+ *  Returns the player who sent a chat message over the socket @p fd, or -1.
+ *
+ *  On a follower, chat over the link to the leader (talker index 0, the hyper player) comes
+ *  from the human playing on the leader: in the lobby that link is the only one.
+ */
+static int ChatSenderID (int fd) {
+  int id = host->GetPlayerIDByFileDescriptor (fd);
+
+  if (id > 0 && !player_array.IsComputer (id))
+    return id;
+
+  if (id == 0 && host->GetType () == THOST::ht_follower) {
+    for (int i = 1; i < player_array.GetCount (); i++) {
+      if (!player_array.IsComputer (i) && player_array.IsRemote (i)
+          && player_array.GetAddress (i).s_addr == host->GetRemoteAddress ().s_addr
+          && player_array.GetPort (i) == host->GetRemotePort ())
+        return i;
+    }
+  }
+
+  return -1;
+}
+
 static void ProcessChatMessage (TNET_MESSAGE *msg) {
   giant->Lock ();
 
@@ -3930,17 +3954,11 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   }
 
   player_array.Lock ();
-  
-  for (int id = 1; (id = host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor (), id)) != -1; id++) {
-    if (!player_array.IsComputer (id)) {
-      string name = player_array.GetPlayerName (id);
 
-      string message = name + ": " + msg->ExtractString ();
-
-      ost->AddText(message.c_str ());
-
-      break;
-    }
+  int id = ChatSenderID (msg->GetFileDescriptor ());
+  if (id != -1) {
+    string message = player_array.GetPlayerName (id) + ": " + msg->ExtractString ();
+    ost->AddText (message.c_str ());
   }
 
   player_array.Unlock ();
@@ -4102,11 +4120,18 @@ static int SDLCALL OnDisconnectThread (void *d) {
     Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
-      action_force = true;
-      MenuButtonOnClickKey (MNU_DISCONNECT);
+      int id = host->GetPlayerIDByFileDescriptor (data->fd);
 
-      action_key = 0;
-      gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
+      if (id == 0) {   // the link to the leader
+        action_force = true;
+        MenuButtonOnClickKey (MNU_DISCONNECT);
+
+        action_key = 0;
+        gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
+      } else if (id != -1) {   // another player, while the game is starting
+        Info (LogMsg ("Connection to player %d closed", id));
+        host->DisconnectAddress (id);
+      }
     } else {
       player_array.Lock ();
 
