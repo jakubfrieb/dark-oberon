@@ -158,12 +158,8 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
 #else
     bool refused = (errno == ECONNREFUSED);
 #endif
-    static const char prefix[] = "Address: Calling connect failed";
-    const char *message = SOCKET_ERROR_MESSAGE (prefix);
-
-    Error (message);
-    /* SOCKET_ERROR_MESSAGE formats "<prefix>: <reason>"; pass only the reason. */
-    throw ConnectingErrorException (refused, message + sizeof (prefix) + 1);
+    Error (SOCKET_ERROR_MESSAGE ("Address: Calling connect failed"));
+    throw ConnectingErrorException (refused);
   }
 
   EnableKeepalive (fd);

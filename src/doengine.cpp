@@ -634,11 +634,8 @@ static void connecting_in_menu_thread_impl (void *_data) {
     if (e.refused)
       message = string ("Error:\nNobody is hosting a game at\n") + server_name + ":" + std::to_string (port)
         + " (connection refused).\n\nCreate or join a game in the web lobby:\n" + CFG_LOBBY_URL;
-    else {
+    else
       message = string ("Error:\nError connecting to host ") + server_name;
-      if (!e.reason.empty ())
-        message += string ("\n(") + e.reason + ")";
-    }
     action_key = MNU_DISCONNECT;
     gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
 

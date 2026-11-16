@@ -118,11 +118,9 @@ struct TNET_ADDRESS {
 public:
   class ConnectingErrorException {
   public:
-    ConnectingErrorException (bool refused = false, const std::string &reason = "")
-      : refused (refused), reason (reason) {}
+    ConnectingErrorException (bool is_refused = false) : refused (is_refused) {}
 
-    bool refused;        //!< Nobody listens on the address (ECONNREFUSED).
-    std::string reason;  //!< Socket error description, shown to the player.
+    bool refused;  //!< Nobody listens on the address (ECONNREFUSED).
   };
 
   TNET_ADDRESS (in_addr address, in_port_t port);
