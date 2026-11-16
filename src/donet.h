@@ -199,25 +199,49 @@ public:
   void PackString (std::string str)
   { Pack (str.c_str (), str.length () + 1); }
 
-  /** Gets @p size of bytes from message into memory at address @p data. */
-  void Extract (void *data, int size)
+  /** Gets @p size of bytes from message into memory at address @p data.
+   *  Reading past the end of the received payload zero-fills @p data and marks
+   *  the message as malformed (see ExtractFailed()). */
+  bool Extract (void *data, int size)
   {
+    if (size < 0 || extract_p + size > GetPayloadSize ()) {
+      if (size > 0) memset (data, 0, size);
+      extract_error = true;
+      return false;
+    }
     memcpy (data, &buf[extract_p], size);
     extract_p += size;
+    return true;
   }
 
-  /** Gets a byte from the message. */
+  /** Gets a byte from the message (0 and malformed if there is none left). */
   T_BYTE ExtractByte ()
-  { return buf[extract_p++]; }
+  {
+    T_BYTE byte;
+    Extract (&byte, 1);
+    return byte;
+  }
 
-  /** Gets a string from a message. */
+  /** Gets a NUL-terminated string from a message ("" and malformed if the
+   *  terminator is missing). */
   std::string ExtractString ()
-  { 
-    int old_p = extract_p;
-    const char *char_p = reinterpret_cast<const char *>(&buf[old_p]);
-    extract_p += strlen (char_p) + 1;
+  {
+    int left = GetPayloadSize () - extract_p;
+    const char *char_p = reinterpret_cast<const char *>(&buf[extract_p]);
+    const void *end = left > 0 ? memchr (char_p, '\0', left) : NULL;
+    if (end == NULL) {
+      extract_error = true;
+      return std::string ();
+    }
+    extract_p += static_cast<const char *>(end) - char_p + 1;
     return char_p;
   }
+
+  /** True when an Extract*() call ran past the end of the message. */
+  bool ExtractFailed () { return extract_error; }
+
+  /** Size of the received/packed payload (without headers). */
+  int GetPayloadSize () { return size - GetHeaderSize (); }
 
   /** Finds out the header size of the message. */
   static int GetHeaderSize ()
@@ -252,6 +276,7 @@ private:
   int fd;
 
   int extract_p;
+  bool extract_error;  //!< An Extract*() call ran past the end of the message.
 };
 
 

@@ -54,6 +54,7 @@
 
 #include <atomic>
 #include <cctype>
+#include <climits>
 #include <cstdlib>
 #include <cmath>
 #include <string>
@@ -3581,7 +3582,7 @@ static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * 
   player_array.Lock ();
   {
     int max_p = map_info_list.map_ext_info.max_players;
-    if (player_array.GetCount () >= max_p + 1) {
+    if (player_array.GetCount () >= max_p + 1 || player_array.GetCount () >= PL_MAX_PLAYERS) {
       Warning ("request_add_computer: too many players for this map");
       player_array.Unlock ();
       return;
@@ -3670,7 +3671,25 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
   msg->Extract (&port, sizeof (port));
   player_name = msg->ExtractString ();
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
+  if (player_name.length () > PL_MAX_PLAYER_NAME_LENGTH)
+    player_name.resize (PL_MAX_PLAYER_NAME_LENGTH);
+
   player_array.Lock ();
+
+  /* AddRemotePlayer throws when the array is full, and a player added after the start
+     would not have an entry in players[]; refuse before the follower gets an address. */
+  if (started || player_array.GetCount () >= PL_MAX_PLAYERS) {
+    Warning (LogMsg ("Refusing connect request from %s: %s",
+                     TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (),
+                     started ? "game already started" : "too many players"));
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
+  }
 
   dynamic_cast<TLEADER *>(host)->ConnectFollower (msg->GetAddress (), port, msg->GetFileDescriptor ());
 
@@ -3705,6 +3724,11 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   int index = msg->ExtractByte ();
   string name = msg->ExtractString ();
   string new_race = msg->ExtractString ();
+
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
 
   player_array.Lock ();
 
@@ -3744,6 +3768,18 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   double time;
   msg->Extract (&time, sizeof time);
 
+  string net_map_name = msg->ExtractString ();    // Map name.
+  uint32_t remote_map_hash;
+  msg->Extract (&remote_map_hash, sizeof remote_map_hash);
+  T_BYTE player_count = msg->ExtractByte ();    // Count of players.
+
+  if (msg->ExtractFailed () || player_count > PL_MAX_PLAYERS) {
+    if (!msg->ExtractFailed ())
+      Warning (LogMsg ("Ignoring player array with %d players", player_count));
+    giant->Unlock ();
+    return;
+  }
+
   /* If the time, when the message originated is less greater than actual time,
    * we have wrong time and we'll correct it according to the received time. */
   if (AppGetTimeSeconds() < time)
@@ -3753,11 +3789,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
-  string net_map_name = msg->ExtractString ();    // Map name.
-  uint32_t remote_map_hash;
-  msg->Extract (&remote_map_hash, sizeof remote_map_hash);
   MenuUpdateMapInfo (net_map_name, remote_map_hash);
-  T_BYTE player_count = msg->ExtractByte ();    // Count of players.
 
   /* Clear the array completely, remove hyper player too. */
   player_array.Clear ();
@@ -3773,6 +3805,9 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     bool on_leader = !msg->ExtractByte ();
     int start_point = msg->ExtractByte ();
 
+    if (msg->ExtractFailed ())
+      break;
+
     if (on_leader) {
       player_array.AddRemotePlayer (name, follower->GetRemoteAddress (), follower->GetRemotePort (), computer);
     } else {
@@ -3781,6 +3816,9 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
       msg->Extract (&addr, sizeof (in_addr));
       msg->Extract (&port, sizeof (in_port_t));
+
+      if (msg->ExtractFailed ())
+        break;
 
       /* Check, if the actual player is a local or a remote player.
        * Without HasMyAddress() we'd compare against an uninitialised 0.0.0.0:0
@@ -3801,6 +3839,12 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
     player_array.SetStartPoint (i, start_point);
     player_array.SetRaceIdName (i, race);
+  }
+
+  if (msg->ExtractFailed ()) {    // truncated player list: do not repair or start with it
+    player_array.Unlock ();
+    giant->Unlock ();
+    return;
   }
 
   bool start_game = (msg->GetSubtype() == 1);
@@ -3893,6 +3937,11 @@ static void ProcessHello (TNET_MESSAGE *msg) {
   double time;
   msg->Extract (&time, sizeof time);
 
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
+
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
   double time_shift = (received - follower->GetPingRequestTime ()) / 2;
@@ -3919,7 +3968,10 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
   TLEADER *leader = dynamic_cast<TLEADER *>(host);
 
   double request_time;
-  msg->Extract (&request_time, sizeof request_time);
+  if (!msg->Extract (&request_time, sizeof request_time)) {
+    giant->Unlock ();
+    return;
+  }
 
   leader->SendPingReply (request_time);
 
@@ -3943,6 +3995,11 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
 
   msg->Extract (&request_time, sizeof request_time);
   msg->Extract (&time, sizeof time);
+
+  if (msg->ExtractFailed ()) {
+    giant->Unlock ();
+    return;
+  }
 
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
@@ -3973,7 +4030,11 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
     if (!player_array.IsComputer (id)) {
       string name = player_array.GetPlayerName (id);
 
-      string message = name + ": " + msg->ExtractString ();
+      string text = msg->ExtractString ();
+      if (msg->ExtractFailed ())
+        break;
+
+      string message = name + ": " + text;
 
       ost->AddText(message.c_str ());
 
@@ -3999,14 +4060,25 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
     pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
   }
 
-  int size = msg->GetSize();
-  char data[128];
+  int size = msg->GetPayloadSize();
+  char data[max_net_message_size];
   TEVENT *pevent;
 
   msg->Extract(data, size);
   
   pevent = pool_events->GetFromPool();
-  pevent->DelinearizeEvent(data, size);
+
+  /* The event's player_id indexes players[] when the event is processed. */
+  if (!pevent->DelinearizeEvent(data, size)
+      || pevent->GetPlayerID() < 0 || pevent->GetPlayerID() >= player_array.GetCount()
+      || pevent->GetUnitID() == INT_MIN) {
+    Warning (LogMsg ("Dropping invalid event message (size %d) from %s", size,
+                     TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    pool_events->PutToPool(pevent);
+    giant->Unlock ();
+    return;
+  }
+
   queue_events->PutEvent(pevent);
 
   giant->Unlock ();
@@ -4050,7 +4122,10 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
 
 static void ProcessDisconnect (TNET_MESSAGE *msg) {
   T_BYTE player_id = msg->ExtractByte();
-  
+
+  if (msg->ExtractFailed ())
+    return;
+
   ProcessDisconnect(player_id);
 }
 
@@ -4058,6 +4133,14 @@ static void ProcessDisconnect (int player_id) {
   giant->Lock ();
 
   if (host == NULL) {
+    giant->Unlock ();
+    return;
+  }
+
+  /* players[] exists only during a game and has player_array.GetCount() entries. */
+  if (players == NULL || player_id < 0 || player_id >= player_array.GetCount ()
+      || players[player_id] == NULL) {
+    Warning (LogMsg ("Ignoring disconnect of unknown player %d", player_id));
     giant->Unlock ();
     return;
   }
@@ -5473,7 +5556,12 @@ static int SDLCALL ProcessFunction(void *arg)
 
       act_event = queue_events->GetFirstEvent();
 
-      act_unit = ((TPLAYER_UNIT *)players[act_event->GetPlayerID()]->hash_table_units.GetUnitPointer(act_event->GetUnitID()));
+      // an event queued from the network may name a player that is gone by now
+      const int ev_player = act_event->GetPlayerID();
+      if (ev_player >= 0 && ev_player < player_array.GetCount() && players[ev_player])
+        act_unit = ((TPLAYER_UNIT *)players[ev_player]->hash_table_units.GetUnitPointer(act_event->GetUnitID()));
+      else
+        act_unit = NULL;
 
       // process event only in case that unit exists
       if (act_unit) {

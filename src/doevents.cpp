@@ -189,10 +189,16 @@ int TEVENT::LinearizeEvent(char *char_event)
  *
  *  @param char_event    Linearized event where data are taken from.
  *  @param lin_event_len Size of linearized event.
+ *
+ *  @return false (event left unchanged) if @p lin_event_len is not exactly
+ *          the size LinearizeEvent() produces.
  */
-void TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
+bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 {
   int pos = 0;
+
+  if (lin_event_len != GetLinearizedSize ())
+    return false;
 
 #define unpack(variable) \
   memcpy (&variable, char_event + pos, sizeof (variable)); \
@@ -216,6 +222,18 @@ void TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 #undef unpack
 
   priority = false;
+  return true;
+}
+
+/**
+ *  Size of the linearized event (the fields packed by LinearizeEvent()).
+ */
+int TEVENT::GetLinearizedSize(void)
+{
+  return sizeof (player_id) + sizeof (unit_id) + sizeof (time_stamp) + sizeof (event)
+    + sizeof (last_event) + sizeof (request_id) + sizeof (simple1) + sizeof (simple2)
+    + sizeof (simple3) + sizeof (simple4) + sizeof (simple5) + sizeof (simple6)
+    + sizeof (int1) + sizeof (int2);
 }
 
 
