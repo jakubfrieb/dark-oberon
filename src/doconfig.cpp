@@ -73,6 +73,7 @@ TCONFIG::TCONFIG()
   strcpy(player_name, CFG_DEF_PLAYER_NAME);
   strcpy(address, CFG_DEF_ADDRESS);
   sensitivity = CFG_DEF_SENSITIVITY;
+  cnc_mouse = CFG_DEF_CNC_MOUSE;
 
   tex_mag_filter = CFG_DEF_TEX_MAG_FILTER;
   tex_min_filter = CFG_DEF_TEX_MIN_FILTER;
@@ -279,6 +280,7 @@ void WriteDefConfig(void)
   config.file->WriteStr("player_name", CFG_DEF_PLAYER_NAME);
   config.file->WriteStr("address", CFG_DEF_ADDRESS);
   config.file->WriteInt("sensitivity", CFG_DEF_SENSITIVITY);
+  config.file->WriteBool("cnc_mouse", CFG_DEF_CNC_MOUSE);
   config.file->WriteLine("");
 
   // Networking options.
@@ -350,6 +352,7 @@ bool LoadConfig(void)
   config.file->ReadStr(config.player_name, "player_name", CFG_DEF_PLAYER_NAME, true);
   config.file->ReadStr(config.address, "address", CFG_DEF_ADDRESS, true);
   config.file->ReadByteRange(&config.sensitivity, "sensitivity", 0, 100, CFG_DEF_SENSITIVITY);
+  config.file->ReadBool(&config.cnc_mouse, "cnc_mouse", CFG_DEF_CNC_MOUSE);
 
   // Networking options.
   config.file->ReadIntRange(&config.net_server_port, "net_server_port", 1024, 65535, CFG_DEF_NET_SERVER_PORT);
