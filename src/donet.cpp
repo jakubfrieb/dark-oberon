@@ -390,6 +390,7 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   consumer_thread = NULL;
 
   on_disconnect = NULL;
+  subthread_lock = SDL_CreateMutex ();
   bind_sem = SDL_CreateSemaphore (0);
   listener_bind_ok = false;
 
@@ -439,6 +440,7 @@ TNET_LISTENER::~TNET_LISTENER () {
   }
 
   delete incoming_messages;
+  SDL_DestroyMutex (subthread_lock);
 }
 
 /**
@@ -514,8 +516,12 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
     EnableKeepalive (new_fd);
 
+    SDL_LockMutex (self->subthread_lock);
     self->subthread_fd.push_back (new_fd);
     self->subthread_address.push_back (remote_addr.sin_addr);
+    self->subthread_port.push_back (ntohs (remote_addr.sin_port));
+    self->subthread_claimed.push_back (false);
+    SDL_UnlockMutex (self->subthread_lock);
 
     TNET_LISTENER::ACCEPT_DATA *data = NEW TNET_LISTENER::ACCEPT_DATA (new_fd,
         remote_addr, self);
@@ -526,7 +532,9 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
     if (t == NULL)
       throw MutexException ();
 
+    SDL_LockMutex (self->subthread_lock);
     self->subthread_thread.push_back (t);
+    SDL_UnlockMutex (self->subthread_lock);
   }
 
   do_close (fd);
@@ -638,22 +646,54 @@ void TNET_LISTENER::AddListenerByFileDescriptor (in_addr address, in_port_t port
   if (t == NULL)
     throw MutexException ();
 
+  SDL_LockMutex (subthread_lock);
   subthread_fd.push_back (fd);
   subthread_address.push_back (remote_addr.sin_addr);
+  subthread_port.push_back (port);
+  /* Our own outgoing connection: it already belongs to a talker address. */
+  subthread_claimed.push_back (true);
   subthread_thread.push_back (t);
+  SDL_UnlockMutex (subthread_lock);
 }
 
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
   consumer_thread = thread;
 }
 
-int TNET_LISTENER::GetListenersFileDescriptor (in_addr address) {
-  for (unsigned i = 0; i < subthread_address.size (); i++) {
-    if (TNET_RESOLVER::NetworkToAscii (subthread_address[i]) == TNET_RESOLVER::NetworkToAscii (address))
-      return subthread_fd[i];
+/**
+ *  Returns the file descriptor of the connection to the host at @p address:@p port, or -1.
+ *
+ *  A connection we opened ourselves (AddListenerByFileDescriptor, e.g. to the leader) matches
+ *  only by address and port. A connection a peer opened to us comes from a random port, so it
+ *  matches by address only, and each one is handed out once, in the order they were accepted.
+ *  Matching by address alone used to return the connection to the leader for every peer on the
+ *  leader's address (localhost, one NAT): events for that peer then went to the leader.
+ */
+int TNET_LISTENER::GetListenersFileDescriptor (in_addr address, in_port_t port) {
+  const string wanted = TNET_RESOLVER::NetworkToAscii (address);
+  int found = -1;
+
+  /* The listener thread appends accepted connections concurrently. */
+  SDL_LockMutex (subthread_lock);
+
+  for (unsigned i = 0; found == -1 && i < subthread_address.size (); i++) {
+    if (subthread_port[i] == port && TNET_RESOLVER::NetworkToAscii (subthread_address[i]) == wanted)
+      found = i;
   }
 
-  return -1;
+  for (unsigned i = 0; found == -1 && i < subthread_address.size (); i++) {
+    if (!subthread_claimed[i] && TNET_RESOLVER::NetworkToAscii (subthread_address[i]) == wanted)
+      found = i;
+  }
+
+  int fd = -1;
+  if (found != -1) {
+    subthread_claimed[found] = true;
+    fd = subthread_fd[found];
+  }
+
+  SDL_UnlockMutex (subthread_lock);
+  return fd;
 }
 
 void TNET_LISTENER::RegisterOnDisconnect (void (* f)(in_addr, in_port_t)) {

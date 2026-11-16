@@ -3786,7 +3786,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
         int fd;
 
         for (int j = 0; j < 180; j++) {
-          fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i));
+          fd = host->GetListener()->GetListenersFileDescriptor (player_array.GetAddress (i), player_array.GetPort (i));
           if (fd != -1)
             break;
           Debug ("Still do not have that address");
@@ -3798,6 +3798,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
           Debug (LogMsg ("%d: Adding address with file descriptor", i));
         } else {
           Error (LogMsg ("%d: host not connected in 15 seconds...", i));
+          host->AddEmptyAddress ();   // keep talker index == player id
         }
       } else if (player_array.IsRemote (i)) {
         host->AddRemoteAddress (player_array.GetAddress (i), player_array.GetPort (i));

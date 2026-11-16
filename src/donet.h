@@ -333,7 +333,7 @@ public:
   { return port; }
 
   void ConsumerIsAttached (SDL_Thread *thread);
-  int GetListenersFileDescriptor (in_addr address);
+  int GetListenersFileDescriptor (in_addr address, in_port_t port);
 
   void RegisterOnDisconnect (void (* f)(in_addr, in_port_t));
 
@@ -346,7 +346,10 @@ private:
 
   std::vector<int> subthread_fd;
   std::vector<in_addr> subthread_address;
+  std::vector<in_port_t> subthread_port;   //!< Remote port (host byte order).
+  std::vector<bool> subthread_claimed;     //!< Connection already assigned to a remote host.
   std::vector<SDL_Thread *> subthread_thread;
+  SDL_mutex *subthread_lock;   //!< Guards the subthread_* vectors (listener thread appends).
 
   int fd;   //!< File descriptior.
   in_port_t port;  //!< Port on which the listener is listening (0 = ephemeral).
