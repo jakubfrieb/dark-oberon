@@ -6880,6 +6880,7 @@ void Game(void)
   else {
 
 #if SOUND
+  if (state == ST_QUIT) FmodFadeOut();
   sounds_table.sounds[DAT_SID_GAME_MUSIC]->Stop();
 #endif
 

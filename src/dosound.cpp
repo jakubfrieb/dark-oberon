@@ -99,7 +99,7 @@ void FmodShutdown(void)
 }
 
 
-/** Short fade-out of all channels and music so freeing data / closing audio does not pop. */
+/* Short fade-out of all channels and music so freeing data / closing audio does not pop. */
 void FmodFadeOut(void)
 {
   if (!s_audio_ready)
@@ -109,7 +109,7 @@ void FmodFadeOut(void)
 
   Mix_FadeOutChannel(-1, SND_FADEOUT_MS);
   Mix_FadeOutMusic(SND_FADEOUT_MS);
-  SDL_Delay(SND_FADEOUT_MS + 30);
+  SDL_Delay(SND_FADEOUT_WAIT_MS);
 }
 
 
@@ -140,7 +140,7 @@ void TCHANNEL::_SetVolume(void)
 }
 
 
-/** Channels are reused by Mix_PlayChannel(-1); snd_ch is valid only while it still plays our chunk. */
+/* Channels are reused by Mix_PlayChannel(-1); snd_ch is valid only while it still plays our chunk. */
 bool TSAMPLE::_OwnsChannel(void)
 {
   if (snd_ch < 0)
@@ -221,11 +221,11 @@ bool TSAMPLE::Load(char *data, int size)
   if (!s_audio_ready || !data || size <= 0)
     return false;
 
+  Stop();
   if (sample) {
     Mix_FreeChunk(sample);
     sample = NULL;
   }
-  Stop();
 
   rw = SDL_RWFromMem(data, size);
   if (!rw)
