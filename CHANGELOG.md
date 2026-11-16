@@ -9,6 +9,40 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.7.0-rc.2] - 2026-11-17
+
+Second release candidate: multiplayer fixes found by a client/server compatibility test of rc.1.
+No network protocol change; plays with 0.6.0 and 0.7.0-rc.1 (see the note on rc.1 clients below).
+
+### Fixed
+- A player who left the race at its default could not start a game on a dedicated server (the server
+  stored an empty race). The server now gives every joining player a free race, and a client on an older
+  server sends the race it shows. A game with an invalid race is refused with a message instead of
+  leaving the clients stuck.
+- Players who left the lobby of a dedicated server stayed in the player list as ghosts.
+- In a game with two humans, the units of the player who joined second did not move on the first
+  player's screen: the client matched network connections to players by IP address only. Connections
+  are now matched exactly, also for chat, "ready" and disconnects. An rc.1 client that joins second
+  from the same IP as another player still shows the old behaviour.
+- The game crashed at the start when a player could not connect to another player (e.g. behind NAT);
+  it now shows a message and returns to the menu. Players who leave before the start are removed
+  for everyone.
+- "You WON!" was shown when the server quit in the middle of a game; it now says
+  "Connection to the server was lost!".
+- The dedicated server's `start` command did not wait for remote players to load.
+- Long installation/data paths and map names of 30+ characters could crash the game or server.
+- Malformed network messages could crash the server or a client; messages, player lists and game
+  events from the network are now validated, and repeated warnings are rate-limited.
+- A rare server crash when a player left a game whose units the server had moved.
+- Lobby (game hosted from the menu): clicking OK on a refusal message such as "Too many players for this
+  map." created the game again and dropped every connected player. Race or map changes that would make
+  the player list too long are now refused with a message and rolled back.
+
+### Known limitations
+- Two human players over the internet need a direct connection to each other (port forwarding);
+  playing through Oberon Cloud behind home NAT is planned for 0.7.0-rc.3 (server relay).
+- 32-bit and 64-bit builds cannot play together (all released packages are 64-bit).
+
 ## [0.7.0-rc.1] - 2026-11-16
 
 Release candidate built from player feedback (macOS player). Not yet a stable release.
@@ -362,7 +396,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.1...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.2...HEAD
+[0.7.0-rc.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.1...v0.7.0-rc.2
 [0.7.0-rc.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...v0.7.0-rc.1
 [0.6.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...v0.5.1

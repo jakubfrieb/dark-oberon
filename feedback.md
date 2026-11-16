@@ -4,7 +4,7 @@ Zdroj: zpětná vazba hráče (2026-11-16), verze 0.6.0.
 
 Platforma hráče: **macOS** (Apple). Oficiální mac balíček neexistuje → pravděpodobně vlastní build z Homebrew SDL2 (= sdl2-compat nad SDL3: asynchronní změna velikosti okna), pravděpodobně Retina (body ≠ pixely) a trackpad/Magic Mouse (pravé tlačítko jen dvěma prsty / Ctrl+klik). Ověření na Linuxu proto pokrývá jen část chování.
 
-Vydáno v **0.7.0-rc.1** (2026-11-16). Po otestování → 0.7.0 stable.
+Vydáno v **0.7.0-rc.1** (2026-11-16), opravy z testu kompatibility v **0.7.0-rc.2** (2026-11-17). Relay přes server → **0.7.0-rc.3**. Po otestování → 0.7.0 stable.
 
 Stav: `nové` → `investigace` → `návrh` → `oponentura` → `čeká na ověření ve hře` → `opraveno` / `odloženo`
 
@@ -95,7 +95,13 @@ Nové chyby — existují už v 0.6.0, nejsou regrese RC:
 
 | #  | Popis | Závažnost |
 |----|-------|-----------|
-| N1 | Když hráč na dedikovaném serveru nechá rasu ve výběru na výchozí hodnotě, hru nejde spustit (`Error loading race ''`, `StartGame failed`); se dvěma lidmi klienti „běží“, ale server ne. Klient posílá rasu jen při `OnChange` dropdownu. | vysoká |
-| N2 | Příkazy hráče, který se připojil jako druhý, se nezobrazují u prvního (opačně funguje). Ověřeno jen na localhostu, i v čisté 0.6.0. | vysoká |
-| N3 | 0.6.0 server spadl (`stack smashing`) s dlouhou cestou v `--data` (~130 znaků); produkce používá `/app`. | nízká |
-| N4 | Když server skončí uprostřed hry, klient ukáže „You WON!“. | nízká |
+| N1 | Když hráč na dedikovaném serveru nechá rasu ve výběru na výchozí hodnotě, hru nejde spustit (`Error loading race ''`, `StartGame failed`); se dvěma lidmi klienti „běží“, ale server ne. | vysoká — **opraveno v rc.2** (`fix/race-default`): server přidělí volnou rasu při připojení, klient na starém serveru pošle volnou rasu, start odmítne neplatnou rasu se zprávou; navíc oprava „duchů“ v lobby dedikovaného serveru (odpojení se ignorovalo) |
+| N2 | Příkazy hráče, který se připojil jako druhý, se nezobrazují u prvního (opačně funguje). | vysoká — **opraveno v rc.2** (`fix/remote-commands-sync`): klient přiřazoval spojení k hráčům jen podle IP, takže druhý hráč posílal příkazy prvního hráče serveru. Ověřeno na localhostu i přes Haiku VM (NAT). Bez změny protokolu; starý klient jako druhý hráč zůstává rozbitý (chyba je na jeho straně) |
+| N3 | 0.6.0 server spadl (`stack smashing`) s dlouhou cestou v `--data`. | nízká — **opraveno v rc.2** (`fix/long-data-path`): buffery cest 4096 + `snprintf`; i id mapy ≥ 30 znaků se odmítne místo přetečení |
+| N4 | Když server skončí uprostřed hry, klient ukáže „You WON!“. | nízká — **opraveno v rc.2** (`fix/server-quit-result`): „Connection to the server was lost!“ |
+| N5 | Když se klient při startu hry nedovolá k jinému hráči (NAT), spadne na nezachycenou výjimku (Linux i Haiku). | vysoká — **opraveno v rc.2** (`fix/remote-commands-sync`): hláška místo pádu, start se zruší i při nedostupném hráči s nižším číslem |
+| N7 | Robustnost síťového vstupu: poškozená zpráva od klienta mohla shodit server (od 0.6.0). | vysoká — **opraveno v rc.2** (`fix/net-input-hardening`): kontrola velikostí, ID hráčů, polí herních událostí, seznamu hráčů a názvů map/ras; omezené logování |
+| N6 | Hra dvou lidí přes internet za NATem: klienti se spojují přímo mezi sebou (server příkazy nepřeposílá) → za NATem to nejde. Řešení = relay přes server = změna protokolu. | architektura — plánováno do **0.7.0-rc.3** (relay přes server, kontrola verze protokolu; nekompatibilní se staršími verzemi) |
+
+Další nálezy během rc.2 (opraveno v rc.2): pád serveru při odchodu hráče, jehož jednotky server posunul; v lobby GUI hostitele OK na hlášce „Too many players…“ znovu založilo hru a odpojilo hráče; lokální změna rasy/mapy mohla přeplnit seznam hráčů.
+Odloženo do rc.3 (přepis síťové vrstvy): pád připojujícího se klienta, když hostitel odejde do ~2,5 s; pád při SIGTERM uprostřed síťové hry; use-after-free v seznamu adres talkeru.
