@@ -318,6 +318,8 @@ static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
 static void OnDisconnect (in_addr address, in_port_t port, int fd);
+static void LeaderAllowStartIfAllReady ();
+static void ApplyPendingDisconnects ();
 
 #if !HEADLESS
 void EditorMenuOnShow(TGUI_BOX *sender);
@@ -507,6 +509,9 @@ TMAP_INFO_LIST map_info_list; //!< List of maps info in menu.
 THOST *host = NULL;
 bool connected = false;
 bool started = false;
+/** Players reported disconnected before players[] existed (net_protocol_disconnect can arrive
+ *  while the game is still starting); applied at the end of StartGame. */
+static std::vector<int> pending_disconnects;
 bool allowed_to_start_process_function = true;
 bool won_lose = false;
 
@@ -1522,6 +1527,7 @@ bool Disconnect() {
 
   player_array.Clear();
   connected = false;
+  pending_disconnects.clear ();
 
   THOST *to_delete = NULL;
 
@@ -3619,13 +3625,7 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
   else {
     leader_ready = true;
     giant->Lock ();
-    if (host != NULL && host->GetType () == THOST::ht_leader) {
-      TLEADER *L = dynamic_cast<TLEADER *>(host);
-      if (player_array.AllRemoteReady ()) {
-        allowed_to_start_process_function = true;
-        L->SendAllowProcessFunction ();
-      }
-    }
+    LeaderAllowStartIfAllReady ();
     giant->Unlock ();
   }
 #else
@@ -4001,6 +4001,18 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
   }
 
   player_array.PlayerReady (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()));
+  LeaderAllowStartIfAllReady ();
+
+  giant->Unlock ();
+}
+
+/**
+ *  On the leader: once the leader and every remote player have loaded the game, let all of them
+ *  run. Called with giant locked.
+ */
+static void LeaderAllowStartIfAllReady () {
+  if (host == NULL || host->GetType () != THOST::ht_leader)
+    return;
 
   if (leader_ready && player_array.AllRemoteReady ()) {
     allowed_to_start_process_function = true;
@@ -4010,8 +4022,14 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
 
     gui->HideMessageBox ();
   }
+}
 
-  giant->Unlock ();
+static void ApplyPendingDisconnects () {
+  std::vector<int> ids;
+  ids.swap (pending_disconnects);
+
+  for (unsigned i = 0; i < ids.size (); i++)
+    ProcessDisconnect (ids[i]);
 }
 
 static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
@@ -4037,7 +4055,13 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
 static void ProcessDisconnect (int player_id) {
   giant->Lock ();
 
-  if (host == NULL) {
+  if (host == NULL || player_id < 0 || player_id >= player_array.GetCount ()) {
+    giant->Unlock ();
+    return;
+  }
+
+  if (!started) {
+    pending_disconnects.push_back (player_id);
     giant->Unlock ();
     return;
   }
@@ -4058,15 +4082,12 @@ static void ProcessDisconnect (int player_id) {
   players[player_id]->active = false;
 
   /* A player who leaves before the start (e.g. could not reach another player) never sends
-     net_protocol_synchronise: do not keep the others waiting for him forever. */
+     net_protocol_synchronise, and players who never got a connection to him would not notice
+     he left: tell everybody, and do not keep the others waiting for him. */
   if (host->GetType () == THOST::ht_leader && !allowed_to_start_process_function) {
+    host->SendDisconnect (player_id);
     player_array.PlayerReady (player_id);
-
-    if (leader_ready && player_array.AllRemoteReady ()) {
-      allowed_to_start_process_function = true;
-      dynamic_cast<TLEADER *>(host)->SendAllowProcessFunction ();
-      gui->HideMessageBox ();
-    }
+    LeaderAllowStartIfAllReady ();
   }
 
   Info(LogMsg("Player %d (%s) was disconnected.",
@@ -5660,6 +5681,8 @@ bool StartGame(double stime)
   
   // clear menu structures
   map_info_list.ClearRacList();
+
+  ApplyPendingDisconnects ();
   return true;
 
 error:
@@ -6972,13 +6995,7 @@ void Game(void)
       follower->SendSynchronise ();
     } else {
       leader_ready = true;
-
-      if (player_array.AllRemoteReady ()) {
-        allowed_to_start_process_function = true;
-
-        TLEADER *leader = dynamic_cast<TLEADER *>(host);
-        leader->SendAllowProcessFunction ();
-      }
+      LeaderAllowStartIfAllReady ();
     }
   }
 
@@ -7434,13 +7451,7 @@ void RunDedicatedServer(const char *map_basename, int port)
         else {
           leader_ready = true;
           giant->Lock();
-          if (host != NULL && host->GetType() == THOST::ht_leader) {
-            TLEADER *L = dynamic_cast<TLEADER *>(host);
-            if (player_array.AllRemoteReady()) {
-              allowed_to_start_process_function = true;
-              L->SendAllowProcessFunction();
-            }
-          }
+          LeaderAllowStartIfAllReady();
           giant->Unlock();
         }
       }
