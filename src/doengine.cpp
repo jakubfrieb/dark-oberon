@@ -2723,6 +2723,7 @@ void GameOnMouseDown(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
     if (config.cnc_mouse) {
       CancelMouseAction();
       selection->UnselectAll();
+      mouse.draw_selection = false;
     }
     else MouseCommand();
 
@@ -2741,8 +2742,10 @@ void GameOnMouseUp(TGUI_BOX *sender, GLfloat x, GLfloat y, int button)
   switch (button) {
   case GLFW_MOUSE_BUTTON_LEFT:
 
-    // C&C mouse: click with command cursor (cursor is changed to selection one by dragging)
-    if (mouse.draw_selection && config.cnc_mouse && IsMouseCommandCursor(mouse.cursor_id)) {
+    // C&C mouse: click with command cursor (not dragged, cursor may not be updated yet)
+    if (mouse.draw_selection && config.cnc_mouse && IsMouseCommandCursor(mouse.cursor_id) &&
+      fabs(x - mouse.down_x) <= MC_SELECT_RADIUS && fabs(y - mouse.down_y) <= MC_SELECT_RADIUS)
+    {
       MouseCommand();
       mouse.draw_selection = false;
     }
