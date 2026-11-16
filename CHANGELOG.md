@@ -9,9 +9,34 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.7.0-rc.1] - 2026-11-16
+
+Release candidate built from player feedback (macOS player). Not yet a stable release.
+
 ### Added
+- A planted flag marks the rally point of the selected production building, also when its queue is empty.
+- Mouse-wheel zoom keeps the point under the cursor in place (game and editor); `+`/`-` still zoom to the
+  screen centre.
+- Optional "C&C mouse controls" in Options → Video (off by default): with own units selected, a left click
+  gives the order shown by the cursor and keeps the selection, a quick drag box-selects, and a right click
+  deselects and cancels a pending action. With workers selected, clicking an own unit may repair it instead
+  of selecting it; Ctrl+click still adds or removes units.
 - The lobby says that the server can be self-hosted and links to a new "Run your own server" section
   in the README: setup, home network and Raspberry Pi, ports, settings, HTTPS proxy, updating and stopping.
+
+### Fixed
+- After switching to a larger resolution, or when the window manager shrinks the window, the menu stayed
+  laid out for the old size and the cursor could not reach its buttons (seen with SDL3 / sdl2-compat,
+  e.g. Homebrew on macOS). The menu is rebuilt once the real window size is known, and the mouse grab is
+  refreshed after a resize.
+- Unit sounds were cut off or not played at all: a sample kept a stale mixer channel and stopped or waited
+  for unrelated sounds on it.
+- Quitting the game no longer pops in the speakers: sounds and music fade out briefly first.
+- A horizontal trackpad swipe no longer resets the map zoom.
+- Connecting to an address where nobody hosts a game ("connection refused") now says so and points to the
+  web lobby, instead of only "Error connecting to host".
+- Map editor: the Open button sits next to the map list, palette headers and the player tools label no
+  longer overlap other items, and menu dialogs are opaque so the MAP EDITOR button doesn't show through.
 
 ## [0.6.0] - 2026-11-05
 
@@ -337,7 +362,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.1...HEAD
+[0.7.0-rc.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...v0.7.0-rc.1
 [0.6.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.4.1...v0.5.0
