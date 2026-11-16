@@ -4469,6 +4469,7 @@ void CreateMenuGUI()
   // messagebox
   panel = gui->GetMessageBox();
   SetMenuPanel();
+  panel->SetAlpha(1.0f);  // modal: do not let menu buttons below show through
   panel->SetPadding(15);
 
   button = gui->GetMessageBox()->GetButton(GUI_MB_OK);
