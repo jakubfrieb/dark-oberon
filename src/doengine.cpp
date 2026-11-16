@@ -4443,10 +4443,28 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Lock ();
 
+      /* On a follower, the link to the leader (read via the talker's socket 0, registered with
+       * the leader's address and port in THOST) closing means the server is gone, not that the
+       * opponents hosted there (computer players) were beaten. The port check gates only this
+       * "server lost" detection (other clients on the same machine share the leader's IP); the
+       * disconnect loop below still matches players by address only. */
+      bool server_lost = host->GetType () == THOST::ht_follower
+                         && data->address.s_addr == host->GetRemoteAddress ().s_addr
+                         && data->port == htons (host->GetRemotePort ());
+      bool show_server_lost = server_lost && !won_lose;
+      if (server_lost)
+        won_lose = true;  // no "You WON!" from the disconnects below
+
       for (int id = 0; (id = player_array.GetPlayerID (data->address, data->port, id)) != -1; id++) {
         host->DisconnectAddress (id);
         ProcessDisconnect (id);
-      }    
+      }
+
+      if (show_server_lost) {
+        action_key = 0;
+        gui->ShowMessageBox ("Connection to the server was lost!", GUI_MB_OK);
+        allowed_to_start_process_function = true;
+      }
 
       player_array.Unlock ();
   }
