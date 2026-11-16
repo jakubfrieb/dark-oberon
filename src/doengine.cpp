@@ -4986,6 +4986,8 @@ void SetOrderVisibility(bool vis)
 // GLFW Size Callback
 //========================================================================
 
+static bool menu_size_changed = false;  ///< Menu GUI was built for another window size.
+
 /**
  *  GLFW window size callback function. This function is called by GLFW every
  *  time the window size is changed.
@@ -4995,6 +4997,13 @@ void SetOrderVisibility(bool vis)
  */
 void GLFWCALL SizeCallback(int w, int h)
 {
+  /* The real window size may arrive after the menu GUI was built (the window
+   * manager clamped the requested size, or applied it asynchronously): rebuild
+   * the menu, its projection and GUI for the real size. */
+  if ((state == ST_MAIN_MENU || state == ST_VIDEO_MENU)
+      && (w != config.scr_width || h != config.scr_height))
+    menu_size_changed = true;
+
   config.scr_width = w;
   config.scr_height = h;
 
@@ -5171,6 +5180,7 @@ void Menu()
   TTIME clock;
 
 //  Info("Running menu");
+  menu_size_changed = false;
   CreateMenuGUI();
 
   if (error == ERR_LOAD_MAP) {
@@ -5196,7 +5206,8 @@ void Menu()
   gui->MouseMove(GLfloat(mouse.x), GLfloat(mouse.y));  // update gui under mouse
 
   // menu loop
-  while (state == ST_MAIN_MENU || state == ST_PLAY_MENU || state == ST_VIDEO_MENU) {
+  while ((state == ST_MAIN_MENU || state == ST_PLAY_MENU || state == ST_VIDEO_MENU)
+         && !menu_size_changed) {
     // updates events
     clock.Update();
     mouse.Update(false, clock.GetShift());
