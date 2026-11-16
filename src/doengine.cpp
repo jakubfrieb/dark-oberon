@@ -1396,15 +1396,42 @@ static string FirstFreeMapRace () {
 }
 
 /**
- *  Returns index (>= 1) of the first player whose race is not a race of the
- *  selected map, or -1 when all races are valid. Caller holds player_array.
+ *  Gives player @p player_index the first free race of the selected map. When
+ *  every race is taken the race is left unchanged (usually ""), and
+ *  CanStartGame() then refuses to start. Caller holds player_array.
  */
-static int FirstPlayerWithInvalidRace () {
-  for (int i = 1; i < player_array.GetCount (); i++)
-    if (!IsMapRace (player_array.GetRaceIdName (i)))
-      return i;
+static void AssignFreeMapRace (int player_index) {
+  string race = FirstFreeMapRace ();
+  if (!race.empty ())
+    player_array.SetRaceIdName (player_index, race);
+}
 
-  return -1;
+/**
+ *  Checks whether the game can start with the current players: not more players
+ *  than the map allows, every player has a race of the map and races differ.
+ *  On failure @p reason gets a message for the user. Caller holds player_array.
+ */
+static bool CanStartGame (string &reason) {
+  int max_players = map_info_list.map_ext_info.max_players;
+  if (player_array.GetCount () > max_players + 1) {
+    reason = string ("Too many players! Maximum count\n of players for this map is ")
+             + std::to_string (max_players) + ".";
+    return false;
+  }
+
+  for (int i = 1; i < player_array.GetCount (); i++)
+    if (!IsMapRace (player_array.GetRaceIdName (i))) {
+      reason = "Player " + std::to_string (i) + " (" + player_array.GetPlayerName (i)
+               + ") has no valid race!";
+      return false;
+    }
+
+  if (!player_array.EveryPlayerHasDifferentRace ()) {
+    reason = "Every player must have different race!";
+    return false;
+  }
+
+  return true;
 }
 
 
@@ -1986,23 +2013,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         } else {
           player_array.AddComputerPlayer ();
           host->AddEmptyAddress ();
-          int idx = player_array.GetCount () - 1;
-          string chosen;
-          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-            bool taken = false;
-            for (int j = 0; j < player_array.GetCount (); j++) {
-              if (player_array.GetRaceIdName (j) == string (r->id_name)) {
-                taken = true;
-                break;
-              }
-            }
-            if (!taken) {
-              chosen = r->id_name;
-              break;
-            }
-          }
-          if (!chosen.empty ())
-            player_array.SetRaceIdName (idx, chosen);
+          AssignFreeMapRace (player_array.GetCount () - 1);
         }
       }
       player_array.Unlock ();
@@ -2034,34 +2045,11 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
 
     {
-      int max_players = map_info_list.map_ext_info.max_players;
-      enum { none, too_many_players, not_different_races, invalid_race } error = none;
+      string reason;
 
-      if (player_array.GetCount () > max_players + 1)
-        error = too_many_players;
-      else if (!player_array.EveryPlayerHasDifferentRace ())
-        error = not_different_races;
-      else if (FirstPlayerWithInvalidRace () >= 0)
-        error = invalid_race;
-
-      if (error != none) {
-        switch (error) {
-        case too_many_players:
-          action_key = 0;
-          gui->ShowMessageBox ((string ("Too many players! Maximum count\n of players for this map is ") + char(max_players + '0') + ".").c_str(), GUI_MB_OK);
-          break;
-        case not_different_races:
-          action_key = 0;
-          gui->ShowMessageBox ("Every player must have different race!", GUI_MB_OK);
-          break;
-        case invalid_race:
-          action_key = 0;
-          gui->ShowMessageBox ("Every player must choose a race!", GUI_MB_OK);
-          break;
-        case none:
-          /* Will never happen. */
-          break;
-        }
+      if (!CanStartGame (reason)) {
+        action_key = 0;
+        gui->ShowMessageBox (reason.c_str (), GUI_MB_OK);
         player_array.Unlock ();
         break;
       }
@@ -3600,23 +3588,7 @@ static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * 
     }
     player_array.AddComputerPlayer ();
     host->AddEmptyAddress ();
-    int idx = player_array.GetCount () - 1;
-    string chosen;
-    for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-      bool taken = false;
-      for (int j = 0; j < player_array.GetCount (); j++) {
-        if (player_array.GetRaceIdName (j) == string (r->id_name)) {
-          taken = true;
-          break;
-        }
-      }
-      if (!taken) {
-        chosen = r->id_name;
-        break;
-      }
-    }
-    if (!chosen.empty ())
-      player_array.SetRaceIdName (idx, chosen);
+    AssignFreeMapRace (player_array.GetCount () - 1);
   }
   player_array.Unlock ();
 
@@ -3641,23 +3613,10 @@ static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg
   player_array.Lock ();
   allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
 
-  int max_players = map_info_list.map_ext_info.max_players;
-  if (player_array.GetCount () > max_players + 1) {
-    Warning ("request_start: too many players for this map");
-    player_array.Unlock ();
-    return;
-  }
-  if (!player_array.EveryPlayerHasDifferentRace ()) {
-    Warning ("request_start: every player must have a different race");
-    player_array.Unlock ();
-    return;
-  }
   {
-    int bad = FirstPlayerWithInvalidRace ();
-    if (bad >= 0) {
-      Warning (LogMsg ("request_start: player %d (%s) has no valid race '%s'",
-                       bad, player_array.GetPlayerName (bad).c_str (),
-                       player_array.GetRaceIdName (bad).c_str ()));
+    string reason;
+    if (!CanStartGame (reason)) {
+      Warning (LogMsg ("request_start: %s", reason.c_str ()));
       player_array.Unlock ();
       return;
     }
@@ -3722,12 +3681,7 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
    * changes, so without this a joined player kept race "" on a dedicated
    * server and the game could not start (and addcpu could pick the race the
    * client's combo showed). */
-  {
-    string race = FirstFreeMapRace ();
-    if (race.empty () && map_info_list.rac_list)
-      race = map_info_list.rac_list->id_name;
-    player_array.SetRaceIdName (player_array.GetCount () - 1, race);
-  }
+  AssignFreeMapRace (player_array.GetCount () - 1);
 
   UpdatePlayersAndMenu ();
 
@@ -3849,14 +3803,18 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     player_array.SetRaceIdName (i, race);
   }
 
-  UpdatePlayersAndMenu ();
-
   bool start_game = (msg->GetSubtype() == 1);
 
-  /* Older leaders (<= 0.7.0-rc.1) give a joined player race "". The menu sync
-   * above put the race shown in our combo box into player_array; tell the
-   * leader, so both sides agree (the leader answers with a valid race, so this
-   * is sent at most once per invalid state). */
+  /* Leaders without the race default (before this fix) give a joined player
+   * race "". Pick a race no other player uses; the menu sync below shows it in
+   * our combo box (or keeps the combo's race if none is free). */
+  if (!start_game && my_index_without_race >= 0)
+    AssignFreeMapRace (my_index_without_race);
+
+  UpdatePlayersAndMenu ();
+
+  /* Tell the leader the repaired race, so both sides agree (the leader answers
+   * with a valid race, so this is sent at most once per invalid state). */
   if (!start_game && my_index_without_race >= 0) {
     string shown_race = player_array.GetRaceIdName (my_index_without_race);
     if (IsMapRace (shown_race))
@@ -7329,22 +7287,7 @@ void RunDedicatedServer(const char *map_basename, int port)
           host->AddEmptyAddress();
         {
           int idx = player_array.GetCount() - 1;
-          string chosen;
-          for (TMAP_RAC_INFO_NODE *r = map_info_list.rac_list; r; r = r->next) {
-            bool taken = false;
-            for (int j = 0; j < player_array.GetCount(); j++) {
-              if (player_array.GetRaceIdName(j) == string(r->id_name)) {
-                taken = true;
-                break;
-              }
-            }
-            if (!taken) {
-              chosen = r->id_name;
-              break;
-            }
-          }
-          if (!chosen.empty())
-            player_array.SetRaceIdName(idx, chosen);
+          AssignFreeMapRace(idx);
 
           const char *arg = buf + 6;
           while (*arg == ' ' || *arg == '\t')
@@ -7445,23 +7388,10 @@ void RunDedicatedServer(const char *map_basename, int port)
       }
       else if (strncmp(buf, "start", 5) == 0) {
         player_array.Lock();
-        int max_players = map_info_list.map_ext_info.max_players;
-        if (player_array.GetCount() > max_players + 1) {
-          Warning("start: too many players for this map");
-          player_array.Unlock();
-          continue;
-        }
-        if (!player_array.EveryPlayerHasDifferentRace()) {
-          Warning("start: every player must have a different race");
-          player_array.Unlock();
-          continue;
-        }
         {
-          int bad = FirstPlayerWithInvalidRace();
-          if (bad >= 0) {
-            Warning(LogMsg("start: player %d (%s) has no valid race '%s' - pick a race in the lobby",
-                           bad, player_array.GetPlayerName(bad).c_str(),
-                           player_array.GetRaceIdName(bad).c_str()));
+          string reason;
+          if (!CanStartGame(reason)) {
+            Warning(LogMsg("start: %s", reason.c_str()));
             player_array.Unlock();
             continue;
           }
