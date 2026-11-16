@@ -5122,6 +5122,32 @@ void GLFWCALL MousePosCallback(int x, int y)
 
 
 /**
+ *  Zooms the map keeping the point under the mouse cursor fixed.
+ *  Zero delta is ignored (Zoom(0) would reset the zoom).
+ */
+static void ZoomToMouse(int dzoom)
+{
+  if (!dzoom) return;
+
+  projection.Update();
+  GLfloat old_h_coef = projection.game_h_coef;
+  GLfloat old_v_coef = projection.game_v_coef;
+
+  map.Zoom(dzoom);
+  projection.Update();
+
+  // keep the selection anchor on its map point (Move() then adds the scroll part)
+  if (mouse.draw_selection) {
+    mouse.sel_x = config.scr_width / 2 + (mouse.sel_x - config.scr_width / 2) * old_h_coef / projection.game_h_coef;
+    mouse.sel_y = config.scr_height / 2 + (mouse.sel_y - config.scr_height / 2) * old_v_coef / projection.game_v_coef;
+  }
+
+  map.Move((mouse.x - config.scr_width / 2) * (projection.game_h_coef - old_h_coef),
+           (mouse.y - config.scr_height / 2) * (projection.game_v_coef - old_v_coef));
+}
+
+
+/**
  *  GLFW mouse wheel callback function. This function is called every time a
  *  mouse wheel changes position.
  *
@@ -5135,11 +5161,11 @@ void GLFWCALL MouseWheelCallback(int pos)
 
   switch (state) {
   case ST_GAME:
-    map.Zoom(pos - last_pos);
+    ZoomToMouse(pos - last_pos);
     break;
 #if !HEADLESS
   case ST_EDITOR:
-    map.Zoom(pos - last_pos);
+    ZoomToMouse(pos - last_pos);
     break;
 #endif
 
