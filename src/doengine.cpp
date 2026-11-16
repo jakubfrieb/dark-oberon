@@ -5122,15 +5122,11 @@ void GLFWCALL MousePosCallback(int x, int y)
 
 
 /**
- *  Zooms the map so that the map point under the mouse cursor stays fixed.
- *  Keeps MouseToMap() of the cursor unchanged: (s * coef - map.dx) is
- *  invariant when map.dx changes by s * (new_coef - old_coef).
- *
- *  @param dzoom  Zoom difference (see TMAP::Zoom()).
+ *  Zooms the map keeping the point under the mouse cursor fixed.
+ *  Zero delta is ignored (Zoom(0) would reset the zoom).
  */
 static void ZoomToMouse(int dzoom)
 {
-  // wheel events without vertical movement (e.g. horizontal trackpad swipe)
   if (!dzoom) return;
 
   projection.Update();
