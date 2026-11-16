@@ -4039,6 +4039,18 @@ static void ProcessDisconnect (int player_id) {
   
   players[player_id]->active = false;
 
+  /* A player who leaves before the start (e.g. could not reach another player) never sends
+     net_protocol_synchronise: do not keep the others waiting for him forever. */
+  if (host->GetType () == THOST::ht_leader && !allowed_to_start_process_function) {
+    player_array.PlayerReady (player_id);
+
+    if (leader_ready && player_array.AllRemoteReady ()) {
+      allowed_to_start_process_function = true;
+      dynamic_cast<TLEADER *>(host)->SendAllowProcessFunction ();
+      gui->HideMessageBox ();
+    }
+  }
+
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
 
