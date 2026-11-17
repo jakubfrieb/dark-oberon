@@ -45,9 +45,14 @@
 //=========================================================================
 
 
+/**
+ *  Sends a new unit to the factory's rally point. Only the host that owns the unit moves it: the
+ *  other hosts create a replica from RQ_CREATE_UNIT, and a group move of a replica would send the
+ *  owner RQ_GROUP_MOVING, a local-only request with a path pointer (dropped as invalid there).
+ */
 static void FactoryTryOrderRallyMove(TFACTORY_UNIT *fac, TFORCE_UNIT *unit)
 {
-  if (!fac || !unit || !fac->HasRallyPoint())
+  if (!fac || !unit || !fac->HasRallyPoint() || player_array.IsRemote(unit->GetPlayerID()))
     return;
   const TPOSITION_3D &rg = fac->GetRallyGoal();
   TFORCE_UNIT *arr[1] = { unit };
