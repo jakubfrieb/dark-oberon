@@ -84,6 +84,7 @@ void THOST::Initialise (int incoming_message_queue_size, in_port_t listen_port)
   routes_lock = SDL_CreateMutex ();
   if (routes_lock == NULL)
     Critical ("Could not create mutex");
+  in_game = false;
 
   listener = NEW TNET_LISTENER (incoming_message_queue_size, listen_port);
   handler = NEW TNET_MESSAGE_HANDLER ();
@@ -121,11 +122,9 @@ THOST::~THOST ()
 void THOST::SendMessage (TNET_MESSAGE *msg) {
   if (msg->GetConnection () != no_connection)
     listener->Send (msg->GetConnection (), msg);
-  else if (msg->GetDest () == all_players) {
-    std::vector<TNET_CONN_ID> conns = GetRoutedConnections ();
-    for (unsigned i = 0; i < conns.size (); i++)
-      listener->Send (conns[i], msg);
-  } else {
+  else if (msg->GetDest () == all_players)
+    SendToAll (msg);
+  else {
     TNET_CONN_ID conn = GetRoute (msg->GetDest ());
     if (conn != no_connection)
       listener->Send (conn, msg);
@@ -137,11 +136,24 @@ void THOST::SendMessage (TNET_MESSAGE *msg) {
   pool_net_messages->PutToPool (msg);
 }
 
+/**
+ *  Queues a copy of @p msg (which the caller keeps) once for every connection of the route
+ *  table but @p except, whatever its destination is. A @p forward is measured as one
+ *  (TNET_LISTENER::Send()).
+ */
+void THOST::SendToAll (TNET_MESSAGE *msg, TNET_CONN_ID except, bool forward) {
+  std::vector<TNET_CONN_ID> conns = GetRoutedConnections ();
+  for (unsigned i = 0; i < conns.size (); i++)
+    if (conns[i] != except)
+      listener->Send (conns[i], msg, forward);
+}
+
 /** Adds the route of the next player id (@p conn = no_connection for a player of this host);
  *  returns the id. */
 T_BYTE THOST::AddRoute (TNET_CONN_ID conn) {
   SDL_LockMutex (routes_lock);
   routes.push_back (conn);
+  departed.push_back (false);
   T_BYTE id = routes.size () - 1;
   SDL_UnlockMutex (routes_lock);
 
@@ -157,11 +169,13 @@ TNET_CONN_ID THOST::GetRoute (int id) {
   return conn;
 }
 
-/** Player @p id has no connection any more (it ended); the ids stay valid. */
+/** Player @p id has no connection any more (it ended) and has left; the ids stay valid. */
 void THOST::ClearRoute (int id) {
   SDL_LockMutex (routes_lock);
-  if (id >= 0 && id < (int)routes.size ())
+  if (id >= 0 && id < (int)routes.size ()) {
     routes[id] = no_connection;
+    departed[id] = true;
+  }
   SDL_UnlockMutex (routes_lock);
 }
 
@@ -176,6 +190,7 @@ void THOST::RemoveRoute (int id) {
   if (id >= 0 && id < (int)routes.size ()) {
     conn = routes[id];
     routes.erase (routes.begin () + id);
+    departed.erase (departed.begin () + id);
   }
 
   if (std::find (routes.begin (), routes.end (), conn) != routes.end ())
@@ -230,16 +245,126 @@ int THOST::GetPlayerIDByConnection (TNET_CONN_ID conn, int from) {
 }
 
 /**
+ *  Decides what the leader does with a message received from a follower on the connection
+ *  @p from (docs/NETWORK_RELAY_PLAN.md, section 5), from the route table @p routes, the
+ *  players who left (@p departed) and whether the game has started. The caller has checked
+ *  the payload (exact length, ValidateNetEvent()). Identity comes only from @p from: the
+ *  origin is the first player routed to it (a follower hosts one human), and the dest byte
+ *  only tells a broadcast from a request.
+ *
+ *  - Not from a player yet (connect, refused hosts): local only, the handlers check it.
+ *  - Event, only in the game:
+ *    - broadcast (a unit state or a sync request about the sender's own unit): its player
+ *      must be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
+ *      every follower but the origin;
+ *    - request to the owner of a unit (dest = that owner): local when the owner is on the
+ *      leader, else forwarded to the owner's connection only.
+ *  - Chat: local and to every follower but the origin, the origin id in the dest byte.
+ *  - Disconnect: only of the origin's own player, local only: the leader announces the
+ *    departure itself (ProcessDisconnect()). In the game the player has left from now on
+ *    (#departs), so nothing he sends after it is relayed.
+ *  - Everything else (lobby, ping, time sync, ...): local only.
+ *
+ *  Events of a player who has left (ClearRoute(), #departs) are dropped as stale, not as
+ *  invalid.
+ */
+TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
+                          const std::vector<TNET_CONN_ID> &routes,
+                          const std::vector<bool> &departed, bool in_game) {
+  TRELAY r = { true, false, no_connection, -1, NULL, false, false };
+
+  const int count = (int)routes.size ();
+  for (int i = 0; from != no_connection && i < count; i++)
+    if (routes[i] == from) {
+      r.origin = i;
+      break;
+    }
+
+  if (r.origin == -1)
+    return r;
+
+  const bool known = m.player_id >= 0 && m.player_id < count;
+  const bool own = known && routes[m.player_id] == from;
+
+  switch (m.type) {
+  case net_protocol_event:
+    if (!in_game)
+      r.drop = "event before the game";
+    else if (!known)
+      r.drop = "player";
+    else if (m.dest == all_players) {
+      if (!own)
+        r.drop = "broadcast for another player";
+      else if (departed[m.player_id])
+        r.drop = "player has left";
+      else
+        r.forward = true;
+    } else {
+      const TNET_CONN_ID owner = routes[m.player_id];
+      if (!m.request || m.dest != m.player_id)
+        r.drop = "event for another player";
+      else if (departed[m.player_id])
+        r.drop = "player has left";
+      else if (owner == from)
+        r.drop = "request for an own unit";
+      else if (owner != no_connection) {
+        r.local = false;
+        r.forward = true;
+        r.to = owner;
+      }
+    }
+    r.invalid = r.drop != NULL && !(known && departed[m.player_id]);
+    break;
+
+  case net_protocol_chat_message:
+    r.forward = true;
+    break;
+
+  case net_protocol_disconnect:
+    if (!own) {
+      r.drop = "departure of another player";
+      r.invalid = true;
+    } else
+      r.departs = in_game;
+    break;
+
+  default:
+    break;
+  }
+
+  if (r.drop != NULL)
+    r.local = r.forward = false;
+
+  return r;
+}
+
+/** RouteRelay() over the current route table; marks a departure (TRELAY::departs) in the same hold. */
+TRELAY THOST::Relay (const TRELAY_MESSAGE &m, TNET_CONN_ID from) {
+  SDL_LockMutex (routes_lock);
+
+  TRELAY r = RouteRelay (m, from, routes, departed, in_game);
+  if (r.departs)
+    departed[m.player_id] = true;
+
+  SDL_UnlockMutex (routes_lock);
+
+  return r;
+}
+
+/**
  *  Sends chat message to all connected hosts.
  *
  *  @param chat_message Message content.
+ *  @param sender       Player id of the sender: the dest byte carries it (the leader
+ *                      replaces it with the origin when it forwards a follower's chat).
  */
-void THOST::SendChatMessage (string chat_message) {
+void THOST::SendChatMessage (string chat_message, int sender) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
-  m->Init_send(net_protocol_chat_message, 0);
+  m->Init_send(net_protocol_chat_message, 0, static_cast<T_BYTE>(sender));
   m->PackString (chat_message);
 
-  SendMessage (m);
+  SendToAll (m);
+  pool_net_messages->PutToPool (m);
 }
 
 /**

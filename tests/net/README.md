@@ -14,11 +14,13 @@ sends (`src/doperf.cpp`):
 | `dispatch` | received by the listener − put into the event queue (waiting for `giant` + dispatcher queue) |
 | `perceived` | applied to the replica by the simulation − time stamp of the event |
 | `writer` | any sent message: written to the socket − queued for its connection (the writer's queue, including a write blocked by the peer) |
+| `forward` | the leader only (relay): a follower's message passed on to another follower, written to the socket − received from its origin |
 
 - Only unit **states** count for `transit` and `perceived`; requests and `US_ZOMBIE`/`US_DELETE` are
   scheduled ahead. `dispatch` counts every event.
 - No wire change: the time stamps are already on the wire in the leader's synced game clock, so the
-  same numbers work for P2P (B0, B1) and the relay (B2).
+  same numbers work for P2P (B0, B1) and the relay (B2). With the relay, `transit` and `perceived`
+  of another client's events include the hop through the server (A→S→B).
 - A state's time stamp is the simulation step it was due in, so `transit` includes up to one 20 ms
   step on the sender, and `perceived` adds up to one 20 ms step on the receiver. Both are the same
   in every topology.

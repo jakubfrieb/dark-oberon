@@ -205,3 +205,64 @@ measuring, for 5 s of walking that took about 7 s):
 - The evicted client shows "Connection to the server was lost!" after `SIGCONT`. Client 1 is not
   told: the in-game departure broadcast is step 4 (in P2P client 1 still has its own link to
   client 2).
+
+## B2 (`net/relay`, rc.3 steps 4 and 5): relay through the server
+
+Same harness, interleaved in one session: B1 a, b → B2 a, b, twice (ports 17411/17412), then
+scenario c once each (port 17420). B2 binaries: `do-wt/baselines/B2/` (commit `7e63705`). Raw results:
+`do-wt/baselines/results/b2cmp/run{1,2}/{B1,B2}/{a,b,c}/`.
+
+With the relay, the other client's events go A → server → B. In this harness every packet crosses
+the one netem'd loopback, so in b the relay path pays the 20 ms delay twice (A→S, S→B) where P2P
+paid it once (A→B). On real networks the difference is owd(A,S) + owd(S,B) − owd(A,B) (plan,
+section 3).
+
+Median and [range] over 2 runs × 2 clients, in ms; `transit` clock-corrected as above:
+
+| Scenario | Build | perceived p50 | perceived p95 | perceived p99 | perceived max | transit p95 | transit p99 |
+|---|---|---|---|---|---|---|---|
+| a localhost | B1 | 18.2 [15.1–20.9] | 35.3 [31.9–38.6] | 39.4 [39.1–40.0] | 40.4 [40.2–40.6] | 19.9 [19.8–19.9] | 20.1 [20.0–20.1] |
+| a localhost | **B2** | 20.8 [16.2–23.9] | 37.8 [31.4–39.5] | 39.2 [38.2–40.0] | 40.1 [39.8–40.6] | **19.9** [19.8–19.9] | **20.2** [20.1–20.2] |
+| b 20±2 ms | B1 | 39.7 [34.9–41.0] | 55.4 [51.5–58.5] | 58.8 [56.2–60.9] | 61.2 [60.1–62.5] | 40.2 [40.0–40.2] | 41.5 [41.4–41.5] |
+| b 20±2 ms | **B2** | 59.7 [59.0–61.0] | **76.4** [73.2–78.2] | **80.5** [79.3–80.7] | 82.1 [80.1–83.2] | 60.5 [59.8–61.2] | 62.5 [61.7–63.4] |
+
+Samples per client and run: 1284–2727.
+
+**Scenario c** (2 hard CPUs, `spawn 600 fight`, one run each):
+
+| Build | server `perf` step p99 / max | server `forward` p99 / max | client perceived p95 / p99 (c1, c2) |
+|---|---|---|---|
+| B1 | 1.87 / 6.76 | – | 30.5 / 36.2, 29.1 / 32.6 |
+| B2 | 1.94 / 6.25 | 0.35 / 0.74 | 34.7 / 38.5, 35.2 / 38.6 |
+
+In c most received events are the server's, and B1's clients run 6 ms behind the server's clock
+(`[clock]`), which lowers their `perceived` by 6 ms; B2's clients are within 0.03 ms. Corrected, the
+clients' numbers are the same within about 1 ms.
+
+**Acceptance (plan, section 7):**
+- LAN, +2 ms on `transit` p95: B2 − B1 = 0.0 ms (p99 +0.1 ms). Pass.
+- 20 ms one way: perceived p95 B2 − B1 = +21.0 ms (≤ 25), p99 80.5 ms (≤ 100). Pass. The
+  difference is the second 20 ms hop of this harness (`transit` +20.3 ms).
+- Server forward p99 < 2 ms during `spawn 600 fight`: 0.35 ms. Pass. In every a/b run `forward` p99
+  was 0.15–0.35 ms, max below 0.9 ms.
+- Server step p99: 1.94 vs 1.87 ms, within the run-to-run spread (no regression).
+- Clock: the step 2 time sync keeps client ↔ server below 1 ms in every B2 run (B1: −6 to −26 ms).
+
+**NAT** (two clients in their own network namespaces, each with a veth link only to the server's
+namespace, `ip_forward` 0, no routes between them; `c1 → c2` is "Network is unreachable"):
+- B2: both clients play, each sees the other's units (perceived n = 1259 / 787). `strace` of each
+  client: exactly one TCP `connect`, to its server address; the `accept` on the unused listen port
+  never returns.
+- B1: the game does not start. c1 `connect`s to c2 and gets `ENETUNREACH` ("cannot be reached, game
+  not started"); c2 reports "did not connect to us".
+
+**Head of line** (scenario c load, NAT namespaces, client 2 `kill -STOP`):
+- 9 s and 25 s stops: client 1 perceived p99 39.1 / 38.9 ms, server step p99 2.5 / 2.2 ms; nobody
+  froze. Client 1's perceived max (9.3 s / 25.6 s) is client 2's backlog after `SIGCONT`. Client 2
+  was **not** evicted: its kernel receive buffer (`tcp_rmem` max 32 MB here) absorbed the backlog,
+  so the server's queue never aged. Step 3 evicted after 6.7 s on plain loopback; a loopback STOP
+  run of B2 was not repeated, so whether the namespaces/veth or the build make the difference is not
+  confirmed. Eviction of a stopped client is therefore met only with a smaller receive buffer:
+- 15 s stop with client 2's `tcp_rmem` max set to 256 KB: evicted ("oldest outgoing message has
+  waited 259 ms, 15912 bytes queued"), client 1 logged "Player 2 (Bot2) was disconnected." and
+  kept playing (perceived p99 38.8 ms, max 41.3 ms).

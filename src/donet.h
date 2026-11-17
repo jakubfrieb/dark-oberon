@@ -49,6 +49,7 @@
 #endif
 
 #include <stdint.h>
+#include <atomic>
 #include <deque>
 #include <string>
 #include <vector>
@@ -83,6 +84,10 @@ const int max_net_message_size = 255;
  *  of the oldest queued message (seconds). */
 const int net_out_queue_max_bytes = 256 * 1024;
 const double net_out_queue_max_age = 0.25;
+
+/** Invalid messages (malformed or forged, see TNET_LISTENER::RECEIVE_HANDLER) after which a
+ *  connection is evicted. A correct peer sends none. */
+const int net_max_invalid_messages = 32;
 
 
 //=========================================================================
@@ -184,6 +189,11 @@ public:
   
   void Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest = 255);
   void Init_receive (in_addr address, in_port_t port, TNET_CONN_ID conn, T_BYTE *data);
+  void Init_connection_ended (TNET_CONN_ID conn);
+
+  /** Not a message but the notice that the connection GetConnection() ended, queued behind
+   *  the messages received on it (it never comes from the wire). */
+  bool IsConnectionEnded () { return connection_ended; }
 
   T_BYTE GetSize ()     { return size; }
   T_BYTE GetType ()     { return type; }
@@ -291,6 +301,9 @@ public:
   /** Returns pointer to start of the header. */
   const char *GetHeaderStart () { return (const char *)&size; }
 
+  /** Returns pointer to the payload (GetPayloadSize() bytes), without extracting it. */
+  const T_BYTE *GetPayload () { return buf; }
+
   in_addr GetAddress () { return address; }
   in_port_t GetPort ()  { return port; }
   /** The connection the message was received on / is a reply to (no_connection = use dest). */
@@ -317,6 +330,7 @@ private:
   in_port_t port;
   TNET_CONN_ID conn;   //!< See GetConnection().
   double received_at;
+  bool connection_ended;   //!< See IsConnectionEnded().
 
   int extract_p;
   bool extract_error;  //!< An Extract*() call ran past the end of the message.
@@ -387,12 +401,13 @@ public:
 
   TNET_OUT_QUEUE (int max_bytes = net_out_queue_max_bytes, double max_age = net_out_queue_max_age);
 
-  PutResult Put (const void *data, int size, double now);
+  PutResult Put (const void *data, int size, double now, double forwarded_since = -1);
 
   bool IsEmpty () const { return packets.empty (); }
   int Peek (std::string &data, int max_bytes) const;
-  /** Removes the oldest message once it is written; returns how long it was queued. */
-  double Pop (double now);
+  /** Removes the oldest message once it is written; returns how long it was queued, and in
+   *  @p forward_time how long since it was received when it is a forward (else -1). */
+  double Pop (double now, double *forward_time = NULL);
 
   int GetBytes () const { return bytes; }
   /** Age of the oldest message (0 when empty). */
@@ -402,6 +417,7 @@ public:
 private:
   struct PACKET {
     double queued_at;
+    double forwarded_since;   //!< A forward: when it was received (-1 = not a forward).
     std::string data;
   };
 
@@ -425,9 +441,13 @@ private:
  *  - a bounded outgoing queue (TNET_OUT_QUEUE) and a writer thread, the only code writing
  *    to its socket. Send() never blocks.
  *
- *  A connection ends when the peer closes it, on an error, on Shutdown() or when it is
- *  evicted (its outgoing queue stalls). Its reader then stops the writer, closes the socket
- *  (the only place that closes it) and calls the disconnect handler with the handle.
+ *  Every received message first goes to the receive handler (RegisterOnReceive()), still in
+ *  the reader thread, which can forward it at once.
+ *
+ *  A connection ends when the peer closes it, on an error, on Shutdown(), when it is
+ *  evicted (its outgoing queue stalls) or when it sent too many invalid messages. Its reader
+ *  then stops the writer, closes the socket (the only place that closes it) and queues the
+ *  notice TNET_MESSAGE::IsConnectionEnded() behind its messages for the dispatcher.
  */
 class TNET_LISTENER {
 public:
@@ -464,13 +484,21 @@ public:
   bool IsConnectionOpen (TNET_CONN_ID conn);
   void CloseWhenIdle (TNET_CONN_ID conn, int seconds);
 
-  bool Send (TNET_CONN_ID conn, TNET_MESSAGE *msg);
+  bool Send (TNET_CONN_ID conn, TNET_MESSAGE *msg, bool forward = false);
   void Shutdown (TNET_CONN_ID conn);
 
-  /** Called (in the connection's reader thread) after a connection ended and its socket was
-   *  closed. */
-  typedef void (* DISCONNECT_HANDLER)(TNET_CONN_ID conn);
-  void RegisterOnDisconnect (DISCONNECT_HANDLER f);
+  /** What the reader does with a received message (RECEIVE_HANDLER). */
+  enum ReceiveResult {
+    receive_dispatch,   //!< Queue it for the dispatcher.
+    receive_done,       //!< The handler took care of it (forwarded, or dropped as stale).
+    receive_invalid     //!< Malformed or forged: dropped and counted; too many evict the connection.
+  };
+
+  /** Called in the connection's reader thread for every received message before it is
+   *  queued, with the @p context given to RegisterOnReceive(). It must not block for long
+   *  (it is on the forwarding path) and keeps @p msg. */
+  typedef ReceiveResult (* RECEIVE_HANDLER)(void *context, TNET_MESSAGE *msg);
+  void RegisterOnReceive (RECEIVE_HANDLER f, void *context);
 
 private:
   static int SDLCALL listener_thread_function (void *listener_class);
@@ -517,7 +545,8 @@ private:
   TNET_MESSAGE_QUEUE *incoming_messages;  //!< Message queue for incoming
                                           //!  network messages.
 
-  DISCONNECT_HANDLER on_disconnect;
+  std::atomic<RECEIVE_HANDLER> on_receive;
+  void *on_receive_context;
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
@@ -540,9 +569,15 @@ public:
 
   void RegisterExtendedFunction (T_BYTE type, void (*f)(TNET_MESSAGE *msg));
 
+  /** Called (in the dispatcher thread) when a connection has ended, after the messages
+   *  received on it were handled. */
+  typedef void (* DISCONNECT_HANDLER)(TNET_CONN_ID conn);
+  void RegisterOnDisconnect (DISCONNECT_HANDLER f) { on_disconnect = f; }
+
 private:
   /** Array of pointers to callback functions. */
   void (*extended_function[MAX_T_BYTE + 1])(TNET_MESSAGE *);
+  std::atomic<DISCONNECT_HANDLER> on_disconnect;
 }; 
 
 

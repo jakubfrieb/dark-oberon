@@ -189,6 +189,7 @@ void TNET_MESSAGE::Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest)
   this->subtype = subtype;
   this->dest = dest;
   this->conn = no_connection;
+  connection_ended = false;
 
   extract_p = 0;
   extract_error = false;
@@ -216,9 +217,17 @@ void TNET_MESSAGE::Init_receive (in_addr address, in_port_t port, TNET_CONN_ID c
   this->port = port;
   this->conn = conn;
   received_at = AppGetTimeSeconds ();
+  connection_ended = false;
 
   extract_p = 0;
   extract_error = false;
+}
+
+/** Creates the notice that the connection @p conn ended (IsConnectionEnded()). */
+void TNET_MESSAGE::Init_connection_ended (TNET_CONN_ID conn) {
+  Init_send (0, 0);
+  this->conn = conn;
+  connection_ended = true;
 }
 
 
@@ -342,7 +351,8 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   incoming_messages = NEW TNET_MESSAGE_QUEUE (queue_size);
   consumer_thread = NULL;
 
-  on_disconnect = NULL;
+  on_receive = NULL;
+  on_receive_context = NULL;
   connections_lock = SDL_CreateMutex ();
   bind_sem = SDL_CreateSemaphore (0);
   listener_bind_ok = false;
@@ -509,8 +519,9 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 }
 
 /**
- *  Reader of a connection: receives its messages into the incoming message queue until the
- *  connection ends, then ends it (ConnectionEnded()) and calls the disconnect handler.
+ *  Reader of a connection: receives its messages, passes each one to the receive handler and
+ *  into the incoming message queue, until the connection ends. Then it ends it
+ *  (ConnectionEnded()) and queues the notice of that behind the messages.
  */
 int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
   CONNECTION *c = static_cast<CONNECTION *>(connection);
@@ -526,6 +537,7 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
   T_BYTE *size = buf;
   int pos;
   int len;
+  int invalid = 0;
 
   while (1) {
     if ((pos = recv (fd, reinterpret_cast<char*>(buf), 1, 0)) == -1) {
@@ -567,13 +579,26 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
 
     TNET_MESSAGE *msg = pool_net_messages->GetFromPool();
     msg->Init_receive(c->address, htons (c->port), c->id, buf);
-    self->incoming_messages->PutMessage (msg);
+
+    RECEIVE_HANDLER on_receive = self->on_receive;
+    ReceiveResult result = on_receive ? on_receive (self->on_receive_context, msg) : receive_dispatch;
+
+    if (result == receive_dispatch)
+      self->incoming_messages->PutMessage (msg);
+    else
+      pool_net_messages->PutToPool (msg);
+
+    if (result == receive_invalid && ++invalid >= net_max_invalid_messages) {
+      Warning (LogMsg ("Listener: dropping connection from %s: %d invalid messages", peer, invalid));
+      break;
+    }
   }
 
   self->ConnectionEnded (c);
 
-  if (self->on_disconnect)
-    self->on_disconnect (c->id);
+  TNET_MESSAGE *ended = pool_net_messages->GetFromPool();
+  ended->Init_connection_ended (c->id);
+  self->incoming_messages->PutMessage (ended);
 
   Debug ("Listener's subthread finished");
   return 0;
@@ -619,8 +644,12 @@ int SDLCALL TNET_LISTENER::writer_thread_function (void *connection) {
     SDL_LockMutex (c->lock);
 
     double now = AppGetRawSeconds ();
-    for (int i = 0; i < count; i++)
-      NetStatRecord (NS_WRITER, c->out.Pop (now));
+    for (int i = 0; i < count; i++) {
+      double forward;
+      NetStatRecord (NS_WRITER, c->out.Pop (now, &forward));
+      if (forward >= 0)
+        NetStatRecord (NS_FORWARD, forward);
+    }
 
     if (!ok && c->writing) {
       Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Writer: error sending to %s, closing the connection",
@@ -803,11 +832,12 @@ void TNET_LISTENER::ConnectionEnded (CONNECTION *c) {
  *  Queues a copy of @p msg for the connection @p conn. Never blocks: when its queue is full,
  *  the message is dropped; when its oldest message waits longer than net_out_queue_max_age,
  *  the connection is evicted (shut down, so it ends like a lost connection and the disconnect
- *  handler runs). The caller keeps @p msg.
+ *  handler runs). The caller keeps @p msg. A @p forward (a received message passed on) is
+ *  measured from when it was received (netstat `forward`).
  *
  *  @return true when the message was queued.
  */
-bool TNET_LISTENER::Send (TNET_CONN_ID conn, TNET_MESSAGE *msg) {
+bool TNET_LISTENER::Send (TNET_CONN_ID conn, TNET_MESSAGE *msg, bool forward) {
   bool queued = false;
 
   SDL_LockMutex (connections_lock);
@@ -818,8 +848,9 @@ bool TNET_LISTENER::Send (TNET_CONN_ID conn, TNET_MESSAGE *msg) {
 
     if (c->writing) {
       double now = AppGetRawSeconds ();
+      double received = forward ? now - (AppGetTimeSeconds () - msg->GetReceivedAt ()) : -1;
 
-      switch (c->out.Put (msg->GetHeaderStart (), msg->GetSize (), now)) {
+      switch (c->out.Put (msg->GetHeaderStart (), msg->GetSize (), now, received)) {
       case TNET_OUT_QUEUE::queued:
         queued = true;
         SDL_CondSignal (c->has_data);
@@ -935,8 +966,10 @@ TNET_CONN_ID TNET_LISTENER::ClaimConnection (in_addr address, in_port_t port) {
   return conn;
 }
 
-void TNET_LISTENER::RegisterOnDisconnect (DISCONNECT_HANDLER f) {
-  on_disconnect = f;
+/** Sets the receive handler (RECEIVE_HANDLER); NULL queues every message. */
+void TNET_LISTENER::RegisterOnReceive (RECEIVE_HANDLER f, void *context) {
+  on_receive_context = context;
+  on_receive = f;
 }
 
 
@@ -955,7 +988,8 @@ TNET_OUT_QUEUE::TNET_OUT_QUEUE (int max_bytes, double max_age) {
  *  Queues a copy of @p size bytes at @p data at the time @p now. A message is never queued
  *  behind one older than the age limit (the connection is evicted instead).
  */
-TNET_OUT_QUEUE::PutResult TNET_OUT_QUEUE::Put (const void *data, int size, double now) {
+TNET_OUT_QUEUE::PutResult TNET_OUT_QUEUE::Put (const void *data, int size, double now,
+                                               double forwarded_since) {
   if (GetAge (now) > max_age)
     return stalled;
 
@@ -966,6 +1000,7 @@ TNET_OUT_QUEUE::PutResult TNET_OUT_QUEUE::Put (const void *data, int size, doubl
 
   packets.push_back (PACKET ());
   packets.back ().queued_at = now;
+  packets.back ().forwarded_since = forwarded_since;
   packets.back ().data.assign (static_cast<const char *>(data), size);
   bytes += size;
   return queued;
@@ -988,8 +1023,11 @@ int TNET_OUT_QUEUE::Peek (string &data, int max_bytes) const {
   return count;
 }
 
-double TNET_OUT_QUEUE::Pop (double now) {
+double TNET_OUT_QUEUE::Pop (double now, double *forward_time) {
   double waited = GetAge (now);
+
+  if (forward_time != NULL)
+    *forward_time = packets.front ().forwarded_since >= 0 ? now - packets.front ().forwarded_since : -1;
 
   bytes -= packets.front ().data.size ();
   packets.pop_front ();
@@ -1038,9 +1076,18 @@ int SDLCALL TNET_DISPATCHER::dispatcher_thread_function (void *dispatcher_class)
 TNET_MESSAGE_HANDLER::TNET_MESSAGE_HANDLER () {
   for (int i = 0; i <= MAX_T_BYTE; i ++)
     extended_function[i] = NULL;
+  on_disconnect = NULL;
 }
 
 void TNET_MESSAGE_HANDLER::HandleMessage (TNET_MESSAGE *msg) {
+  if (msg->IsConnectionEnded ()) {
+    DISCONNECT_HANDLER f = on_disconnect;
+    if (f)
+      f (msg->GetConnection ());
+    pool_net_messages->PutToPool(msg);
+    return;
+  }
+
   if (extended_function[msg->GetType ()] == NULL) {
     NetDropWarning (LogMsg ("Dropping message of unknown type %d from %s", msg->GetType (),
                             TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));

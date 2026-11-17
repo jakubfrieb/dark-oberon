@@ -35,6 +35,7 @@
 #include "cfg.h"
 #include "doalloc.h"
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -75,6 +76,25 @@ const int NET_PROTOCOL_VERSION = 2;
 
 const int all_players = 255;
 
+/** A message the leader received from a follower, as the relay sees it (THOST::RouteRelay()). */
+struct TRELAY_MESSAGE {
+  T_BYTE type;
+  T_BYTE dest;      //!< The header's dest byte as the follower sent it.
+  int player_id;    //!< Event: its player id; disconnect: the departing player; otherwise -1.
+  bool request;     //!< Event: a request (RQ_*), not a unit state.
+};
+
+/** What the leader does with a message received from a follower (THOST::RouteRelay()). */
+struct TRELAY {
+  bool local;          //!< Dispatch it on the leader.
+  bool forward;        //!< Forward a copy to #to.
+  TNET_CONN_ID to;     //!< The one connection to forward to; no_connection = every follower but the origin.
+  int origin;          //!< Player id of the origin (the dest byte of the forwards), -1 = not a player.
+  const char *drop;    //!< Why it is dropped (then neither local nor forward), else NULL.
+  bool invalid;        //!< The drop is malformed or forged input, not a stale message.
+  bool departs;        //!< The origin's player leaves the game (his own disconnect).
+};
+
 /**
  *  Base class for a network communication participant (client, server). Its
  *  listener owns the connections; the route table maps player ids to them.
@@ -84,6 +104,9 @@ const int all_players = 255;
  *  connection (e.g. all players hosted on the leader). It is read and changed
  *  under a short lock of its own, which is never held while a message is
  *  queued, so any thread may send.
+ *
+ *  Relay (leader): every follower has one connection, to the leader; the leader forwards
+ *  what one follower sends for the others (RouteRelay()) straight from the reader thread.
  */
 class THOST {
 public:
@@ -101,7 +124,7 @@ public:
 
   virtual ~THOST ();
 
-  void SendChatMessage (std::string chat_message);
+  void SendChatMessage (std::string chat_message, int sender);
 
   static void PackVersion (TNET_MESSAGE *msg);
   static int ExtractVersion (TNET_MESSAGE *msg, std::string &version);
@@ -109,6 +132,7 @@ public:
   void SendDisconnect (T_BYTE player_id);
 
   void SendMessage (TNET_MESSAGE *msg);
+  void SendToAll (TNET_MESSAGE *msg, TNET_CONN_ID except = no_connection, bool forward = false);
 
   /** Sends networking message to specified destination. If destination is
    *  all_players, the message is send to all connected hosts. */
@@ -140,12 +164,28 @@ public:
 
   int GetPlayerIDByConnection (TNET_CONN_ID conn, int from = 0);
 
+  /** Leader: the game has started (the start player array is sent); in-game messages are
+   *  relayed from now on. */
+  void SetInGame () { in_game = true; }
+
+  static TRELAY RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
+                            const std::vector<TNET_CONN_ID> &routes,
+                            const std::vector<bool> &departed, bool in_game);
+  TRELAY Relay (const TRELAY_MESSAGE &m, TNET_CONN_ID from);
+
   void RegisterExtendedFunction (T_BYTE type, void (*f)(TNET_MESSAGE *msg)) {
     handler->RegisterExtendedFunction (type, f);
   }
 
-  void RegisterOnDisconnect (TNET_LISTENER::DISCONNECT_HANDLER f) {
-    listener->RegisterOnDisconnect (f);
+  /** Called in the dispatcher thread when a connection ended, after its messages. */
+  void RegisterOnDisconnect (TNET_MESSAGE_HANDLER::DISCONNECT_HANDLER f) {
+    handler->RegisterOnDisconnect (f);
+  }
+
+  /** Called in the reader threads for every received message, with this host as the
+   *  context (TNET_LISTENER::RECEIVE_HANDLER). */
+  void RegisterOnReceive (TNET_LISTENER::RECEIVE_HANDLER f) {
+    listener->RegisterOnReceive (f, this);
   }
 
 private:
@@ -156,7 +196,10 @@ private:
   TNET_DISPATCHER *dispatcher;    //!< Dispatcher.
 
   std::vector<TNET_CONN_ID> routes;   //!< Route table (see THOST), index = player id.
-  SDL_mutex *routes_lock;             //!< Guards #routes.
+  std::vector<bool> departed;         //!< Index = player id: left the game (MarkDeparted()).
+  SDL_mutex *routes_lock;             //!< Guards #routes and #departed.
+
+  std::atomic<bool> in_game;          //!< See SetInGame().
 
   in_addr remote_address;
   in_port_t remote_port;

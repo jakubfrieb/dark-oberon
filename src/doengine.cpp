@@ -322,6 +322,8 @@ static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
 static void OnDisconnect (TNET_CONN_ID conn);
+static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAGE *msg);
+static TNET_LISTENER::ReceiveResult OnlyFromLeader (void *follower, TNET_MESSAGE *msg);
 static void LeaderAllowStartIfAllReady ();
 
 #if !HEADLESS
@@ -620,6 +622,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     host->RegisterExtendedFunction (net_protocol_disconnect, ProcessDisconnect);
 
     host->RegisterOnDisconnect (OnDisconnect);
+    host->RegisterOnReceive (OnlyFromLeader);
 
     player_array.RunningOnFollower ();
 
@@ -1762,6 +1765,7 @@ bool CreateGame()
   host->RegisterExtendedFunction (net_protocol_request_add_computer, ProcessRequestAddComputer);
 
   host->RegisterOnDisconnect (OnDisconnect);
+  host->RegisterOnReceive (RelayFromFollower);
 
   leader_ready = false;
 
@@ -3416,7 +3420,7 @@ void GameOnKeyDown(int key)
     else if (chat_panel->IsVisible()) {
       char txt[1024];
       sprintf(txt, "%s: %s", myself->name, chat_edit->GetText());
-      host->SendChatMessage(chat_edit->GetText());
+      host->SendChatMessage(chat_edit->GetText(), myself->GetPlayerID());
       ost->AddText(txt);
       ToggleChatPanel();
     }
@@ -3924,24 +3928,6 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
-/**
- *  The follower cannot get a direct connection to player @p id at the start: leave the game at
- *  once, so the others are not kept waiting, then tell the player why. OK returns to the menu.
- */
-static void AbortGameStart (int id, const char *reason) {
-  string peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (player_array.GetAddress (id)).c_str (),
-                        player_array.GetPort (id));
-  Error (LogMsg ("%d: %s %s, game not started", id, peer.c_str (), reason));
-
-  host->DisconnectAll ();
-
-  string message = string (LogMsg ("Error:\nPlayer %d (%s) at %s\n%s.\n\n", id,
-                                   player_array.GetPlayerName (id).c_str (), peer.c_str (), reason))
-    + "Players connect to each other directly:\nthey need port forwarding or the same network.";
-  action_key = MNU_DISCONNECT;
-  gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
-}
-
 static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   giant->Lock ();
 
@@ -4106,59 +4092,13 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
 
   /* Start the game if requested. */
   if (start_game) {
-    int my_id = player_array.GetMyPlayerID ();
-    Debug (LogMsg ("My_id is %d", my_id));
+    /* Route 0 (the hyper player) is the link to the leader already. Every other remote
+     * player is reached through the leader too, which relays; local players have no
+     * connection. */
+    for (i = 1; i < player_array.GetCount (); i++)
+      host->AddRoute (player_array.IsRemote (i) ? follower->GetLeaderConnection () : no_connection);
 
-    /* We are already connected to leader with remote_address 0, which is
-     * hyperplayer. */
-
-    /* Fill the follower's route table with the connections to all remote players' hosts.
-     * Local players have no connection. */
-    bool dial_failed = false;
-    for (i = 1; i < player_array.GetCount (); i++) {
-      if (player_array.IsComputer (i)) {
-        /* Computer players are hosted on the leader. */
-        host->AddRoute (player_array.IsRemote (i) ? follower->GetLeaderConnection () : no_connection);
-        Debug (LogMsg ("%d: Adding computer", i));
-      } else if (i < my_id) {
-        /* Wait until player with id < my_id gets connected to me (one player per IP address is
-           assumed: connections from one address are matched in the order they arrive). */
-        TNET_CONN_ID conn = no_connection;
-
-        for (int j = 0; j < 30; j++) {   // 15 s
-          conn = host->GetListener()->ClaimConnection (player_array.GetAddress (i), player_array.GetPort (i));
-          if (conn != no_connection)
-            break;
-          Debug ("Still do not have that address");
-          AppSleepSeconds(0.5);
-        }
-
-        if (conn != no_connection) {
-          host->AddRoute (conn);
-          Debug (LogMsg ("%d: Adding connection", i));
-        } else {
-          AbortGameStart (i, "did not connect to us");
-          dial_failed = true;
-          break;
-        }
-      } else if (player_array.IsRemote (i)) {
-        /* Players connect to each other directly, the server does not relay. */
-        try {
-          host->AddRoute (host->GetListener ()->Dial (player_array.GetAddress (i), player_array.GetPort (i)));
-        } catch (TNET_LISTENER::ConnectingErrorException &) {
-          AbortGameStart (i, "cannot be reached");
-          dial_failed = true;
-          break;
-        }
-        Debug (LogMsg ("%d: Adding remote address", i));
-      } else {
-        host->AddRoute ();
-        Debug (LogMsg ("%d: Adding empty address", i));
-      }
-    }
-
-    if (!dial_failed)
-      state = ST_GAME;
+    state = ST_GAME;
   }
 
   player_array.Unlock ();
@@ -4329,25 +4269,19 @@ static void ProcessTimeSyncReply (TNET_MESSAGE *msg) {
 }
 
 /**
- *  Returns the player who sent a chat message over the connection @p conn, or -1.
+ *  Returns the player who sent the chat message @p msg, or -1.
  *
- *  On a follower, chat over the link to the leader (route 0, the hyper player) comes
- *  from the human playing on the leader: in the lobby that link is the only one.
+ *  On the leader it is the player of the connection. On a follower every message comes from
+ *  the leader, which puts the sender's player id in the dest byte (THOST::SendChatMessage(),
+ *  relayed chat).
  */
-static int ChatSenderID (TNET_CONN_ID conn) {
-  int id = host->GetPlayerIDByConnection (conn);
+static int ChatSenderID (TNET_MESSAGE *msg) {
+  int id = host->GetType () == THOST::ht_leader ? host->GetPlayerIDByConnection (msg->GetConnection ())
+                                                 : msg->GetDest ();
 
-  if (id > 0 && !player_array.IsComputer (id))
+  if (id > 0 && id < player_array.GetCount () && !player_array.IsComputer (id)
+      && player_array.IsRemote (id))
     return id;
-
-  if (id == 0 && host->GetType () == THOST::ht_follower) {
-    for (int i = 1; i < player_array.GetCount (); i++) {
-      if (!player_array.IsComputer (i) && player_array.IsRemote (i)
-          && player_array.GetAddress (i).s_addr == host->GetRemoteAddress ().s_addr
-          && player_array.GetPort (i) == host->GetRemotePort ())
-        return i;
-    }
-  }
 
   return -1;
 }
@@ -4362,7 +4296,7 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
 
   player_array.Lock ();
 
-  int id = ChatSenderID (msg->GetConnection ());
+  int id = ChatSenderID (msg);
   if (id != -1) {
     string text = msg->ExtractString ();
     msg->ExtractEnd ();
@@ -4481,6 +4415,86 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   }
 
   return NULL;
+}
+
+/**
+ *  Leader: receive handler of every connection (TNET_LISTENER::RECEIVE_HANDLER), in its reader
+ *  thread and without giant, so a follower's message reaches the other followers without
+ *  waiting for the simulation. Checks the payload of the relayed types (exact length, the
+ *  event fields by ValidateNetEvent()), then routes it by THOST::Relay(): forwards copies
+ *  with the origin player in the dest byte, and returns whether to dispatch it here.
+ */
+static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAGE *msg)
+{
+  THOST *self = static_cast<THOST *>(leader);
+  TRELAY_MESSAGE m = { msg->GetType (), msg->GetDest (), -1, false };
+  const T_BYTE *payload = msg->GetPayload ();
+  const int size = msg->GetPayloadSize ();
+  const char *invalid = NULL;
+
+  switch (m.type) {
+  case net_protocol_event: {
+    TEVENT ev;
+    char data[max_net_message_size];
+    memcpy (data, payload, size);
+    if (!ev.DelinearizeEvent (data, size))
+      invalid = "size";
+    else {
+      player_array.Lock ();
+      invalid = ValidateNetEvent (&ev, false);
+      player_array.Unlock ();
+    }
+    m.player_id = ev.GetPlayerID ();
+    m.request = ev.GetEvent () >= RQ_FIRST;
+    break;
+  }
+  case net_protocol_chat_message:   // one string, nothing after it
+    if (size < 1 || memchr (payload, '\0', size) != payload + size - 1)
+      invalid = "chat text";
+    break;
+  case net_protocol_disconnect:
+    if (size != 1)
+      invalid = "size";
+    else
+      m.player_id = payload[0];
+    break;
+  default:
+    break;
+  }
+
+  TRELAY r = { false, false, no_connection, -1, invalid, true, false };
+  if (invalid == NULL)
+    r = self->Relay (m, msg->GetConnection ());
+
+  if (r.drop != NULL) {
+    NetDropWarning (LogMsg ("Relay: dropping message (type %d, player %d; %s) from %s", m.type, m.player_id,
+                            r.drop, TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    return r.invalid ? TNET_LISTENER::receive_invalid : TNET_LISTENER::receive_done;
+  }
+
+  if (r.forward) {
+    msg->SetDest (static_cast<T_BYTE>(r.origin));
+    if (r.to != no_connection)
+      self->GetListener ()->Send (r.to, msg, true);
+    else
+      self->SendToAll (msg, msg->GetConnection (), true);
+  }
+
+  return r.local ? TNET_LISTENER::receive_dispatch : TNET_LISTENER::receive_done;
+}
+
+/**
+ *  Follower: receive handler (TNET_LISTENER::RECEIVE_HANDLER). Everything comes through the
+ *  leader, which relays; a connection to the follower's (unused) listen port is ignored.
+ */
+static TNET_LISTENER::ReceiveResult OnlyFromLeader (void *follower, TNET_MESSAGE *msg)
+{
+  if (msg->GetConnection () == dynamic_cast<TFOLLOWER *>(static_cast<THOST *>(follower))->GetLeaderConnection ())
+    return TNET_LISTENER::receive_dispatch;
+
+  NetDropWarning (LogMsg ("Dropping message (type %d) from %s, which is not the leader", msg->GetType (),
+                          TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+  return TNET_LISTENER::receive_invalid;
 }
 
 /**
@@ -4628,8 +4642,11 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
     return;
   }
 
-  allowed_to_start_process_function = true;
-  gui->HideMessageBox ();
+  /* Nobody left to play against (ProcessDisconnect): keep the message, do not start. */
+  if (!won_lose) {
+    allowed_to_start_process_function = true;
+    gui->HideMessageBox ();
+  }
 
   giant->Unlock ();
 }
@@ -4703,6 +4720,10 @@ static void ProcessDisconnect (int player_id) {
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
 
+  /* Followers hear of a departure only from the leader, after his relayed messages. */
+  if (host->GetType () == THOST::ht_leader)
+    host->SendDisconnect (player_id);
+
   /* when hyper player was disconnected, dont write "You won!" message */
   if (player_id == 0) {
     giant->Unlock ();
@@ -4711,9 +4732,15 @@ static void ProcessDisconnect (int player_id) {
 
   if (!won_lose && !HasActiveOpponent ()) {
     action_key = 0;
-    gui->ShowMessageBox("You WON!", GUI_MB_OK);
-    allowed_to_start_process_function = true;
     won_lose = true;
+    if (allowed_to_start_process_function)
+      gui->ShowMessageBox("You WON!", GUI_MB_OK);
+    else {   /* follower: the leader announces who left before the start. Like on the leader
+                (LeaderAllowStartIfAllReady), the game stays stopped; leave it with Esc. */
+      string message = LogMsg ("Player %d (%s) left\nbefore the game started.", player_id,
+                               player_array.GetPlayerName (player_id).c_str ());
+      gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+    }
   }
 
   giant->Unlock ();
@@ -4741,17 +4768,12 @@ static int SDLCALL OnDisconnectThread (void *d) {
     Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
-      int id = host->GetPlayerIDByConnection (data->conn);
-
-      if (id == 0) {   // the link to the leader
+      if (host->GetPlayerIDByConnection (data->conn) == 0) {   // the link to the leader
         /* Leave the host once the player confirms: the host must not be deleted here, under
            giant, while its dispatcher may be waiting for giant. */
         host->DisconnectAll ();
         action_key = MNU_DISCONNECT;
         gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
-      } else if (id != -1) {   // another player, while the game is starting
-        Info (LogMsg ("Connection to player %d closed", id));
-        host->ClearRoute (id);
       }
     } else {
       player_array.Lock ();
@@ -4775,26 +4797,25 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Lock ();
 
-      /* On a follower, the link to the leader (player 0's connection) closing means the
-       * server is gone, not that the opponents hosted there (computer players) were beaten.
-       * Asked before the loop below disconnects the addresses. */
-      bool server_lost = host->GetType () == THOST::ht_follower
-                         && host->GetPlayerIDByConnection (data->conn) == 0;
-      bool show_server_lost = server_lost && !won_lose;
-      if (server_lost) {
-        won_lose = true;  // no "You WON!" from the disconnects below
-        dynamic_cast<TFOLLOWER *>(host)->SetLeaderLost ();
-      }
-
-      for (int id = 0; (id = host->GetPlayerIDByConnection (data->conn, id)) != -1; id++) {
-        host->ClearRoute (id);
-        ProcessDisconnect (id);
-      }
-
-      if (show_server_lost) {
-        action_key = 0;
-        gui->ShowMessageBox ("Connection to the server was lost!", GUI_MB_OK);
-        allowed_to_start_process_function = true;
+      if (host->GetType () == THOST::ht_follower) {
+        /* The link to the leader carries every other player: losing it ends the game for us
+           (one terminal state), it does not mean that the others left (no "You WON!"). */
+        if (host->GetPlayerIDByConnection (data->conn) == 0) {
+          dynamic_cast<TFOLLOWER *>(host)->SetLeaderLost ();
+          host->DisconnectAll ();
+          if (!won_lose) {
+            won_lose = true;
+            action_key = 0;
+            gui->ShowMessageBox ("Connection to the server was lost!", GUI_MB_OK);
+            allowed_to_start_process_function = true;
+          }
+        }
+      } else {
+        /* The leader announces the departure to the others (ProcessDisconnect). */
+        for (int id = 0; (id = host->GetPlayerIDByConnection (data->conn, id)) != -1; id++) {
+          host->ClearRoute (id);
+          ProcessDisconnect (id);
+        }
       }
 
       player_array.Unlock ();
