@@ -4841,8 +4841,10 @@ static void OnDisconnect (TNET_CONN_ID conn) {
 
   data->conn = conn;
 
-  if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
+  SDL_Thread *thread = SDL_CreateThread (OnDisconnectThread, "ondisc", data);
+  if (thread == NULL)
     Critical ("Could not create OnDisconnect thread");
+  SDL_DetachThread (thread);   // nobody waits for it: every ended connection would leak one
 }
 
 

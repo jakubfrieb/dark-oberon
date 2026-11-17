@@ -451,7 +451,6 @@ TNET_LISTENER::~TNET_LISTENER () {
  */
 int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
   struct sockaddr_in address;
-  socklen_t sockaddr_size = sizeof (address);
 
   TNET_LISTENER *self = (TNET_LISTENER *)listener_class;
 
@@ -504,20 +503,32 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
   /* Accept only once the owner has registered its handlers (Start()). */
   SDL_SemWait (self->start_sem);
 
-  Info (LogMsg ("Listener running on port %hu", self->port));
+  if (!self->IsStopping ()) {
+    Info (LogMsg ("Listener running on port %hu", self->port));
+    listen (fd, 10);
+  }
 
-  listen (fd, 10);
-
-  while (1) {
+  /* The port is public: an error (out of descriptors in a connection flood, a connection reset
+     before it was accepted) must not stop accepting players. Only the destructor stops it. */
+  while (!self->IsStopping ()) {
     struct sockaddr_in remote_addr;
+    socklen_t sockaddr_size = sizeof (remote_addr);
     int new_fd;
 
     if ((new_fd = accept (fd, (sockaddr *)&remote_addr, &sockaddr_size)) == -1) {
-      Debug (SOCKET_ERROR_MESSAGE ("Listener: Error accepting connection"));
-      break;
+      if (!self->IsStopping ()) {
+        NetDropWarning (SOCKET_ERROR_MESSAGE ("Listener: Error accepting connection"));
+        SDL_Delay (10);
+      }
+      continue;
     }
 
-    self->AddConnection (new_fd, remote_addr, false);
+    try {
+      self->AddConnection (new_fd, remote_addr, false);
+    } catch (MutexException &) {   // no threads left: AddConnection() has closed it
+      NetDropWarning ("Listener: could not start the threads of a connection");
+      SDL_Delay (10);
+    }
   }
 
   SDL_LockMutex (self->connections_lock);
@@ -531,6 +542,15 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   Info ("Listener finished");
   return 0;
+}
+
+/** True when the last recv() failed because of the socket's receive timeout (SO_RCVTIMEO). */
+static bool ReceiveTimedOut () {
+#ifdef WINDOWS
+  return WSAGetLastError () == WSAETIMEDOUT;
+#else
+  return errno == EAGAIN || errno == EWOULDBLOCK;
+#endif
 }
 
 /**
@@ -554,8 +574,28 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
   int len;
   int invalid = 0;
 
+  /* A connection that is not admitted in time ends (SetDeadline()): its socket has a receive
+     timeout, and a peer that keeps sending is checked after every receive. A receive that times
+     out after the connection was admitted (or got a later deadline) is repeated. Returns what
+     recv() does, or -2 when the deadline has passed. */
+  auto receive = [c, fd](T_BYTE *data, int bytes) {
+    while (1) {
+      int got = recv (fd, reinterpret_cast<char*>(data), bytes, 0);
+      double deadline = c->deadline;
+      if (deadline > 0 && AppGetRawSeconds () >= deadline)
+        return -2;
+      if (got != -1 || !ReceiveTimedOut ())
+        return got;
+    }
+  };
+
   while (1) {
-    if ((pos = recv (fd, reinterpret_cast<char*>(buf), 1, 0)) == -1) {
+    if ((pos = receive (buf, 1)) == -2) {
+      Info (LogMsg ("Listener: dropping connection from %s: it did not join in time", peer));
+      break;
+    }
+
+    if (pos == -1) {
       /* Reported like a closed connection (ConnectionEnded below). */
       Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost", peer)));
       break;
@@ -577,8 +617,10 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
 
     bool complete = true;
     do {
-      if ((len = recv (fd, reinterpret_cast<char*>(buf + pos), *size - pos, 0)) <= 0) {
-        if (len < 0)
+      if ((len = receive (buf + pos, *size - pos)) <= 0) {
+        if (len == -2)
+          Info (LogMsg ("Listener: dropping connection from %s: it did not join in time", peer));
+        else if (len < 0)
           Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost in the middle of a message", peer)));
         else
           Warning (LogMsg ("Listener: %s closed the connection in the middle of a message", peer));
@@ -756,19 +798,31 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool dia
   /* Forget closed connections (port scans would grow the list), joining their readers. */
   vector<CONNECTION *> finished;
 
+  int pending = 0;
+
   SDL_LockMutex (connections_lock);
   for (unsigned i = 0; i < connections.size (); ) {
     if (connections[i]->state == CONNECTION::closed) {
       finished.push_back (connections[i]);
       connections.erase (connections.begin () + i);
-    } else
+    } else {
+      if (connections[i]->deadline > 0)
+        pending++;
       i++;
+    }
   }
   SDL_UnlockMutex (connections_lock);
 
   for (unsigned i = 0; i < finished.size (); i++) {
     SDL_WaitThread (finished[i]->reader, NULL);
     DeleteConnection (finished[i]);
+  }
+
+  if (!dialed && pending >= net_max_pending_connections) {
+    NetDropWarning (LogMsg ("Listener: refusing a connection from %s: %d connections are waiting to join",
+                            TNET_RESOLVER::NetworkToAscii (address.sin_addr).c_str (), pending));
+    do_close (fd);
+    return no_connection;
   }
 
   CONNECTION *c = NEW CONNECTION;
@@ -781,6 +835,9 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool dia
   c->port = ntohs (address.sin_port);
   c->peer = LogMsg ("%s:%hu", inet_ntoa (address.sin_addr), c->port);
   c->dialed = dialed;
+  c->deadline = 0;
+  if (!dialed)
+    SetDeadline (c, net_admission_timeout);
   c->state = CONNECTION::open;
   c->writing = true;
   c->lock = SDL_CreateMutex ();
@@ -910,21 +967,48 @@ bool TNET_LISTENER::IsConnectionOpen (TNET_CONN_ID conn) {
 }
 
 /**
- *  Lets the connection @p conn end once the peer has sent nothing for @p seconds (a refused
- *  host: it gets time to show the reply before the connection closes).
+ *  The connection @p c ends @p seconds from now (0 = never): its socket gets a receive timeout,
+ *  and its reader checks the time after every receive. Called with connections_lock held, or
+ *  before its reader starts.
  */
-void TNET_LISTENER::CloseWhenIdle (TNET_CONN_ID conn, int seconds) {
+void TNET_LISTENER::SetDeadline (CONNECTION *c, int seconds) {
+  c->deadline = seconds > 0 ? AppGetRawSeconds () + seconds : 0;
+
+#ifdef WINDOWS
+  DWORD timeout = seconds * 1000;
+#else
+  timeval timeout = { seconds, 0 };
+#endif
+  setsockopt (c->fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof (timeout));
+}
+
+/** The connection @p conn is a player's now: it no longer has to join in time (net_admission_timeout). */
+void TNET_LISTENER::Admit (TNET_CONN_ID conn) {
   SDL_LockMutex (connections_lock);
   CONNECTION *c = FindConnection (conn);
-  if (c != NULL && c->state == CONNECTION::open) {
-#ifdef WINDOWS
-    DWORD timeout = seconds * 1000;
-#else
-    timeval timeout = { seconds, 0 };
-#endif
-    setsockopt (c->fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof (timeout));
-  }
+  if (c != NULL && c->state == CONNECTION::open)
+    SetDeadline (c, 0);
   SDL_UnlockMutex (connections_lock);
+}
+
+/**
+ *  Lets the connection @p conn end in @p seconds unless it is admitted (a refused host: it gets
+ *  time to show the reply before the connection closes).
+ */
+void TNET_LISTENER::CloseAfter (TNET_CONN_ID conn, int seconds) {
+  SDL_LockMutex (connections_lock);
+  CONNECTION *c = FindConnection (conn);
+  if (c != NULL && c->state == CONNECTION::open)
+    SetDeadline (c, seconds);
+  SDL_UnlockMutex (connections_lock);
+}
+
+/** True once the destructor has taken the listening socket. */
+bool TNET_LISTENER::IsStopping () {
+  SDL_LockMutex (connections_lock);
+  bool stopping = fd < 0;
+  SDL_UnlockMutex (connections_lock);
+  return stopping;
 }
 
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {

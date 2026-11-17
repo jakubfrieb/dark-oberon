@@ -93,6 +93,14 @@ const double net_out_queue_max_age = 2.0;
  *  connection is evicted. A correct peer sends none. */
 const int net_max_invalid_messages = 32;
 
+/** Accepted connections that are not admitted yet (TNET_LISTENER::Admit()): more are closed at
+ *  once. Each one costs two threads, and a joining player is admitted within a round trip. */
+const int net_max_pending_connections = 64;
+
+/** Seconds an accepted connection has to be admitted (TNET_LISTENER::Admit()) before it is
+ *  closed: anyone can connect to the public port and then send nothing, or only pings. */
+const int net_admission_timeout = 10;
+
 
 //=========================================================================
 // Connection handles
@@ -482,7 +490,8 @@ public:
 
   void ConsumerIsAttached (SDL_Thread *thread);
   bool IsConnectionOpen (TNET_CONN_ID conn);
-  void CloseWhenIdle (TNET_CONN_ID conn, int seconds);
+  void Admit (TNET_CONN_ID conn);
+  void CloseAfter (TNET_CONN_ID conn, int seconds);
 
   bool Send (TNET_CONN_ID conn, TNET_MESSAGE *msg, bool forward = false);
   void Shutdown (TNET_CONN_ID conn);
@@ -521,6 +530,7 @@ private:
     in_port_t port;       //!< Remote port (host byte order).
     std::string peer;     //!< "address:port" for the log.
     bool dialed;          //!< We dialed it (AddDialedConnection()), e.g. the leader link.
+    std::atomic<double> deadline;   //!< AppGetRawSeconds() when it is closed unless admitted; 0 = never.
     State state;          //!< Changes under connections_lock.
     SDL_Thread *reader;
     SDL_Thread *writer;
@@ -533,6 +543,8 @@ private:
 
   TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool dialed);
   CONNECTION *FindConnection (TNET_CONN_ID conn);
+  void SetDeadline (CONNECTION *c, int seconds);
+  bool IsStopping ();
   void ConnectionEnded (CONNECTION *c);
   static void DeleteConnection (CONNECTION *c);
 

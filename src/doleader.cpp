@@ -63,6 +63,7 @@ TLEADER::TLEADER (int incoming_message_queue_size, in_port_t listen_port)
 void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, TNET_CONN_ID conn)
 {
   T_BYTE dest = AddRoute (conn);
+  GetListener ()->Admit (conn);
 
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_hello, 0);
@@ -76,15 +77,15 @@ void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, TN
 }
 
 /** Time to show a refused host the reply before its connection is closed (seconds).
- *  Clients before 0.7.0-rc.3 crash when the connection ends during their connect pings
- *  (about 8 s). */
+ *  Clients before protocol version 2 crash when the connection ends during their connect
+ *  pings (about 8 s). */
 static const int refused_close_delay = 15;
 
 /**
  *  Refuses the host on the connection @p conn, whose connect request has protocol
  *  version @p protocol (0 = before version 2). It gets only a reply that it can
  *  show; it is never added to the players and nothing is broadcast about it. The
- *  connection is closed once the host has been idle for refused_close_delay.
+ *  connection is closed refused_close_delay later.
  */
 void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
   if (protocol == 0) {
@@ -128,7 +129,7 @@ void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
     SendMessage (m);
   }
 
-  GetListener ()->CloseWhenIdle (conn, refused_close_delay);
+  GetListener ()->CloseAfter (conn, refused_close_delay);
 }
 
 /** Answers the ping request with @p request_time received on the connection @p conn. */
