@@ -46,7 +46,6 @@
 //=========================================================================
 
 const int leader_in_queue_size = 10024;
-const int leader_out_queue_size = 10024;
 
 
 //=========================================================================
@@ -59,15 +58,14 @@ const int leader_out_queue_size = 10024;
  */
 class TLEADER : public THOST {
 public:
-  TLEADER (int incoming_message_queue_size, in_port_t listen_port,
-           int outgoing_message_queue_size);
+  TLEADER (int incoming_message_queue_size, in_port_t listen_port);
 
-  void ConnectFollower (in_addr remote_address, in_port_t remote_port, int fd);
+  void ConnectFollower (in_addr remote_address, in_port_t remote_port, TNET_CONN_ID conn);
 
-  void RefuseFollower (int fd, int protocol);
+  void RefuseFollower (TNET_CONN_ID conn, int protocol);
 
-  void SendPingReply (double request_time, int fd);
-  void SendTimeSyncReply (double request_time, int fd);
+  void SendPingReply (double request_time, TNET_CONN_ID conn);
+  void SendTimeSyncReply (double request_time, TNET_CONN_ID conn);
 
   void SendPlayerArray (std::string map_name, bool start_game);
 

@@ -2,8 +2,9 @@
  * Unit tests for the network wire format (protocol version 2): fixed-width
  * fields in network byte order (src/donet.h), the linearized game event
  * (TEVENT, src/doevents.cpp), the version trailer of connect/hello
- * (THOST, src/dohost.cpp) and the in-game clock correction of a follower
- * (TCLOCK_FILTER, src/dofollower.cpp). Parsing must accept exactly the bytes
+ * (THOST, src/dohost.cpp), the in-game clock correction of a follower
+ * (TCLOCK_FILTER, src/dofollower.cpp) and the outgoing queue and writer of a
+ * connection (TNET_OUT_QUEUE, TNET_LISTENER, src/donet.cpp). Parsing must accept exactly the bytes
  * the sender produces and reject shorter or longer payloads.
  * Built with AddressSanitizer. Run: make test-ai
  */
@@ -12,11 +13,14 @@
 #include "dohost.h"
 #include "doplayers.h"
 #include "build_info.h"
+#include <atomic>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <sys/socket.h>
+#include <unistd.h>
 
 // dologs.o and doplayers.o are not linked: provide what the tested files refer to.
 FILE *err_log = NULL;
@@ -189,11 +193,11 @@ TEST(test_reply_connection) {
   TNET_MESSAGE m;
   T_BYTE none[1] = {0};
   receive(m, none, 0);
-  CHECK(m.GetFileDescriptor() == 7);
-  m.Init_send(1, 0);   // a pooled message reused for sending: no stale reply socket
-  CHECK(m.GetFileDescriptor() == -1);
+  CHECK(m.GetConnection() == 7);
+  m.Init_send(1, 0);   // a pooled message reused for sending: no stale reply connection
+  CHECK(m.GetConnection() == no_connection);
   m.SetReplyConnection(5);
-  CHECK(m.GetFileDescriptor() == 5);
+  CHECK(m.GetConnection() == 5);
 }
 
 TEST(test_version_trailer) {
@@ -266,6 +270,104 @@ TEST(test_clock_trusts_smallest_round_trip) {
     CHECK(std::fabs(f.AddSample(0.200, -0.050)) < 1e-12);
   // the good sample has left the window: now the best of the slow ones counts
   CHECK(std::fabs(f.AddSample(0.150, -0.040) + TCLOCK_FILTER::max_step) < 1e-12);
+}
+
+TEST(test_out_queue_drops_when_full) {
+  TNET_OUT_QUEUE q(100, 0.25);
+  char data[40] = {0};
+  CHECK(q.Put(data, 40, 1.0) == TNET_OUT_QUEUE::queued);
+  CHECK(q.Put(data, 40, 1.0) == TNET_OUT_QUEUE::queued);
+  CHECK(q.GetBytes() == 80);
+  CHECK(q.Put(data, 40, 1.1) == TNET_OUT_QUEUE::dropped);   // over the byte limit
+  CHECK(q.GetDropped() == 1);
+  CHECK(q.Put(data, 20, 1.1) == TNET_OUT_QUEUE::queued);    // fits exactly
+  CHECK(std::fabs(q.Pop(1.2) - 0.2) < 1e-9);                // how long it waited
+  CHECK(q.GetBytes() == 60);
+  CHECK(q.Put(data, 40, 1.2) == TNET_OUT_QUEUE::queued);    // room again
+}
+
+TEST(test_out_queue_stalls_on_age) {
+  TNET_OUT_QUEUE q(1000, 0.25);
+  char data[10] = {1, 2, 3};
+  CHECK(q.GetAge(5.0) == 0);
+  CHECK(q.Put(data, 10, 1.0) == TNET_OUT_QUEUE::queued);
+  CHECK(std::string(q.Front()) == std::string(data, 10));
+  CHECK(q.Put(data, 10, 1.25) == TNET_OUT_QUEUE::queued);   // at the limit
+  // the front stays queued while the writer is blocked writing it: it keeps ageing
+  CHECK(q.Put(data, 10, 1.3) == TNET_OUT_QUEUE::stalled);
+  CHECK(q.GetBytes() == 20);                                // a stalled put queues nothing
+  q.Pop(1.3);                                               // written at last
+  CHECK(std::fabs(q.GetAge(1.3) - 0.05) < 1e-9);
+  CHECK(q.Put(data, 10, 1.3) == TNET_OUT_QUEUE::queued);
+}
+
+static std::atomic<TNET_CONN_ID> g_disconnected(no_connection);
+static void on_disconnect(TNET_CONN_ID conn) { g_disconnected = conn; }
+
+static void wait_for(bool (*done)(), double seconds)
+{
+  for (int i = 0; i < seconds * 100 && !done(); i++)
+    usleep(10000);
+}
+
+/** A connection whose peer does not read is evicted; the others are not held up. */
+TEST(test_connection_writer_and_eviction) {
+  if (!pool_net_messages)
+    pool_net_messages = new TPOOL<TNET_MESSAGE>(32, 32, 256);
+  g_disconnected = no_connection;
+
+  int a[2], b[2];
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, a) == 0);
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, b) == 0);
+
+  TNET_LISTENER *l = new TNET_LISTENER(1000, 0);
+  l->RegisterOnDisconnect(on_disconnect);
+  in_addr addr;
+  addr.s_addr = 0;
+  TNET_CONN_ID slow = l->AddDialedConnection(addr, 1, a[0]);
+  TNET_CONN_ID fast = l->AddDialedConnection(addr, 2, b[0]);
+  CHECK(slow != fast && slow != no_connection && fast != no_connection);
+
+  TNET_MESSAGE m;
+  m.Init_send(1, 0);
+  m.PackString("0123456789012345678901234567890123456789012345678");   // 54 B with the header
+
+  // the writer delivers the exact bytes
+  CHECK(l->Send(fast, &m));
+  T_BYTE got[64];
+  int n = 0;
+  while (n < m.GetSize())
+    n += read(b[1], got + n, m.GetSize() - n);
+  CHECK(memcmp(got, m.GetHeaderStart(), m.GetSize()) == 0);
+
+  // nobody reads a[1]: the socket buffer fills, then the queue ages and the connection is evicted
+  bool evicted_sent = false;
+  for (int i = 0; i < 20000 && g_disconnected == no_connection; i++) {
+    if (!l->Send(slow, &m))
+      evicted_sent = true;
+    CHECK(l->Send(fast, &m) || i == 0);   // never held up by the slow one
+    char sink[4096];
+    while (recv(b[1], sink, sizeof sink, MSG_DONTWAIT) > 0) {}
+    usleep(1000);
+  }
+  wait_for([]() { return g_disconnected != no_connection; }, 2);
+  CHECK(evicted_sent);
+  CHECK(g_disconnected == slow);
+  CHECK(!l->IsConnectionOpen(slow));
+  CHECK(!l->Send(slow, &m));          // a closed handle takes nothing
+  CHECK(l->IsConnectionOpen(fast));
+  CHECK(l->Send(fast, &m));
+  CHECK(!l->Send(12345678, &m));      // an unknown handle neither
+
+  // a shut down connection ends like a lost one
+  g_disconnected = no_connection;
+  l->Shutdown(fast);
+  wait_for([]() { return g_disconnected != no_connection; }, 2);
+  CHECK(g_disconnected == fast);
+
+  delete l;
+  close(a[1]);
+  close(b[1]);
 }
 
 int main()
