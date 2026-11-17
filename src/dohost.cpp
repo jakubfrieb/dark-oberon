@@ -252,21 +252,26 @@ int THOST::GetPlayerIDByConnection (TNET_CONN_ID conn, int from) {
  *  origin is the first player routed to it (a follower hosts one human), and the dest byte
  *  only tells a broadcast from a request.
  *
- *  - Not from a player yet (connect, refused hosts): local only, the handlers check it.
+ *  - Not from a player yet (before the dispatcher admitted it, refused hosts): only connect
+ *    and ping, local only, the handlers check them; anything else counts as invalid (a
+ *    follower sends nothing else before its hello, so a connect pipelined with game or
+ *    departure messages cannot pass them before it is admitted).
  *  - Event, only in the game:
- *    - broadcast (a unit state or a sync request about the sender's own unit): its player
- *      must be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
+ *    - broadcast (a unit state or a request about the sender's own unit): its player must
+ *      be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
  *      every follower but the origin;
- *    - request to the owner of a unit (dest = that owner): local when the owner is on the
- *      leader, else forwarded to the owner's connection only.
+ *    - request to the owner of a unit (dest = that owner), only of the kinds sent to another
+ *      player's unit (TRELAY_MESSAGE::cross_owner): local when the owner is on the leader,
+ *      else forwarded to the owner's connection only.
  *  - Chat: local and to every follower but the origin, the origin id in the dest byte.
  *  - Disconnect: only of the origin's own player, local only: the leader announces the
  *    departure itself (ProcessDisconnect()). In the game the player has left from now on
  *    (#departs), so nothing he sends after it is relayed.
  *  - Everything else (lobby, ping, time sync, ...): local only.
  *
- *  Events of a player who has left (ClearRoute(), #departs) are dropped as stale, not as
- *  invalid.
+ *  A misrouted event is dropped but does not count as invalid: a replica that sends for a
+ *  unit it does not own is a bug of an honest host, and evicting it would end the game for
+ *  that player. Events of a player who has left (ClearRoute(), #departs) are stale.
  */
 TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
                           const std::vector<TNET_CONN_ID> &routes,
@@ -280,31 +285,31 @@ TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
       break;
     }
 
-  if (r.origin == -1)
-    return r;
-
   const bool known = m.player_id >= 0 && m.player_id < count;
   const bool own = known && routes[m.player_id] == from;
 
-  switch (m.type) {
+  if (r.origin == -1) {
+    if (m.type != net_protocol_connect && m.type != net_protocol_ping) {
+      r.drop = "not a player";
+      r.invalid = true;
+    }
+  } else switch (m.type) {
   case net_protocol_event:
     if (!in_game)
       r.drop = "event before the game";
     else if (!known)
       r.drop = "player";
+    else if (departed[m.player_id])
+      r.drop = "player has left";
     else if (m.dest == all_players) {
       if (!own)
         r.drop = "broadcast for another player";
-      else if (departed[m.player_id])
-        r.drop = "player has left";
       else
         r.forward = true;
     } else {
       const TNET_CONN_ID owner = routes[m.player_id];
-      if (!m.request || m.dest != m.player_id)
+      if (!m.cross_owner || m.dest != m.player_id)
         r.drop = "event for another player";
-      else if (departed[m.player_id])
-        r.drop = "player has left";
       else if (owner == from)
         r.drop = "request for an own unit";
       else if (owner != no_connection) {
@@ -313,7 +318,6 @@ TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
         r.to = owner;
       }
     }
-    r.invalid = r.drop != NULL && !(known && departed[m.player_id]);
     break;
 
   case net_protocol_chat_message:

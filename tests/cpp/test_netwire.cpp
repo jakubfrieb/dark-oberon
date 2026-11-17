@@ -12,6 +12,7 @@
 #include "dofollower.h"
 #include "dohost.h"
 #include "doplayers.h"
+#include "dounits.h"
 #include "build_info.h"
 #include <atomic>
 #include <cmath>
@@ -403,10 +404,10 @@ static std::vector<TNET_CONN_ID> relay_routes()
   TNET_CONN_ID r[] = { no_connection, no_connection, CA, CB, no_connection, CC };
   return std::vector<TNET_CONN_ID>(r, r + 6);
 }
-static TRELAY relay(T_BYTE type, int dest, int pid, bool rq, TNET_CONN_ID from,
+static TRELAY relay(T_BYTE type, int dest, int pid, bool cross, TNET_CONN_ID from,
                     std::vector<bool> departed = std::vector<bool>(6, false), bool in_game = true)
 {
-  TRELAY_MESSAGE m = { type, (T_BYTE)dest, pid, rq };
+  TRELAY_MESSAGE m = { type, (T_BYTE)dest, pid, cross };
   return THOST::RouteRelay(m, from, relay_routes(), departed, in_game);
 }
 static bool dropped(const TRELAY &r, bool invalid)
@@ -415,19 +416,30 @@ static bool dropped(const TRELAY &r, bool invalid)
 TEST(test_relay_broadcast) {
   TRELAY r = relay(net_protocol_event, all_players, 2, false, CA);   // CA's unit state
   CHECK(r.drop == NULL && r.local && r.forward && r.to == no_connection && r.origin == 2);
-  r = relay(net_protocol_event, all_players, 2, true, CA);           // sync request of CA's unit
+  r = relay(net_protocol_event, all_players, 2, false, CA);          // sync request of CA's unit
   CHECK(r.local && r.forward && r.to == no_connection);
-  // spoofed: a state of another follower's, the leader's, a CPU's or the hyper player's unit
-  CHECK(dropped(relay(net_protocol_event, all_players, 3, false, CA), true));
-  CHECK(dropped(relay(net_protocol_event, all_players, 1, false, CA), true));
-  CHECK(dropped(relay(net_protocol_event, all_players, 4, false, CA), true));
-  CHECK(dropped(relay(net_protocol_event, all_players, 0, false, CA), true));
-  CHECK(dropped(relay(net_protocol_event, all_players, 6, false, CA), true));   // no such player
-  CHECK(dropped(relay(net_protocol_event, all_players, 2, false, CA, std::vector<bool>(6, false), false), true));
+  // misrouted (forged, or a replica of an honest host): a state of another follower's, the
+  // leader's, a CPU's or the hyper player's unit; dropped, but no reason to evict
+  CHECK(dropped(relay(net_protocol_event, all_players, 3, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, all_players, 1, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, all_players, 4, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, all_players, 0, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, all_players, 6, false, CA), false));   // no such player
+  CHECK(dropped(relay(net_protocol_event, all_players, 2, false, CA, std::vector<bool>(6, false), false), false));
 }
 
 TEST(test_relay_requests) {
-  // to a unit on the leader (a source of the hyper player, a CPU, the host): local only
+  TEVENT e;
+  e.Clear(true);
+  e.SetEventProps(2, 1, false, 1.0, RQ_CAN_MINE, US_NONE, 0, 0, 0, 0, 0, 0, 0, 0);
+  CHECK(e.IsCrossOwnerRequest());
+  const int owner_authored[] = { RQ_CREATE_UNIT, RQ_UPGRADE_UNIT, RQ_SYNC_LIFE, RQ_SYNC_PROGRESS,
+                                 RQ_SYNC_RALLY, RQ_FEEDING, RQ_IMPACT, RQ_END_MINE, US_MOVE };
+  for (int ev : owner_authored) {
+    e.SetEventProps(2, 1, false, 1.0, ev, US_NONE, 0, 0, 0, 0, 0, 0, 0, 0);
+    CHECK(!e.IsCrossOwnerRequest());
+  }
+  // RQ_CAN_MINE to a unit on the leader (a source of the hyper player, a CPU, the host): local only
   TRELAY r = relay(net_protocol_event, 0, 0, true, CA);
   CHECK(r.drop == NULL && r.local && !r.forward);
   r = relay(net_protocol_event, 4, 4, true, CA);
@@ -440,9 +452,13 @@ TEST(test_relay_requests) {
   r = relay(net_protocol_event, 2, 2, true, CC);
   CHECK(!r.local && r.forward && r.to == CA && r.origin == 5);
   // a state sent to one player, a dest that is not the unit's owner, a request to oneself
-  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), true));
-  CHECK(dropped(relay(net_protocol_event, 5, 3, true, CA), true));
-  CHECK(dropped(relay(net_protocol_event, 2, 2, true, CA), true));
+  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, 5, 3, true, CA), false));
+  CHECK(dropped(relay(net_protocol_event, 2, 2, true, CA), false));
+  // an owner-authored request (RQ_CREATE_UNIT, RQ_SYNC_LIFE, ...) for another player's unit
+  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, 1, 1, false, CA), false));
+  CHECK(dropped(relay(net_protocol_event, 0, 0, false, CA), false));
 }
 
 TEST(test_relay_departed) {
@@ -479,11 +495,17 @@ TEST(test_relay_chat_disconnect_other) {
   CHECK(r.local && !r.forward);
   r = relay(net_protocol_synchronise, 0, -1, false, CA);
   CHECK(r.local && !r.forward);
-  // a connection that is not a player's yet (connect, refused hosts): local, never forwarded
-  r = relay(net_protocol_event, all_players, 2, false, 99);
-  CHECK(r.local && !r.forward && r.origin == -1);
-  r = relay(net_protocol_chat_message, all_players, -1, false, 99);
-  CHECK(r.local && !r.forward);
+  // a connection that is not a player's yet (refused hosts, or a connect not handled yet):
+  // only connect and ping, local; anything else is invalid, also pipelined after a connect
+  r = relay(net_protocol_connect, 0, -1, false, 99);
+  CHECK(r.drop == NULL && r.local && !r.forward && r.origin == -1);
+  r = relay(net_protocol_ping, 0, -1, false, 99);
+  CHECK(r.drop == NULL && r.local && !r.forward);
+  CHECK(dropped(relay(net_protocol_event, all_players, 2, false, 99), true));
+  CHECK(dropped(relay(net_protocol_chat_message, all_players, -1, false, 99), true));
+  CHECK(dropped(relay(net_protocol_disconnect, all_players, 2, false, 99), true));
+  CHECK(dropped(relay(net_protocol_time_sync, 0, -1, false, 99), true));
+  CHECK(dropped(relay(net_protocol_change_race, 0, -1, false, 99), true));
 }
 
 int main()

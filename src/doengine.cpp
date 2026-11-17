@@ -4244,7 +4244,9 @@ static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
   double request_time = msg->ExtractDouble ();
   msg->ExtractEnd ();
 
-  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time))
+  /* Only players get an answer, like a ping (GetPlayerIDByConnection() needs no giant). */
+  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time)
+      || leader->GetPlayerIDByConnection (msg->GetConnection ()) == -1)
     return;
 
   leader->SendTimeSyncReply (request_time, msg->GetConnection ());
@@ -4445,7 +4447,7 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
       player_array.Unlock ();
     }
     m.player_id = ev.GetPlayerID ();
-    m.request = ev.GetEvent () >= RQ_FIRST;
+    m.cross_owner = ev.IsCrossOwnerRequest ();
     break;
   }
   case net_protocol_chat_message:   // one string, nothing after it
@@ -4658,8 +4660,12 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
   if (msg->ExtractFailed ())
     return;
 
+  /* On the leader a follower announces only his own departure (the relay checks it too, but
+     a connect pipelined with a disconnect reached the reader before the follower was a player). */
   giant->Lock ();
-  bool from_player = host != NULL && FromPlayer (msg);
+  bool from_player = host != NULL && FromPlayer (msg)
+                     && (host->GetType () != THOST::ht_leader
+                         || host->GetPlayerIDByConnection (msg->GetConnection ()) == player_id);
   giant->Unlock ();
 
   if (from_player)

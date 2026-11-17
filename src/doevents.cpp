@@ -152,6 +152,19 @@ void TEVENT::SetEventProps(int n_player_id, int n_unit_id, bool n_priority, doub
 }
 
 /**
+ *  True for the requests a host sends to a unit of another player, to its owner
+ *  (TPLAYER_UNIT::SendRequest() on a remote unit): a worker asks a source whether
+ *  it can mine, and the source answers the worker. Every other request on the
+ *  network is about the sender's own unit and is broadcast by its owner
+ *  (SendNetEvent(..., all_players)); the relay drops it when it is sent to
+ *  another player.
+ */
+bool TEVENT::IsCrossOwnerRequest(void)
+{
+  return event == RQ_CAN_MINE;
+}
+
+/**
  *  Linearize event to array of chars (prepare event for sending through
  *  network).
  *

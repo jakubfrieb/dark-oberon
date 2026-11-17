@@ -81,7 +81,7 @@ struct TRELAY_MESSAGE {
   T_BYTE type;
   T_BYTE dest;      //!< The header's dest byte as the follower sent it.
   int player_id;    //!< Event: its player id; disconnect: the departing player; otherwise -1.
-  bool request;     //!< Event: a request (RQ_*), not a unit state.
+  bool cross_owner; //!< Event: a request that may go to another player's unit (TEVENT::IsCrossOwnerRequest()).
 };
 
 /** What the leader does with a message received from a follower (THOST::RouteRelay()). */
@@ -91,7 +91,8 @@ struct TRELAY {
   TNET_CONN_ID to;     //!< The one connection to forward to; no_connection = every follower but the origin.
   int origin;          //!< Player id of the origin (the dest byte of the forwards), -1 = not a player.
   const char *drop;    //!< Why it is dropped (then neither local nor forward), else NULL.
-  bool invalid;        //!< The drop is malformed or forged input, not a stale message.
+  bool invalid;        //!< The drop counts towards eviction (net_max_invalid_messages): input
+                       //!  no correct host sends, not a stale or misrouted message.
   bool departs;        //!< The origin's player leaves the game (his own disconnect).
 };
 
