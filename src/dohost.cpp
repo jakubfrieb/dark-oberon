@@ -396,14 +396,15 @@ TRELAY THOST::Relay (const TRELAY_MESSAGE &m, TNET_CONN_ID from) {
 /**
  *  Sends chat message to all connected hosts.
  *
- *  @param chat_message Message content.
+ *  @param chat_message Message content (cut to what one message holds).
  *  @param sender       Player id of the sender: the dest byte carries it (the leader
  *                      replaces it with the origin when it forwards a follower's chat).
  */
 void THOST::SendChatMessage (string chat_message, int sender) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_chat_message, 0, static_cast<T_BYTE>(sender));
-  m->PackString (chat_message);
+  /* The chat line can be longer than a message holds (Pack() would throw). */
+  m->PackString (chat_message.substr (0, max_net_message_size - TNET_MESSAGE::GetHeaderSize () - 1));
 
   SendToAll (m);
   pool_net_messages->PutToPool (m);

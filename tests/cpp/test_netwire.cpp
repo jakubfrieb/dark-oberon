@@ -382,6 +382,18 @@ TEST(test_connection_writer_and_eviction) {
   close(b[1]);
 }
 
+/** A chat line longer than a message holds is cut, not thrown out (Pack() throws). */
+TEST(test_long_chat_is_cut) {
+  if (!pool_net_messages)
+    pool_net_messages = new TPOOL<TNET_MESSAGE>(32, 32, 256);
+  THOST host(16, 0);
+  host.SendChatMessage(std::string(300, 'x'), 1);   // no route: nothing is sent, nothing thrown
+  TNET_MESSAGE m;
+  m.Init_send(net_protocol_chat_message, 0);
+  m.PackString(std::string(max_net_message_size - TNET_MESSAGE::GetHeaderSize() - 1, 'x'));
+  CHECK(m.GetSize() == max_net_message_size);   // the longest line that fits
+}
+
 /** Die() wakes a producer blocked on a full queue; its message goes back to the pool. */
 TEST(test_queue_die_wakes_producer) {
   if (!pool_net_messages)
