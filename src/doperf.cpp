@@ -163,7 +163,7 @@ struct TNET_HISTOGRAM {
 TNET_HISTOGRAM g_net[NS_COUNT];
 double g_net_from = 0.0;   // samples before this time (AppGetTimeSeconds) are ignored
 
-const char *const kNetStatNames[NS_COUNT] = {"transit", "dispatch", "perceived", "writer"};
+const char *const kNetStatNames[NS_COUNT] = {"transit", "dispatch", "perceived", "writer", "forward"};
 
 double NetPercentile(const TNET_HISTOGRAM &h, double p)
 {

@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -326,7 +327,10 @@ TEST(test_connection_writer_and_eviction) {
   CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, b) == 0);
 
   TNET_LISTENER *l = new TNET_LISTENER(1000, 0);
-  l->RegisterOnDisconnect(on_disconnect);
+  TNET_MESSAGE_HANDLER handler;   // the end of a connection reaches it through the dispatcher
+  handler.RegisterOnDisconnect(on_disconnect);
+  TNET_DISPATCHER *dispatcher = new TNET_DISPATCHER(l->GetMessageQueue(), &handler);
+  l->ConsumerIsAttached(dispatcher->GetThread());
   in_addr addr;
   addr.s_addr = 0;
   TNET_CONN_ID slow = l->AddDialedConnection(addr, 1, a[0]);
@@ -371,8 +375,115 @@ TEST(test_connection_writer_and_eviction) {
   CHECK(g_disconnected == fast);
 
   delete l;
+  dispatcher->ThreadJoined();
+  delete dispatcher;
   close(a[1]);
   close(b[1]);
+}
+
+/** A forward is measured from when it was received; other messages are not forwards. */
+TEST(test_out_queue_forward_time) {
+  TNET_OUT_QUEUE q(1000, 0.25);
+  char data[10] = {0};
+  double fwd = 0;
+  CHECK(q.Put(data, 10, 2.0) == TNET_OUT_QUEUE::queued);
+  CHECK(q.Put(data, 10, 2.0, 1.999) == TNET_OUT_QUEUE::queued);
+  q.Pop(2.001, &fwd);
+  CHECK(fwd == -1);
+  q.Pop(2.001, &fwd);
+  CHECK(std::fabs(fwd - 0.002) < 1e-9);
+}
+
+// ---- relay decision (THOST::RouteRelay) ---------------------------------------------------
+// Players: 0 hyper (leader), 1 human on the leader, 2 follower CA (conn 10), 3 follower CB
+// (conn 11), 4 CPU (leader), 5 follower CC (conn 12).
+static const TNET_CONN_ID CA = 10, CB = 11, CC = 12;
+static std::vector<TNET_CONN_ID> relay_routes()
+{
+  TNET_CONN_ID r[] = { no_connection, no_connection, CA, CB, no_connection, CC };
+  return std::vector<TNET_CONN_ID>(r, r + 6);
+}
+static TRELAY relay(T_BYTE type, int dest, int pid, bool rq, TNET_CONN_ID from,
+                    std::vector<bool> departed = std::vector<bool>(6, false), bool in_game = true)
+{
+  TRELAY_MESSAGE m = { type, (T_BYTE)dest, pid, rq };
+  return THOST::RouteRelay(m, from, relay_routes(), departed, in_game);
+}
+static bool dropped(const TRELAY &r, bool invalid)
+{ return r.drop != NULL && !r.local && !r.forward && r.invalid == invalid; }
+
+TEST(test_relay_broadcast) {
+  TRELAY r = relay(net_protocol_event, all_players, 2, false, CA);   // CA's unit state
+  CHECK(r.drop == NULL && r.local && r.forward && r.to == no_connection && r.origin == 2);
+  r = relay(net_protocol_event, all_players, 2, true, CA);           // sync request of CA's unit
+  CHECK(r.local && r.forward && r.to == no_connection);
+  // spoofed: a state of another follower's, the leader's, a CPU's or the hyper player's unit
+  CHECK(dropped(relay(net_protocol_event, all_players, 3, false, CA), true));
+  CHECK(dropped(relay(net_protocol_event, all_players, 1, false, CA), true));
+  CHECK(dropped(relay(net_protocol_event, all_players, 4, false, CA), true));
+  CHECK(dropped(relay(net_protocol_event, all_players, 0, false, CA), true));
+  CHECK(dropped(relay(net_protocol_event, all_players, 6, false, CA), true));   // no such player
+  CHECK(dropped(relay(net_protocol_event, all_players, 2, false, CA, std::vector<bool>(6, false), false), true));
+}
+
+TEST(test_relay_requests) {
+  // to a unit on the leader (a source of the hyper player, a CPU, the host): local only
+  TRELAY r = relay(net_protocol_event, 0, 0, true, CA);
+  CHECK(r.drop == NULL && r.local && !r.forward);
+  r = relay(net_protocol_event, 4, 4, true, CA);
+  CHECK(r.local && !r.forward);
+  r = relay(net_protocol_event, 1, 1, true, CB);
+  CHECK(r.local && !r.forward && r.origin == 3);
+  // to another follower's unit: forwarded to that follower only, never dispatched here
+  r = relay(net_protocol_event, 3, 3, true, CA);
+  CHECK(r.drop == NULL && !r.local && r.forward && r.to == CB && r.origin == 2);
+  r = relay(net_protocol_event, 2, 2, true, CC);
+  CHECK(!r.local && r.forward && r.to == CA && r.origin == 5);
+  // a state sent to one player, a dest that is not the unit's owner, a request to oneself
+  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), true));
+  CHECK(dropped(relay(net_protocol_event, 5, 3, true, CA), true));
+  CHECK(dropped(relay(net_protocol_event, 2, 2, true, CA), true));
+}
+
+TEST(test_relay_departed) {
+  std::vector<bool> gone(6, false);
+  gone[3] = true;   // CB left
+  // CB's late messages and requests to his units are stale, not invalid
+  CHECK(dropped(relay(net_protocol_event, all_players, 3, false, CB, gone), false));
+  CHECK(dropped(relay(net_protocol_event, 3, 3, true, CA, gone), false));
+  // the route of a closed connection is cleared: still not a local unit of the leader
+  std::vector<TNET_CONN_ID> routes = relay_routes();
+  routes[3] = no_connection;
+  TRELAY_MESSAGE m = { net_protocol_event, 3, 3, true };
+  CHECK(dropped(THOST::RouteRelay(m, CA, routes, gone, true), false));
+  // CA is unaffected
+  TRELAY r = relay(net_protocol_event, all_players, 2, false, CA, gone);
+  CHECK(r.local && r.forward);
+}
+
+TEST(test_relay_chat_disconnect_other) {
+  TRELAY r = relay(net_protocol_chat_message, 1, -1, false, CB);   // the claimed sender is ignored
+  CHECK(r.drop == NULL && r.local && r.forward && r.to == no_connection && r.origin == 3);
+  // a follower's own departure ("You LOST"): local only, the leader announces it
+  r = relay(net_protocol_disconnect, all_players, 2, false, CA);
+  CHECK(r.drop == NULL && r.local && !r.forward && r.departs);
+  r = relay(net_protocol_disconnect, all_players, 2, false, CA, std::vector<bool>(6, false), false);
+  CHECK(r.local && !r.forward && !r.departs);                     // lobby: the old handling
+  // a forged departure of another player, the host or the hyper player
+  CHECK(dropped(relay(net_protocol_disconnect, all_players, 3, false, CA), true));
+  CHECK(dropped(relay(net_protocol_disconnect, all_players, 1, false, CA), true));
+  CHECK(dropped(relay(net_protocol_disconnect, all_players, 0, false, CA), true));
+  CHECK(dropped(relay(net_protocol_disconnect, all_players, 200, false, CA), true));
+  // the rest is the local handlers' (time sync, ping, lobby); nothing is forwarded
+  r = relay(net_protocol_time_sync, 0, -1, false, CA);
+  CHECK(r.local && !r.forward);
+  r = relay(net_protocol_synchronise, 0, -1, false, CA);
+  CHECK(r.local && !r.forward);
+  // a connection that is not a player's yet (connect, refused hosts): local, never forwarded
+  r = relay(net_protocol_event, all_players, 2, false, 99);
+  CHECK(r.local && !r.forward && r.origin == -1);
+  r = relay(net_protocol_chat_message, all_players, -1, false, 99);
+  CHECK(r.local && !r.forward);
 }
 
 int main()

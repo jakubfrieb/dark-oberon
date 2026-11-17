@@ -322,6 +322,7 @@ static void ProcessDisconnect (TNET_MESSAGE *msg);
 
 static void ProcessDisconnect (int player_id);
 static void OnDisconnect (TNET_CONN_ID conn);
+static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAGE *msg);
 static void LeaderAllowStartIfAllReady ();
 
 #if !HEADLESS
@@ -1762,6 +1763,7 @@ bool CreateGame()
   host->RegisterExtendedFunction (net_protocol_request_add_computer, ProcessRequestAddComputer);
 
   host->RegisterOnDisconnect (OnDisconnect);
+  host->RegisterOnReceive (RelayFromFollower);
 
   leader_ready = false;
 
@@ -3416,7 +3418,7 @@ void GameOnKeyDown(int key)
     else if (chat_panel->IsVisible()) {
       char txt[1024];
       sprintf(txt, "%s: %s", myself->name, chat_edit->GetText());
-      host->SendChatMessage(chat_edit->GetText());
+      host->SendChatMessage(chat_edit->GetText(), myself->GetPlayerID());
       ost->AddText(txt);
       ToggleChatPanel();
     }
@@ -4484,6 +4486,72 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 }
 
 /**
+ *  Leader: receive handler of every connection (TNET_LISTENER::RECEIVE_HANDLER), in its reader
+ *  thread and without giant, so a follower's message reaches the other followers without
+ *  waiting for the simulation. Checks the payload of the relayed types (exact length, the
+ *  event fields by ValidateNetEvent()), then routes it by THOST::Relay(): forwards copies
+ *  with the origin player in the dest byte, and returns whether to dispatch it here.
+ */
+static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAGE *msg)
+{
+  THOST *self = static_cast<THOST *>(leader);
+  TRELAY_MESSAGE m = { msg->GetType (), msg->GetDest (), -1, false };
+  const T_BYTE *payload = msg->GetPayload ();
+  const int size = msg->GetPayloadSize ();
+  const char *invalid = NULL;
+
+  switch (m.type) {
+  case net_protocol_event: {
+    TEVENT ev;
+    char data[max_net_message_size];
+    memcpy (data, payload, size);
+    if (!ev.DelinearizeEvent (data, size))
+      invalid = "size";
+    else {
+      player_array.Lock ();
+      invalid = ValidateNetEvent (&ev, false);
+      player_array.Unlock ();
+    }
+    m.player_id = ev.GetPlayerID ();
+    m.request = ev.GetEvent () >= RQ_FIRST;
+    break;
+  }
+  case net_protocol_chat_message:   // one string, nothing after it
+    if (size < 1 || memchr (payload, '\0', size) != payload + size - 1)
+      invalid = "chat text";
+    break;
+  case net_protocol_disconnect:
+    if (size != 1)
+      invalid = "size";
+    else
+      m.player_id = payload[0];
+    break;
+  default:
+    break;
+  }
+
+  TRELAY r = { false, false, no_connection, -1, invalid, true, false };
+  if (invalid == NULL)
+    r = self->Relay (m, msg->GetConnection ());
+
+  if (r.drop != NULL) {
+    NetDropWarning (LogMsg ("Relay: dropping message (type %d, player %d; %s) from %s", m.type, m.player_id,
+                            r.drop, TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    return r.invalid ? TNET_LISTENER::receive_invalid : TNET_LISTENER::receive_done;
+  }
+
+  if (r.forward) {
+    msg->SetDest (static_cast<T_BYTE>(r.origin));
+    if (r.to != no_connection)
+      self->GetListener ()->Send (r.to, msg, true);
+    else
+      self->SendToAll (msg, msg->GetConnection (), true);
+  }
+
+  return r.local ? TNET_LISTENER::receive_dispatch : TNET_LISTENER::receive_done;
+}
+
+/**
  *  netstat: true for the events whose time stamp is when they happened on the owner, which
  *  measures their latency. Requests can be scheduled ahead, and so are US_ZOMBIE and US_DELETE
  *  (seconds after the unit died).
@@ -4702,6 +4770,10 @@ static void ProcessDisconnect (int player_id) {
 
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
+
+  /* Followers hear of a departure only from the leader, after his relayed messages. */
+  if (host->GetType () == THOST::ht_leader)
+    host->SendDisconnect (player_id);
 
   /* when hyper player was disconnected, dont write "You won!" message */
   if (player_id == 0) {
