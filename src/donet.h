@@ -390,8 +390,7 @@ public:
   PutResult Put (const void *data, int size, double now);
 
   bool IsEmpty () const { return packets.empty (); }
-  /** The oldest message (it stays queued until Pop()). */
-  const std::string &Front () const { return packets.front ().data; }
+  int Peek (std::string &data, int max_bytes) const;
   /** Removes the oldest message once it is written; returns how long it was queued. */
   double Pop (double now);
 
@@ -503,7 +502,6 @@ private:
     SDL_cond *has_data;   //!< Signals the writer: a message was queued or it should stop.
     TNET_OUT_QUEUE out;
     bool writing;         //!< The writer takes messages (false once it stops).
-    bool evicted;         //!< Its outgoing queue stalled.
   };
 
   TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool own);

@@ -284,6 +284,10 @@ TEST(test_out_queue_drops_when_full) {
   CHECK(std::fabs(q.Pop(1.2) - 0.2) < 1e-9);                // how long it waited
   CHECK(q.GetBytes() == 60);
   CHECK(q.Put(data, 40, 1.2) == TNET_OUT_QUEUE::queued);    // room again
+  std::string all;
+  CHECK(q.Peek(all, 100) == 3 && all.size() == 100);        // 40 + 20 + 40 queued
+  CHECK(q.Peek(all, 99) == 2 && all.size() == 60);          // whole messages only
+  CHECK(q.Peek(all, 10) == 1 && all.size() == 40);          // but at least one
 }
 
 TEST(test_out_queue_stalls_on_age) {
@@ -291,7 +295,8 @@ TEST(test_out_queue_stalls_on_age) {
   char data[10] = {1, 2, 3};
   CHECK(q.GetAge(5.0) == 0);
   CHECK(q.Put(data, 10, 1.0) == TNET_OUT_QUEUE::queued);
-  CHECK(std::string(q.Front()) == std::string(data, 10));
+  std::string head;
+  CHECK(q.Peek(head, 1) == 1 && head == std::string(data, 10));   // at least one message
   CHECK(q.Put(data, 10, 1.25) == TNET_OUT_QUEUE::queued);   // at the limit
   // the front stays queued while the writer is blocked writing it: it keeps ageing
   CHECK(q.Put(data, 10, 1.3) == TNET_OUT_QUEUE::stalled);

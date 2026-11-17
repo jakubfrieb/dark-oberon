@@ -579,6 +579,9 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
   return 0;
 }
 
+/** Most bytes the writer sends at once. */
+static const int max_write_size = 16 * 1024;
+
 /** Sends all @p data over the socket @p fd; false on an error. */
 static bool SendAll (int fd, const string &data) {
   for (size_t pos = 0; pos < data.size (); ) {
@@ -606,12 +609,18 @@ int SDLCALL TNET_LISTENER::writer_thread_function (void *connection) {
       continue;
     }
 
-    const string data = c->out.Front ();   // stays queued (and ages) while it is written
+    /* A backlog goes out in one write: one TCP segment per message would fill the socket's
+       send buffer with per-segment overhead on a long round trip. The messages stay queued
+       (and age) while they are written. */
+    string data;
+    int count = c->out.Peek (data, max_write_size);
     SDL_UnlockMutex (c->lock);
     bool ok = SendAll (c->fd, data);
     SDL_LockMutex (c->lock);
 
-    NetStatRecord (NS_WRITER, c->out.Pop (AppGetRawSeconds ()));
+    double now = AppGetRawSeconds ();
+    for (int i = 0; i < count; i++)
+      NetStatRecord (NS_WRITER, c->out.Pop (now));
 
     if (!ok && c->writing) {
       Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Writer: error sending to %s, closing the connection",
@@ -681,11 +690,12 @@ void TNET_LISTENER::DeleteConnection (CONNECTION *c) {
 /**
  *  The kernel's send buffer of a game socket is kept small, so that a peer that stops reading
  *  fills our outgoing queue, where its age is measured (TNET_OUT_QUEUE), within seconds instead
- *  of filling megabytes of an automatically grown buffer first. Game traffic (at most about
- *  100 KB/s to one peer) needs far less than this even with a long round trip.
+ *  of filling megabytes of an automatically grown buffer first. It must still hold the small
+ *  segments in flight: at about 1700 messages/s (a big battle) and 100 ms round trip, 32 KB
+ *  delayed the messages by tens of ms; 64 KB did not (tests/net/BASELINE.md, step 3).
  */
 static void LimitSendBuffer (int fd) {
-  int size = 32 * 1024;
+  int size = 64 * 1024;
   setsockopt (fd, SOL_SOCKET, SO_SNDBUF, (const char *)&size, sizeof (size));
 }
 
@@ -730,7 +740,6 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own
   c->claimed = own;   // our own connection already belongs to a remote host
   c->state = CONNECTION::open;
   c->writing = true;
-  c->evicted = false;
   c->lock = SDL_CreateMutex ();
   c->has_data = SDL_CreateCond ();
 
@@ -825,7 +834,6 @@ bool TNET_LISTENER::Send (TNET_CONN_ID conn, TNET_MESSAGE *msg) {
       case TNET_OUT_QUEUE::stalled:
         Warning (LogMsg ("Evicting %s: its oldest outgoing message has waited %.0f ms (%d bytes queued)",
                          c->peer.c_str (), c->out.GetAge (now) * 1000, c->out.GetBytes ()));
-        c->evicted = true;
         c->writing = false;
         SDL_CondSignal (c->has_data);
         shutdown (c->fd, 2);
@@ -961,6 +969,23 @@ TNET_OUT_QUEUE::PutResult TNET_OUT_QUEUE::Put (const void *data, int size, doubl
   packets.back ().data.assign (static_cast<const char *>(data), size);
   bytes += size;
   return queued;
+}
+
+/**
+ *  Copies the oldest messages, at least one and at most @p max_bytes of them, into @p data
+ *  (they stay queued until Pop()). Returns how many.
+ */
+int TNET_OUT_QUEUE::Peek (string &data, int max_bytes) const {
+  int count = 0;
+
+  data.clear ();
+  for (std::deque<PACKET>::const_iterator i = packets.begin (); i != packets.end (); ++i, count++) {
+    if (count > 0 && (int)(data.size () + i->data.size ()) > max_bytes)
+      break;
+    data += i->data;
+  }
+
+  return count;
 }
 
 double TNET_OUT_QUEUE::Pop (double now) {
