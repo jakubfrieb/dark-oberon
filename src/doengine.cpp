@@ -4336,6 +4336,13 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
  *
  *  @return NULL when the event is valid, otherwise a short reason.
  */
+/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
+ *  1 and down from -1). */
+static bool IsNetUnitID (intptr_t id)
+{
+  return id > INT_MIN && id <= INT_MAX;
+}
+
 static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 {
   if (game_data && (!started || players == NULL))
@@ -4345,9 +4352,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   if (pid < 0 || pid >= player_array.GetCount () || (game_data && players[pid] == NULL))
     return "player";
 
-  /* abs(INT_MIN) stays negative: THASHTABLE_UNITS::HashFunction would index
-   * before the hash table. */
-  if (ev->GetUnitID () == INT_MIN)
+  if (!IsNetUnitID (ev->GetUnitID ()))
     return "unit id";
 
   if (!std::isfinite (ev->GetTimeStamp ()))
@@ -4357,6 +4362,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   bool direction = true;      // simple4 = direction
   bool impact = false;        // US_ATTACKING: simple5, simple6, int1 = impact x, y, segment
   int player_field = -1;      // simple<N> holds a player id
+  bool new_unit = false;      // int2 = the id of a new unit (0 would make the receiver pick one)
 
   switch (ev->GetEvent ()) {
   // states broadcast by the unit owner
@@ -4369,8 +4375,10 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   case US_ATTACKING:  impact = true; break;
 
   // requests
-  case RQ_FIRE_OFF: case RQ_END_MINE: case RQ_END_UNLOAD: case RQ_CREATE_UNIT:
+  case RQ_FIRE_OFF: case RQ_END_MINE: case RQ_END_UNLOAD:
     break;
+  case RQ_CREATE_UNIT:
+    new_unit = true; break;
   case RQ_FEEDING:    player_field = 6; break;    // target owner
   case RQ_IMPACT: case RQ_SYNC_RALLY:
     direction = false; break;
@@ -4378,6 +4386,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
     direction = false; break;
   case RQ_CREATE_PROJECTILE:                      // simple4..6 = impact position
     direction = false;
+    new_unit = true;
     if (game_data && (ev->simple4 >= map.width || ev->simple5 >= map.height || ev->simple6 >= DAT_SEGMENTS_COUNT))
       return "position";
     break;
@@ -4411,6 +4420,9 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   if (impact && (ev->int1 < 0 || ev->int1 >= DAT_SEGMENTS_COUNT
                  || (game_data && (ev->simple5 >= map.width || ev->simple6 >= map.height))))
     return "impact position";
+
+  if (new_unit && (ev->int2 == 0 || !IsNetUnitID (ev->int2)))
+    return "new unit id";
 
   if (player_field > 0) {
     const int p = (player_field == 1) ? ev->simple1 : (player_field == 5) ? ev->simple5 : ev->simple6;
