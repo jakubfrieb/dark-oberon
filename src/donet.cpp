@@ -44,6 +44,7 @@
 #include "dologs.h"
 #include "donet.h"
 #include "dosimpletypes.h"
+#include "dotime.h"
 #include "utils.h"
 
 using std::string;
@@ -293,6 +294,7 @@ void TNET_MESSAGE::Init_receive (in_addr address, in_port_t port, int fd, T_BYTE
   this->address = address;
   this->port = port;
   this->fd = fd;
+  received_at = AppGetTimeSeconds ();
 
   extract_p = 0;
   extract_error = false;

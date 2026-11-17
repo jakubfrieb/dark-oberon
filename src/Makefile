@@ -128,7 +128,7 @@ doconfig.o: doconfig.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h
 dodata.o: dodata.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h tga.h
 	$(CPP) -c dodata.cpp
 
-doperf.o: doperf.cpp doperf.h
+doperf.o: doperf.cpp doperf.h dosdl.h dotime.h
 	$(CPP) -c doperf.cpp
 
 dodevcheat.o: dodevcheat.cpp dodevcheat.h dopace.h cfg.h dodraw.h doplayers.h doschemes.h dosimpletypes.h dounits.h
@@ -191,7 +191,7 @@ domapunits.o: domapunits.cpp cfg.h doalloc.h doconfig.h dodata.h dodevcheat.h do
 domouse.o: domouse.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h domouse.h donet.h doplayers.h dopool.h doraces.h doschemes.h doselection.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c domouse.cpp
 
-donet.o: donet.cpp cfg.h doalloc.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h utils.h
+donet.o: donet.cpp cfg.h doalloc.h doipc.h dologs.h donet.h dopool.h dosdl.h dosimpletypes.h dotime.h utils.h
 	$(CPP) -c donet.cpp
 
 doplayers.o: doplayers.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doai.h doai_logic.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
