@@ -112,6 +112,15 @@ static void EnableKeepalive (int fd) {
 }
 
 /**
+ *  Game messages are small and latency matters more than their count: send each one at once
+ *  instead of letting Nagle's algorithm hold it back until the previous one is acknowledged.
+ */
+static void EnableNoDelay (int fd) {
+  int on = 1;
+  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof (on));
+}
+
+/**
  *  Initializes sockets, which are used for networking.
  *
  *  @return @c true when no error, @c false otherwise.
@@ -194,6 +203,7 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
   }
 
   EnableKeepalive (fd);
+  EnableNoDelay (fd);
   connected = true;
 }
 
@@ -558,6 +568,7 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
     }
 
     EnableKeepalive (new_fd);
+    EnableNoDelay (new_fd);
 
     self->AddConnection (new_fd, remote_addr, false);
   }
