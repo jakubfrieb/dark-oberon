@@ -4338,8 +4338,9 @@ static bool IsNetUnitID (intptr_t id)
   return id > INT_MIN && id <= INT_MAX;
 }
 
-/** Most material a worker mines at once that an event from the network may claim (US_MINING). */
-static const int net_max_mined_amount = 65535;
+/** Most material a worker mines at once that an event from the network may claim (US_MINING).
+ *  Worker and source capacities are plain ints in the race files, so any int amount is legal. */
+static const int net_max_mined_amount = INT_MAX;
 
 /**
  *  Checks an event received from the network before it is queued.
