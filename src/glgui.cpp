@@ -1956,6 +1956,9 @@ bool TGUI_EDIT_BOX::KeyDown(int key)
   default:
     key2 = TranslateKey(key);
 
+    if (key2 >= ' ' && key2 <= '~' && text_len >= max_len)
+      return true;  // box full: swallow the character, it must not reach game hotkeys
+
     if (key2 >= ' ' && key2 <= '~' && text_len < max_len ) {
       // shift chars
       for (i = text_len + 1; i > cursor_pos; i--) text[i] = text[i - 1];

@@ -9,6 +9,46 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.7.0-rc.3] - 2026-11-17
+
+Third release candidate: multiplayer through the server (relay), so two players behind home routers (NAT)
+can play together on Oberon Cloud.
+
+### Changed
+- **BREAKING:** network protocol version 2. In-game traffic now goes through the server (or the player
+  hosting the game); players no longer connect to each other directly. Clients 0.6.0, 0.7.0-rc.1 and
+  0.7.0-rc.2 cannot join 0.7.0-rc.3 servers or hosts: they see "UPDATE CLIENT TO ..." in the lobby, and
+  a 0.7.0-rc.3 client joining an older host gets "The host runs an older Dark Oberon". All players and
+  the server must use 0.7.0-rc.3.
+- Network messages use the same fixed-size, byte-order independent format on every platform.
+- Each connection has its own sending queue: one slow or stalled player no longer delays the others. A
+  player whose connection cannot keep up for 2 seconds is disconnected and announced to everyone.
+- Small network messages are sent at once (TCP_NODELAY), which roughly halves the latency tail.
+- Game clocks are kept in sync during the whole game, not only when joining.
+
+### Added
+- Dedicated server command `netstat [reset]`: latency of remote unit events, network receive/dispatch,
+  forwarding and sending times (p50/p95/p99/max); clients log the same numbers when they leave a game.
+- `tests/net/`: latency measurement harness (local server and two clients, optional delay).
+
+### Fixed
+- Two players behind NAT, or two players from the same home on a cloud server, could not start a game.
+- The winner of a multiplayer game did not get "You WON!" when the last opponent was a computer player
+  on the server or after the other players were defeated.
+- The server crashed when a player left a game while his workers were mining or unloading.
+- A unit produced in a factory with a rally point made other players' computers send an invalid
+  message ("Dropping invalid event").
+- The server stopped accepting players after some network errors, and could be blocked by connections
+  that never joined; pending connections are now limited and time out.
+- A player could change another player's race, or send game messages in another player's name.
+- A player leaving while the host had the in-game menu open broke the game for the others.
+- Long chat lines crashed the game.
+- Several rare crashes and freezes when leaving or cancelling a network game.
+- The dedicated server processed only the first of several console commands that arrived together.
+
+### Known limitations
+- macOS packages are not provided; build from source.
+
 ## [0.7.0-rc.2] - 2026-11-17
 
 Second release candidate: multiplayer fixes found by a client/server compatibility test of rc.1.
@@ -396,7 +436,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.2...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.3...HEAD
+[0.7.0-rc.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.2...v0.7.0-rc.3
 [0.7.0-rc.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.1...v0.7.0-rc.2
 [0.7.0-rc.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...v0.7.0-rc.1
 [0.6.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.5.1...v0.6.0
