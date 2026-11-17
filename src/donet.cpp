@@ -355,9 +355,10 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   on_receive_context = NULL;
   connections_lock = SDL_CreateMutex ();
   bind_sem = SDL_CreateSemaphore (0);
+  start_sem = SDL_CreateSemaphore (0);
   listener_bind_ok = false;
 
-  if (bind_sem == NULL)
+  if (bind_sem == NULL || start_sem == NULL)
     Critical ("Listener: SDL_CreateSemaphore failed");
 
   thread = SDL_CreateThread (listener_thread_function, "net_listen", this);
@@ -371,6 +372,7 @@ TNET_LISTENER::TNET_LISTENER (int queue_size, in_port_t port) {
   SDL_SemWait (bind_sem);
 
   if (!listener_bind_ok) {
+    SDL_SemPost (start_sem);
     SDL_WaitThread (thread, NULL);
     thread = NULL;
     SDL_DestroySemaphore (bind_sem);
@@ -394,6 +396,7 @@ TNET_LISTENER::~TNET_LISTENER () {
     shutdown (listening, 2);
     do_close (listening);
   }
+  SDL_SemPost (start_sem);   // never started: it sees the closed socket and finishes
 
   /* Wait until listener thread is dead. */
   if (thread)
@@ -426,6 +429,7 @@ TNET_LISTENER::~TNET_LISTENER () {
     SDL_DestroySemaphore (bind_sem);
     bind_sem = NULL;
   }
+  SDL_DestroySemaphore (start_sem);
 
   delete incoming_messages;
   SDL_DestroyMutex (connections_lock);
@@ -488,6 +492,9 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
 
   self->listener_bind_ok = true;
   SDL_SemPost (self->bind_sem);
+
+  /* Accept only once the owner has registered its handlers (Start()). */
+  SDL_SemWait (self->start_sem);
 
   Info (LogMsg ("Listener running on port %hu", self->port));
 
@@ -964,6 +971,14 @@ TNET_CONN_ID TNET_LISTENER::ClaimConnection (in_addr address, in_port_t port) {
 
   SDL_UnlockMutex (connections_lock);
   return conn;
+}
+
+/**
+ *  Starts accepting connections. Call it after the handlers are registered (RegisterOnReceive()
+ *  and the dispatcher's), so that nobody's message gets past them.
+ */
+void TNET_LISTENER::Start () {
+  SDL_SemPost (start_sem);
 }
 
 /** Sets the receive handler (RECEIVE_HANDLER); NULL queues every message. */

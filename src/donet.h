@@ -464,6 +464,8 @@ public:
   TNET_LISTENER (int queue_size, in_port_t port);
   ~TNET_LISTENER ();
 
+  void Start ();
+
   static int DialSocket (in_addr address, in_port_t port);
   TNET_CONN_ID AddDialedConnection (in_addr address, in_port_t port, int fd);
 
@@ -550,6 +552,7 @@ private:
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
+  SDL_sem *start_sem;      //!< Posted by Start() (or the destructor): the thread starts accepting.
 };
 
 

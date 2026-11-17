@@ -623,6 +623,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
 
     host->RegisterOnDisconnect (OnDisconnect);
     host->RegisterOnReceive (OnlyFromLeader);
+    host->Start ();
 
     player_array.RunningOnFollower ();
 
@@ -1766,6 +1767,7 @@ bool CreateGame()
 
   host->RegisterOnDisconnect (OnDisconnect);
   host->RegisterOnReceive (RelayFromFollower);
+  host->Start ();
 
   leader_ready = false;
 
@@ -4488,10 +4490,12 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
 /**
  *  Follower: receive handler (TNET_LISTENER::RECEIVE_HANDLER). Everything comes through the
  *  leader, which relays; a connection to the follower's (unused) listen port is ignored.
+ *  It uses only the THOST part of the follower, which stays valid while the readers run.
  */
 static TNET_LISTENER::ReceiveResult OnlyFromLeader (void *follower, TNET_MESSAGE *msg)
 {
-  if (msg->GetConnection () == dynamic_cast<TFOLLOWER *>(static_cast<THOST *>(follower))->GetLeaderConnection ())
+  const TNET_CONN_ID leader = static_cast<THOST *>(follower)->GetRemoteConnection ();
+  if (leader == no_connection || msg->GetConnection () == leader)   // see GetRemoteConnection()
     return TNET_LISTENER::receive_dispatch;
 
   NetDropWarning (LogMsg ("Dropping message (type %d) from %s, which is not the leader", msg->GetType (),

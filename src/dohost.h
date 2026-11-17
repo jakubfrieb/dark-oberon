@@ -125,6 +125,9 @@ public:
 
   virtual ~THOST ();
 
+  void Start ();
+  void Stop ();
+
   void SendChatMessage (std::string chat_message, int sender);
 
   static void PackVersion (TNET_MESSAGE *msg);
@@ -154,6 +157,9 @@ public:
   /** Address of the host this one dialed at the start (the leader of a follower). */
   in_addr GetRemoteAddress () { return remote_address; }
   in_port_t GetRemotePort () { return remote_port; }
+  /** The connection to it, fixed by Start() (no_connection for a leader, and while Start()
+   *  adds it: its reader may already run then, but no other connection exists yet). */
+  TNET_CONN_ID GetRemoteConnection () const { return remote_conn; }
 
   T_BYTE AddRoute (TNET_CONN_ID conn = no_connection);
   TNET_CONN_ID GetRoute (int id);
@@ -204,9 +210,10 @@ private:
 
   in_addr remote_address;
   in_port_t remote_port;
+  int remote_fd;              //!< Dialed socket until Start() adds its connection, else -1.
+  std::atomic<TNET_CONN_ID> remote_conn;   //!< See GetRemoteConnection().
 
 protected:
-  TNET_CONN_ID remote_conn;   //!< Connection dialed at the start (see GetRemoteAddress()).
 
   HostType type;    //!< Type of the host.
 };

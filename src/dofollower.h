@@ -120,8 +120,10 @@ public:
   bool IsAdmitted () const { return admitted; }
   void SetAdmitted () { admitted = true; }
 
-  /** The link to the leader (fixed for the life of the follower). */
-  TNET_CONN_ID GetLeaderConnection () const { return remote_conn; }
+  ~TFOLLOWER () { Stop (); }
+
+  /** The link to the leader (fixed once started). */
+  TNET_CONN_ID GetLeaderConnection () const { return GetRemoteConnection (); }
 
   /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
   void SetLeaderLost () { leader_lost = true; }
