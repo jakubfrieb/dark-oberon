@@ -54,16 +54,15 @@ using std::string;
  *  @param incoming_message_queue_size Size of the incoming message queue.
  *  @param listen_port                 Port on which listener should listen.
  */
-TLEADER::TLEADER (int incoming_message_queue_size, in_port_t listen_port,
-                  int outgoing_message_queue_size)
-:THOST (incoming_message_queue_size, listen_port, outgoing_message_queue_size)
+TLEADER::TLEADER (int incoming_message_queue_size, in_port_t listen_port)
+:THOST (incoming_message_queue_size, listen_port)
 {
   type = ht_leader;
 }
 
-void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, int fd)
+void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, TNET_CONN_ID conn)
 {
-  T_BYTE dest = AddRemoteAddress (remote_address, remote_port, fd);
+  T_BYTE dest = AddRoute (conn);
 
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_hello, 0);
@@ -82,12 +81,12 @@ void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, in
 static const int refused_close_delay = 15;
 
 /**
- *  Refuses the host on the connection @p fd, whose connect request has protocol
+ *  Refuses the host on the connection @p conn, whose connect request has protocol
  *  version @p protocol (0 = before version 2). It gets only a reply that it can
  *  show; it is never added to the players and nothing is broadcast about it. The
  *  connection is closed once the host has been idle for refused_close_delay.
  */
-void TLEADER::RefuseFollower (int fd, int protocol) {
+void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
   if (protocol == 0) {
     /* An older client understands only the version 1 formats. A lobby-only player
        array (all multi-byte fields 0, the same in any byte order) shows it a map that
@@ -106,13 +105,13 @@ void TLEADER::RefuseFollower (int fd, int protocol) {
       m->PackByte (0);                        // not remote: no address follows
       m->PackByte (0);                        // start point
     }
-    m->SetReplyConnection (fd);
+    m->SetReplyConnection (conn);
     SendMessage (m);
 
     m = pool_net_messages->GetFromPool();
     m->Init_send(net_protocol_chat_message, 0);
     m->PackString (string ("Your Dark Oberon is too old for this host: update to ") + DO_VERSION_STRING);
-    m->SetReplyConnection (fd);
+    m->SetReplyConnection (conn);
     SendMessage (m);
   } else {
     /* A newer client reads the version trailer of the hello and shows the versions. */
@@ -125,34 +124,34 @@ void TLEADER::RefuseFollower (int fd, int protocol) {
     m->PackU16 (0);
     m->PackDouble (0);
     PackVersion (m);
-    m->SetReplyConnection (fd);
+    m->SetReplyConnection (conn);
     SendMessage (m);
   }
 
-  GetListener ()->CloseWhenIdle (fd, refused_close_delay);
+  GetListener ()->CloseWhenIdle (conn, refused_close_delay);
 }
 
-/** Answers the ping request with @p request_time received on the connection @p fd. */
-void TLEADER::SendPingReply (double request_time, int fd) {
+/** Answers the ping request with @p request_time received on the connection @p conn. */
+void TLEADER::SendPingReply (double request_time, TNET_CONN_ID conn) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_ping, 1);
 
   m->PackDouble (request_time);
   m->PackDouble (AppGetTimeSeconds());
 
-  m->SetReplyConnection (fd);
+  m->SetReplyConnection (conn);
   SendMessage (m);
 }
 
-/** Answers the time sync request with @p request_time received on the connection @p fd. */
-void TLEADER::SendTimeSyncReply (double request_time, int fd) {
+/** Answers the time sync request with @p request_time received on the connection @p conn. */
+void TLEADER::SendTimeSyncReply (double request_time, TNET_CONN_ID conn) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_time_sync, 1);
 
   m->PackDouble (request_time);
   m->PackDouble (AppGetTimeSeconds());
 
-  m->SetReplyConnection (fd);
+  m->SetReplyConnection (conn);
   SendMessage (m);
 }
 

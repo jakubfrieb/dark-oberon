@@ -53,15 +53,12 @@ using std::string;
  *  @param incoming_message_queue_size Size of the incoming message queue.
  *  @param listen_port                 The port on which #listener should
  *                                     listen.
- *  @param outgoing_message_queue_size Size of the outgoing message queue.
  *  @param remote_address              Address of the leader.
  *  @param remote_port                 Port of the leader.
  */
 TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
-                      int outgoing_message_queue_size, in_addr remote_address,
-                      in_port_t remote_port)
-:THOST (incoming_message_queue_size, listen_port, outgoing_message_queue_size,
-        remote_address, remote_port)
+                      in_addr remote_address, in_port_t remote_port)
+:THOST (incoming_message_queue_size, listen_port, remote_address, remote_port)
 {
   type = ht_follower;
   have_my_address = false;
@@ -71,7 +68,6 @@ TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
   my_port = 0;
 
   admitted = false;
-  leader_fd = GetTalker ()->GetRemoteFiledescriptor (0);
   leader_lost = false;
   time_samples_total = 0;
   time_sync_sent = 0;

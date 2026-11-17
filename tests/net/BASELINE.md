@@ -143,3 +143,65 @@ Samples per client and run: 1000–2400. One B1-a client had 323.
   - scenario c more than once per build;
   - the Windows and Haiku builds at runtime (the MinGW build compiles; `TCP_NODELAY` is in
     `winsock.h` and `netinet/tcp.h`).
+
+## Step 3 (`net/conn-writers`): per-connection writers, still P2P
+
+Same harness, scenarios a and b, 2 runs each of this branch (`adeff07`) and of the B1 binaries,
+interleaved in one session (ports 17311/17312). Median and [range] over 2 runs × 2 clients, in ms.
+`transit` is clock-corrected as above.
+
+| Scenario | Build | perceived p50 | perceived p95 | perceived p99 | perceived max | transit p95 | transit p99 |
+|---|---|---|---|---|---|---|---|
+| a localhost | B1 | 21.4 [20.1–23.6] | 37.5 [37.5–39.5] | 39.8 [39.2–40.5] | 40.3 [39.6–41.0] | 19.9 [19.8–19.9] | 20.1 [20.1–20.2] |
+| a localhost | step 3 | 19.5 [14.3–20.4] | 34.8 [28.8–36.4] | 37.8 [33.1–39.2] | 39.3 [34.2–40.1] | 19.9 [19.8–19.9] | 20.1 [20.1–20.2] |
+| b 20±2 ms | B1 | 37.0 [15.4–66.2] | 52.9 [28.4–83.0] | 58.5 [32.8–87.0] | 60.8 [34.2–89.2] | 40.1 [40.0–40.2] | 41.5 [41.3–41.5] |
+| b 20±2 ms | step 3 | 38.4 [34.8–42.1] | 55.1 [49.4–57.6] | 57.5 [54.9–60.4] | 60.7 [58.1–62.1] | 40.0 [39.3–40.9] | 41.8 [40.7–43.0] |
+
+- No regression: `transit` is the same within 0.3 ms. The wide B1-b `perceived` range comes from
+  the B1 clients' connect-time clock error to the server (−25 to −27 ms in run 1, `[clock]`; B1 has
+  no in-game time sync), not from the network.
+- `writer` (queued → written, every host): p99 0.15–0.85 ms, max below 0.9 ms in every run.
+- The a/b runs above are of `adeff07` (32 KB send buffer, one write per message); at their load
+  (30-40 events/s) the later writer changes make no difference.
+
+**Battle load with delay** (scenario c settings — 2 hard CPUs, `spawn 600 fight`, about 1700
+messages/s from the server to each client — plus netem; one run each, 40 s measured). Client
+`transit` of the server's events, corrected by each client's `[clock]` offset to the server, p95/p99
+in ms; server `writer` p99/max:
+
+| Delay one way | Build | c1 transit | c2 transit | server writer | evicted |
+|---|---|---|---|---|---|
+| 20±2 ms | B1 | 41.5 / 58.3 | 41.2 / 53.6 | – | – |
+| 20±2 ms | 32 KB, one write per message (`adeff07`) | 41.6 / 57.5 | 42.1 / 75.7 | 37.3 / 86.8 | no |
+| 20±2 ms | 32 KB, backlog in one write | 40.4 / 42.0 | 40.8 / 41.9 | 6.5 / 39.1 | no |
+| 20±2 ms | **64 KB, backlog in one write (`871a134`)** | 40.1 / 41.0 | 40.0 / 41.1 | 0.15 / 1.5 | no |
+| 50±5 ms | B1 | 73.8 / 85.1 | 73.9 / 87.0 | – | – |
+| 50±5 ms | 32 KB, one write per message | – | – | – | **both clients** |
+| 50±5 ms | 32 KB, backlog in one write | 90.1 / 109.4 | 95.9 / 113.0 | 56.9 / 81.8 | no |
+| 50±5 ms | **64 KB, backlog in one write (`871a134`)** | 73.6 / 89.6 | 72.6 / 74.3 | 20.6 / 77.4 | no |
+| 50±5 ms | 128 KB, backlog in one write | 71.1 / 73.4 | 74.2 / 82.7 | 0.05 / 2.1 | no |
+
+- With TCP_NODELAY every message is its own small segment, and the kernel charges each one far
+  more than its 54 bytes against the send buffer. At 100 ms round trip a 32 KB buffer could not
+  hold the segments in flight, so the writer queue grew and healthy clients were evicted.
+- A larger buffer delays the eviction of a client that stopped reading (below), so 64 KB is a
+  compromise; tune it in step 6 if needed.
+
+**Head of line** (scenario c load, localhost; client 2 stopped with `kill -STOP` after 10 s of
+measuring, for 5 s of walking that took about 7 s):
+
+| Build | client 2 evicted | server `perf` step p99 / max | client 1 perceived p99 | client 1 writer max |
+|---|---|---|---|---|
+| `adeff07` (32 KB, one write per message) | yes, before `SIGCONT` (259 ms, 13 KB queued) | 2.99 / 7.04 | 39.5 | 0.63 |
+| 32 KB, backlog in one write | no (the kernel buffers absorbed 7 s) | 3.14 / 9.61 | 38.1 | 0.52 |
+| **`871a134` (64 KB, backlog in one write)** | yes, 6.7 s after `SIGSTOP` (260 ms, 15 KB queued) | 2.61 / 6.28 | 38.7 | 0.65 |
+| 128 KB, backlog in one write | no | 3.10 / 4.81 | 37.8 | 0.39 |
+
+- Nobody froze in any run. Client 1's `perceived` maximum (4.6–7 s) is client 2's backlog of
+  states sent after `SIGCONT`.
+- Eviction needs the kernel buffers (our send buffer and the stopped peer's receive buffer) to fill
+  first, so how soon it comes depends on the traffic to that client: about 7 s at battle load,
+  much later (or never, while it fits) at normal load.
+- The evicted client shows "Connection to the server was lost!" after `SIGCONT`. Client 1 is not
+  told: the in-game departure broadcast is step 4 (in P2P client 1 still has its own link to
+  client 2).

@@ -36,6 +36,7 @@
 #include "doalloc.h"
 
 #include <string>
+#include <vector>
 
 #include "donet.h"
 
@@ -75,9 +76,14 @@ const int NET_PROTOCOL_VERSION = 2;
 const int all_players = 255;
 
 /**
- *  Base class for a network communication participant (client, server). It
- *  does not contain any talker (TNET_TALKER), because generic host does not
- *  know how many hosts will be connected to it.
+ *  Base class for a network communication participant (client, server). Its
+ *  listener owns the connections; the route table maps player ids to them.
+ *
+ *  Route table: entry @c id is the connection of the host of player @c id
+ *  (no_connection for a player of this host). Several players can share one
+ *  connection (e.g. all players hosted on the leader). It is read and changed
+ *  under a short lock of its own, which is never held while a message is
+ *  queued, so any thread may send.
  */
 class THOST {
 public:
@@ -88,12 +94,10 @@ public:
   };
 
 public:
-  THOST (int incoming_message_queue_size, in_port_t listen_port,
-         int outgoing_message_queue_size);
+  THOST (int incoming_message_queue_size, in_port_t listen_port);
 
   THOST (int incoming_message_queue_size, in_port_t listen_port,
-         int outgoing_message_queue_size, in_addr remote_address,
-         in_port_t remote_port);
+         in_addr remote_address, in_port_t remote_port);
 
   virtual ~THOST ();
 
@@ -104,14 +108,10 @@ public:
 
   void SendDisconnect (T_BYTE player_id);
 
-  /** Sends networking message to all connected hosts for which the message is
-   *  destined for. */
-  void SendMessage (TNET_MESSAGE *msg) {
-    talker->GetMessageQueue ()->PutMessage (msg);
-  }
+  void SendMessage (TNET_MESSAGE *msg);
 
   /** Sends networking message to specified destination. If destination is
-   *  XXX:255, the message is send to all connected hosts. */
+   *  all_players, the message is send to all connected hosts. */
   void SendMessage (TNET_MESSAGE *msg, T_BYTE destination) {
     msg->SetDest (destination);
 
@@ -126,50 +126,22 @@ public:
   TNET_LISTENER *GetListener ()
   { return listener; }
 
-  /** Returns talker. */
-  TNET_TALKER *GetTalker ()
-  { return talker; }
+  /** Address of the host this one dialed at the start (the leader of a follower). */
+  in_addr GetRemoteAddress () { return remote_address; }
+  in_port_t GetRemotePort () { return remote_port; }
 
-  in_addr GetRemoteAddress () { return talker->GetRemoteAddress (0); }
-  in_port_t GetRemotePort () { return talker->GetRemotePort (0); }
+  T_BYTE AddRoute (TNET_CONN_ID conn = no_connection);
+  TNET_CONN_ID GetRoute (int id);
+  void ClearRoute (int id);
+  void RemoveRoute (int id);
+  std::vector<TNET_CONN_ID> GetRoutedConnections ();
 
-  void RemoveAllAddresses () {
-    talker->RemoveAllAddresses ();
-  }
+  void DisconnectAll ();
 
-  T_BYTE AddRemoteAddress (in_addr address, in_port_t port) {
-    return talker->AddAddress (address, port);
-  }
-
-  T_BYTE AddRemoteAddress (in_addr address, in_port_t port, int fd) {
-    return talker->AddAddress (address, port, fd);
-  }
-
-  T_BYTE AddEmptyAddress () {
-    return talker->AddEmptyAddress ();
-  }
+  int GetPlayerIDByConnection (TNET_CONN_ID conn, int from = 0);
 
   void RegisterExtendedFunction (T_BYTE type, void (*f)(TNET_MESSAGE *msg)) {
     handler->RegisterExtendedFunction (type, f);
-  }
-
-  void DisconnectAddress (int id) {
-    talker->DisconnectAddress (id);
-  }
-
-  void RemoveAddress (int id) {
-    talker->RemoveAddress (id);
-  }
-
-  /** Shuts down the connections to all remote hosts (player ids stay valid). */
-  void DisconnectAll () {
-    for (int id = 0; id < talker->GetAddressCount (); id++)
-      talker->DisconnectAddress (id);
-  }
-
-  /** Returns the player id (>= @p from) whose connection is the socket @p fd, or -1. */
-  int GetPlayerIDByFileDescriptor (int fd, int from = 0) {
-    return talker->FindAddressByFileDescriptor (fd, from);
   }
 
   void RegisterOnDisconnect (TNET_LISTENER::DISCONNECT_HANDLER f) {
@@ -177,12 +149,21 @@ public:
   }
 
 private:
+  void Initialise (int incoming_message_queue_size, in_port_t listen_port);
+
   TNET_LISTENER *listener;        //!< Listener.
-  TNET_TALKER *talker;
   TNET_MESSAGE_HANDLER *handler;  //!< Handler.
   TNET_DISPATCHER *dispatcher;    //!< Dispatcher.
 
+  std::vector<TNET_CONN_ID> routes;   //!< Route table (see THOST), index = player id.
+  SDL_mutex *routes_lock;             //!< Guards #routes.
+
+  in_addr remote_address;
+  in_port_t remote_port;
+
 protected:
+  TNET_CONN_ID remote_conn;   //!< Connection dialed at the start (see GetRemoteAddress()).
+
   HostType type;    //!< Type of the host.
 };
 

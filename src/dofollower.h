@@ -48,8 +48,6 @@
 
 /** Size of incoming message queue for follower. */
 const int follower_in_queue_size = 10024;
-/** Size of outgoing message queue for follower. */
-const int follower_out_queue_size = 10024;
 
 
 //=========================================================================
@@ -97,8 +95,7 @@ private:
 class TFOLLOWER : public THOST {
 public:
   TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
-             int outgoing_message_queue_size, in_addr remote_address,
-             in_port_t remote_port);
+             in_addr remote_address, in_port_t remote_port);
 
   void Connect (std::string);
   void ChangeRace (int index, std::string player_name, std::string new_race);
@@ -123,8 +120,8 @@ public:
   bool IsAdmitted () const { return admitted; }
   void SetAdmitted () { admitted = true; }
 
-  /** Socket of the link to the leader (fixed for the life of the follower). */
-  int GetLeaderFileDescriptor () const { return leader_fd; }
+  /** The link to the leader (fixed for the life of the follower). */
+  TNET_CONN_ID GetLeaderConnection () const { return remote_conn; }
 
   /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
   void SetLeaderLost () { leader_lost = true; }
@@ -148,7 +145,6 @@ private:
   double minimal_timeshift;   //!< Minimal timeshift yet received.
 
   bool admitted;              //!< See IsAdmitted().
-  int leader_fd;              //!< See GetLeaderFileDescriptor().
   std::atomic<bool> leader_lost; //!< See SetLeaderLost().
 
   TCLOCK_FILTER clock_filter; //!< In-game clock sync, see ProcessTimeSyncReply().

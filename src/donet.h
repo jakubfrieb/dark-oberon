@@ -49,6 +49,7 @@
 #endif
 
 #include <stdint.h>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -77,6 +78,23 @@ typedef unsigned short in_port_t;
 
 /** Maximum size of networking message including headers. */
 const int max_net_message_size = 255;
+
+/** Limits of the outgoing queue of a connection (TNET_OUT_QUEUE): bytes queued and the age
+ *  of the oldest queued message (seconds). */
+const int net_out_queue_max_bytes = 256 * 1024;
+const double net_out_queue_max_age = 0.25;
+
+
+//=========================================================================
+// Connection handles
+//=========================================================================
+
+/** Stable handle of a connection (TNET_LISTENER): unique for the life of the process, so it
+ *  never refers to a newer connection that got the same socket number. */
+typedef uint32_t TNET_CONN_ID;
+
+/** No connection (a local player, or a message without a reply connection). */
+const TNET_CONN_ID no_connection = 0;
 
 
 //=========================================================================
@@ -152,45 +170,6 @@ extern TLOG_MESSAGE socket_error_message;
 void NetDropWarning (const char *text);
 
 //=========================================================================
-// TNET_ADDRESS
-//=========================================================================
-
-struct TNET_ADDRESS {
-public:
-  class ConnectingErrorException {
-  public:
-    ConnectingErrorException (bool is_refused = false) : refused (is_refused) {}
-
-    bool refused;  //!< Nobody listens on the address (ECONNREFUSED).
-  };
-
-  TNET_ADDRESS (in_addr address, in_port_t port);
-  TNET_ADDRESS (in_addr address, in_port_t port, int fd);
-  TNET_ADDRESS ();
-  ~TNET_ADDRESS ();
-
-  in_addr GetAddress () { return address; }
-  in_port_t GetPort ()  { return port; }
-
-  int GetFileDescriptor ()
-  { return fd; }
-
-  void Disconnect ();
-
-  bool IsEmpty ()
-  { return empty; }
-
-private:
-  in_addr     address;
-  in_port_t   port;
-  int         fd;
-
-  bool        connected;
-  bool        empty;
-};
-
-
-//=========================================================================
 // TNET_MESSAGE
 //=========================================================================
 
@@ -200,13 +179,11 @@ private:
  */
 struct TNET_MESSAGE : public TPOOL_ELEMENT {
 public:
-  class SendError {};
-
   // XXX: 255
   TNET_MESSAGE();
   
   void Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest = 255);
-  void Init_receive (in_addr address, in_port_t port, int fd, T_BYTE *data);
+  void Init_receive (in_addr address, in_port_t port, TNET_CONN_ID conn, T_BYTE *data);
 
   T_BYTE GetSize ()     { return size; }
   T_BYTE GetType ()     { return type; }
@@ -215,9 +192,9 @@ public:
 
   void SetDest (T_BYTE dest)  { this->dest = dest; }
 
-  /** Sends the message only over the connection @p fd (a reply to a message
+  /** Sends the message only over the connection @p conn (a reply to a message
    *  received on it), whatever the destination is. */
-  void SetReplyConnection (int fd)  { this->fd = fd; }
+  void SetReplyConnection (TNET_CONN_ID conn)  { this->conn = conn; }
 
   /** Puts @p size of bytes from memory at address @p data into the message. */
   void Pack (const void *data, int size)
@@ -316,11 +293,10 @@ public:
 
   in_addr GetAddress () { return address; }
   in_port_t GetPort ()  { return port; }
-  int GetFileDescriptor () { return fd; }
+  /** The connection the message was received on / is a reply to (no_connection = use dest). */
+  TNET_CONN_ID GetConnection () { return conn; }
   //! When the listener received the message (AppGetTimeSeconds), for `netstat`.
   double GetReceivedAt () { return received_at; }
-
-  void Send (int fd);
 
 private:
   /*
@@ -339,7 +315,7 @@ private:
 
   in_addr address;
   in_port_t port;
-  int fd;          //!< Received on this connection / reply to it (-1 = use dest).
+  TNET_CONN_ID conn;   //!< See GetConnection().
   double received_at;
 
   int extract_p;
@@ -353,7 +329,7 @@ private:
 
 /**
  *  Message queue containing network messages. This queue is used in
- *  TNET_LISTENER, TNET_TALKER, TNET_DISPATCHER.
+ *  TNET_LISTENER, TNET_DISPATCHER.
  *
  *  @note This class is thread safe.
  */
@@ -388,33 +364,92 @@ private:
 
 
 //=========================================================================
+// TNET_OUT_QUEUE
+//=========================================================================
+
+/**
+ *  Outgoing queue of one connection: copies of the messages waiting for its writer. It is
+ *  bounded, so a client that does not read cannot hold up the others: when it is full a new
+ *  message is dropped, and when its oldest message waits too long the connection is evicted.
+ *  The message being written stays at the front until it is written, so a write blocked by
+ *  the peer counts in the age.
+ *
+ *  @note Not thread safe: the connection's lock guards it. Times are seconds of any monotonic
+ *        clock (passed in, so the limits can be tested).
+ */
+class TNET_OUT_QUEUE {
+public:
+  enum PutResult {
+    queued,    //!< The message waits for the writer.
+    dropped,   //!< The queue is full: the message was dropped.
+    stalled    //!< The oldest message is older than the age limit: evict the connection.
+  };
+
+  TNET_OUT_QUEUE (int max_bytes = net_out_queue_max_bytes, double max_age = net_out_queue_max_age);
+
+  PutResult Put (const void *data, int size, double now);
+
+  bool IsEmpty () const { return packets.empty (); }
+  int Peek (std::string &data, int max_bytes) const;
+  /** Removes the oldest message once it is written; returns how long it was queued. */
+  double Pop (double now);
+
+  int GetBytes () const { return bytes; }
+  /** Age of the oldest message (0 when empty). */
+  double GetAge (double now) const { return packets.empty () ? 0 : now - packets.front ().queued_at; }
+  int GetDropped () const { return dropped_count; }
+
+private:
+  struct PACKET {
+    double queued_at;
+    std::string data;
+  };
+
+  std::deque<PACKET> packets;
+  int bytes;            //!< Sum of the sizes of #packets.
+  int max_bytes;
+  double max_age;
+  int dropped_count;
+};
+
+
+//=========================================================================
 // TNET_LISTENER
 //=========================================================================
 
 /**
- *  Class for listener, which is a thread receiving packets from network,
- *  unpacking them into messages and putting them into incoming message queue.
+ *  Owner of the connections of a host. It accepts connections on its port, and registers the
+ *  ones the host dials (Dial()). Every connection has:
+ *  - a stable handle (TNET_CONN_ID); nothing outside refers to its socket;
+ *  - a reader thread receiving messages into the incoming message queue;
+ *  - a bounded outgoing queue (TNET_OUT_QUEUE) and a writer thread, the only code writing
+ *    to its socket. Send() never blocks.
+ *
+ *  A connection ends when the peer closes it, on an error, on Shutdown() or when it is
+ *  evicted (its outgoing queue stalls). Its reader then stops the writer, closes the socket
+ *  (the only place that closes it) and calls the disconnect handler with the handle.
  */
 class TNET_LISTENER {
 public:
   class MutexException {};
 
-  struct ACCEPT_DATA {
-    ACCEPT_DATA (int fd, sockaddr_in address, TNET_LISTENER *self) {
-      this->fd = fd;
-      this->address = address;
-      this->self = self;
-    }
+  /** Thrown by DialSocket(). */
+  class ConnectingErrorException {
+  public:
+    ConnectingErrorException (bool is_refused = false) : refused (is_refused) {}
 
-    int fd;
-    sockaddr_in address;
-    TNET_LISTENER *self;
+    bool refused;  //!< Nobody listens on the address (ECONNREFUSED).
   };
 
   TNET_LISTENER (int queue_size, in_port_t port);
   ~TNET_LISTENER ();
 
-  void AddListenerByFileDescriptor (in_addr address, in_port_t port, int fd);
+  static int DialSocket (in_addr address, in_port_t port);
+  TNET_CONN_ID AddDialedConnection (in_addr address, in_port_t port, int fd);
+
+  /** Connects to @p address:@p port; throws ConnectingErrorException. */
+  TNET_CONN_ID Dial (in_addr address, in_port_t port)
+  { return AddDialedConnection (address, port, DialSocket (address, port)); }
 
   /** Returns pointer to incoming message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()
@@ -425,48 +460,57 @@ public:
   { return port; }
 
   void ConsumerIsAttached (SDL_Thread *thread);
-  int GetListenersFileDescriptor (in_addr address, in_port_t port);
-  void ReleaseConnection (int fd);
-  bool IsConnectionOpen (int fd);
-  void CloseWhenIdle (int fd, int seconds);
+  TNET_CONN_ID ClaimConnection (in_addr address, in_port_t port);
+  bool IsConnectionOpen (TNET_CONN_ID conn);
+  void CloseWhenIdle (TNET_CONN_ID conn, int seconds);
 
-  /** Distinguishes listeners of different sessions in late disconnect callbacks. */
-  unsigned GetGeneration ()
-  { return generation; }
+  bool Send (TNET_CONN_ID conn, TNET_MESSAGE *msg);
+  void Shutdown (TNET_CONN_ID conn);
 
-  typedef void (* DISCONNECT_HANDLER)(unsigned generation, int fd);
+  /** Called (in the connection's reader thread) after a connection ended and its socket was
+   *  closed. */
+  typedef void (* DISCONNECT_HANDLER)(TNET_CONN_ID conn);
   void RegisterOnDisconnect (DISCONNECT_HANDLER f);
 
 private:
   static int SDLCALL listener_thread_function (void *listener_class);
-  static int SDLCALL listener_accept (void *d);
+  static int SDLCALL reader_thread_function (void *connection);
+  static int SDLCALL writer_thread_function (void *connection);
 
   SDL_Thread *thread;    //!< Listener thread handle.
   SDL_Thread *consumer_thread;
 
-  /** A connection read by a subthread; the listener owns (closes) its socket. */
   struct CONNECTION {
     enum State {
-      open,      //!< Being read.
-      ended,     //!< Peer closed it; still open until ReleaseConnection (the fd stays unique).
-      closed     //!< Socket closed; the fd number may belong to a newer connection.
+      open,      //!< Being read (the socket is open).
+      closed     //!< Socket closed, both threads finished or finishing.
     };
 
+    TNET_LISTENER *listener;
+    TNET_CONN_ID id;
     int fd;
     in_addr address;
     in_port_t port;       //!< Remote port (host byte order).
-    bool own;             //!< We dialed it (AddListenerByFileDescriptor), e.g. the leader link.
+    std::string peer;     //!< "address:port" for the log.
+    bool own;             //!< We dialed it (Dial()), e.g. the leader link.
     bool claimed;         //!< Already assigned to a remote host.
-    State state;
-    SDL_Thread *thread;
+    State state;          //!< Changes under connections_lock.
+    SDL_Thread *reader;
+    SDL_Thread *writer;
+
+    SDL_mutex *lock;      //!< Guards the fields below.
+    SDL_cond *has_data;   //!< Signals the writer: a message was queued or it should stop.
+    TNET_OUT_QUEUE out;
+    bool writing;         //!< The writer takes messages (false once it stops).
   };
 
-  void AddConnection (int fd, sockaddr_in address, bool own);
-  void ConnectionEnded (int fd);
-  static void CloseConnection (CONNECTION &c);
+  TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool own);
+  CONNECTION *FindConnection (TNET_CONN_ID conn);
+  void ConnectionEnded (CONNECTION *c);
+  static void DeleteConnection (CONNECTION *c);
 
-  std::vector<CONNECTION> connections;
-  SDL_mutex *connections_lock;   //!< Guards #connections (the listener thread appends).
+  std::vector<CONNECTION *> connections;
+  SDL_mutex *connections_lock;   //!< Guards #connections and their state.
 
   int fd;   //!< File descriptior.
   in_port_t port;  //!< Port on which the listener is listening (0 = ephemeral).
@@ -474,71 +518,9 @@ private:
                                           //!  network messages.
 
   DISCONNECT_HANDLER on_disconnect;
-  unsigned generation;
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
-};
-
-
-//=========================================================================
-// TNET_TALKER
-//=========================================================================
-
-/**
- *  Class for talker, which is a thread waiting for new messages in outgoing
- *  message queue, packing them into packets and sending them through network
- *  to remote side.
- */
-class TNET_TALKER {
-public:
-  class MutexException {};
-
-  TNET_TALKER (int queue_size);
-  TNET_TALKER (int queue_size, in_addr remote_address, in_port_t remote_port);
-  ~TNET_TALKER ();
-
-  void RemoveAllAddresses ();
-
-  T_BYTE AddAddress (in_addr address, in_port_t port, int fd = -1);
-  T_BYTE AddEmptyAddress ();
-
-  void DisconnectAddress (int id);
-  void RemoveAddress (int id);
-
-  int FindAddressByFileDescriptor (int fd, int from = 0);
-
-  /** Returns the number of addresses (one per player id). */
-  int GetAddressCount ()
-  { return (int)remote_address.size (); }
-
-  /** Returns pointer to outgoing message queue. */
-  TNET_MESSAGE_QUEUE *GetMessageQueue ()
-  { return outgoing_messages; }
-
-  in_addr GetRemoteAddress (int index)
-  { return remote_address[index]->GetAddress (); }
-
-  in_port_t GetRemotePort (int index)
-  { return remote_address[index]->GetPort (); }
-
-  int GetRemoteFiledescriptor (int index)
-  { return remote_address[index]->GetFileDescriptor (); }
-
-private:
-  void Initialise (int queue_size);
-
-  static int SDLCALL talker_thread_function (void *talker_class);
-
-  SDL_Thread *thread;    //!< Talker thread handle.
-
-  TNET_MESSAGE_QUEUE *outgoing_messages;  //!< Message queue for outgoing
-                                          //!  network messages.
-
-  std::vector<TNET_ADDRESS *> remote_address;
-  std::vector<TNET_ADDRESS *> distinct_remote_addresses;
-
-  void RemoveAddressFromDisctinctAddresses (in_addr address, in_port_t port);
 };
 
 
