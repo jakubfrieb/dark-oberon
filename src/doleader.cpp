@@ -195,12 +195,12 @@ void TLEADER::SendPlayerArray (string map_name, bool start_game) {
 
   player_array.Unlock ();
 
-  SendMessage (m);
-
   /* Relay the followers' game messages from now on: each one sends them only after this
-     message, which is queued for all of them already. */
+     message arrives, so the relay must be ready before it goes out. */
   if (start_game)
     SetInGame ();
+
+  SendMessage (m);
 }
 
 void TLEADER::SendAllowProcessFunction () {
