@@ -3910,8 +3910,9 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   }
 
   /* A follower chooses only his own race (his combo box is the only one enabled), and only in
-     the lobby. The leader's own menu changes the others (MenuPlayerRaceComboOnChange()). */
-  if (started || host->GetPlayerIDByConnection (msg->GetConnection ()) != index) {
+     the lobby: from the start player array on (state ST_GAME, then started) the roster is fixed.
+     The leader's own menu changes the others (MenuPlayerRaceComboOnChange()). */
+  if (started || state == ST_GAME || host->GetPlayerIDByConnection (msg->GetConnection ()) != index) {
     NetDropWarning (LogMsg ("change_race: ignoring a race for player %d from %s", index,
                             TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
     giant->Unlock ();
