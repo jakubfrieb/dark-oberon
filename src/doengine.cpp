@@ -7946,6 +7946,11 @@ void RunDedicatedServer(const char *map_basename, int port)
   fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ... | spawn <n> [fight] | perf [reset] | netstat [reset]\n");
 
   bool running = true;
+#ifndef WINDOWS
+  /* poll() sees only what the kernel holds: with a stdio buffer, a second command that came in
+     the same read (the lobby writes several at once) waited there until more input arrived. */
+  setvbuf(stdin, NULL, _IONBF, 0);
+#endif
   while (running) {
 #ifndef WINDOWS
     struct pollfd pfd;
