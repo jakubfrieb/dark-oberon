@@ -2166,6 +2166,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     break;
 
   case MNU_PLAY2:
+    giant->Lock ();   // before player_array, like the network handlers
     player_array.Lock ();
 
     allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
@@ -2177,17 +2178,16 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         action_key = 0;
         gui->ShowMessageBox (reason.c_str (), GUI_MB_OK);
         player_array.Unlock ();
+        giant->Unlock ();
         break;
       }
-
-      giant->Lock ();
 
       if (host->GetType () == THOST::ht_follower) {
         /* Ask leader to start; we enter ST_GAME when ProcessPlayerArray runs. */
         TFOLLOWER *fol = dynamic_cast<TFOLLOWER *>(host);
         fol->SendRequestStartGame ();
-        giant->Unlock ();
         player_array.Unlock ();
+        giant->Unlock ();
         break;
       }
 
@@ -2201,13 +2201,12 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
       state = ST_GAME;
 
-      giant->Unlock ();
-
       /* XXX: we still need to block somehow so that no more players can be
        *      added... i.e. something like player_array.NoMoreChanges (); */
     }
 
     player_array.Unlock ();
+    giant->Unlock ();
     break;
 
   case MNU_DISCONNECT:
