@@ -4489,7 +4489,7 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
  */
 static TNET_LISTENER::ReceiveResult OnlyFromLeader (void *follower, TNET_MESSAGE *msg)
 {
-  if (msg->GetConnection () == static_cast<TFOLLOWER *>(follower)->GetLeaderConnection ())
+  if (msg->GetConnection () == dynamic_cast<TFOLLOWER *>(static_cast<THOST *>(follower))->GetLeaderConnection ())
     return TNET_LISTENER::receive_dispatch;
 
   NetDropWarning (LogMsg ("Dropping message (type %d) from %s, which is not the leader", msg->GetType (),

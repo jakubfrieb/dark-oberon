@@ -235,6 +235,10 @@ Samples per client and run: 1284–2727.
 | B1 | 1.87 / 6.76 | – | 30.5 / 36.2, 29.1 / 32.6 |
 | B2 | 1.94 / 6.25 | 0.35 / 0.74 | 34.7 / 38.5, 35.2 / 38.6 |
 
+In c most received events are the server's, and B1's clients run 6 ms behind the server's clock
+(`[clock]`), which lowers their `perceived` by 6 ms; B2's clients are within 0.03 ms. Corrected, the
+clients' numbers are the same within about 1 ms.
+
 **Acceptance (plan, section 7):**
 - LAN, +2 ms on `transit` p95: B2 − B1 = 0.0 ms (p99 +0.1 ms). Pass.
 - 20 ms one way: perceived p95 B2 − B1 = +21.0 ms (≤ 25), p99 80.5 ms (≤ 100). Pass. The
@@ -253,9 +257,12 @@ namespace, `ip_forward` 0, no routes between them; `c1 → c2` is "Network is un
   not started"); c2 reports "did not connect to us".
 
 **Head of line** (scenario c load, NAT namespaces, client 2 `kill -STOP`):
-- 9 s and 25 s stops: client 1 perceived p99 38.9 / 38.8 ms, server step p99 2.5 / 2.2 ms; nobody
-  froze. Client 2 was **not** evicted: its kernel receive buffer (`tcp_rmem` max 32 MB here)
-  absorbed the backlog, so the server's queue never aged.
+- 9 s and 25 s stops: client 1 perceived p99 39.1 / 38.9 ms, server step p99 2.5 / 2.2 ms; nobody
+  froze. Client 1's perceived max (9.3 s / 25.6 s) is client 2's backlog after `SIGCONT`. Client 2
+  was **not** evicted: its kernel receive buffer (`tcp_rmem` max 32 MB here) absorbed the backlog,
+  so the server's queue never aged. Step 3 evicted after 6.7 s on plain loopback; a loopback STOP
+  run of B2 was not repeated, so whether the namespaces/veth or the build make the difference is not
+  confirmed. Eviction of a stopped client is therefore met only with a smaller receive buffer:
 - 15 s stop with client 2's `tcp_rmem` max set to 256 KB: evicted ("oldest outgoing message has
   waited 259 ms, 15912 bytes queued"), client 1 logged "Player 2 (Bot2) was disconnected." and
   kept playing (perceived p99 38.8 ms, max 41.3 ms).
