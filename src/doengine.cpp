@@ -4332,6 +4332,16 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
+/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
+ *  1 and down from -1). */
+static bool IsNetUnitID (intptr_t id)
+{
+  return id > INT_MIN && id <= INT_MAX;
+}
+
+/** Most material a worker mines at once that an event from the network may claim (US_MINING). */
+static const int net_max_mined_amount = 65535;
+
 /**
  *  Checks an event received from the network before it is queued.
  *
@@ -4353,13 +4363,6 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
  *
  *  @return NULL when the event is valid, otherwise a short reason.
  */
-/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
- *  1 and down from -1). */
-static bool IsNetUnitID (intptr_t id)
-{
-  return id > INT_MIN && id <= INT_MAX;
-}
-
 static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 {
   if (game_data && (!started || players == NULL))
@@ -4388,7 +4391,11 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   case US_EJECTING: case US_REPAIRING: case US_CONSTRUCTING: case US_DYING: case US_ZOMBIE:
   case US_DELETE:
     break;
-  case US_MINING:     player_field = 5; break;    // source owner
+  case US_MINING:                                 // simple5 = source owner, int2 = amount mined
+    player_field = 5;
+    if (ev->int2 < 0 || ev->int2 > net_max_mined_amount)
+      return "amount";
+    break;
   case US_ATTACKING:  impact = true; break;
 
   // requests
