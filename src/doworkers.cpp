@@ -592,6 +592,7 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
 
   // US_DELETE, RQ_DELETE
   if (proc_event->TestEvent(US_DELETE) || proc_event->TestEvent(RQ_DELETE)) {
+    LeaveHeldList();
     DeleteFromSegments();
     UnitToDelete(true);
     return;

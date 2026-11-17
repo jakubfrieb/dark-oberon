@@ -884,6 +884,7 @@ public:
   { return held && held_where == holder && held_list == which_list; }
   void SetHeld(bool held, TMAP_UNIT *held_where = NULL, T_BYTE which_list = 0)
   { this->held = held; this->held_where = held_where; this->held_list = which_list; }
+  void LeaveHeldList();
 
   void SetHider(TMAP_UNIT *hid) { hider = hid; }
   

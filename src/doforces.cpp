@@ -567,6 +567,7 @@ void TFORCE_UNIT::ProcessEvent(TEVENT * proc_event)
 
   // US_DELETE, RQ_DELETE
   if (proc_event->TestEvent(US_DELETE) || proc_event->TestEvent(RQ_DELETE)) {
+    LeaveHeldList();
     DeleteFromSegments();
     UnitToDelete(true);
     return;
@@ -1718,13 +1719,21 @@ void TFORCE_UNIT::DrawLine()
 
 
 /**
+ *  Leaves the list of the unit that holds it (source, acceptor, hider), whichever it is: a
+ *  deleted unit must not stay in it. Its own source/acceptor/hider pointer can be another unit.
+ */
+void TFORCE_UNIT::LeaveHeldList()
+{
+  if (held)
+    held_where->RemoveFromListOfUnits(this, held_list);
+}
+
+/**
  *  Sets state to US_DYING
  */
 void TFORCE_UNIT::Dead(bool local)
 {
-  // leave the unit that holds it, whichever it is (it must not stay in its list once deleted)
-  if (held)
-    held_where->RemoveFromListOfUnits(this, held_list);
+  LeaveHeldList();
 
   if (local) {
     if (group_id >= 0)
