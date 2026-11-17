@@ -4744,10 +4744,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
       int id = host->GetPlayerIDByConnection (data->conn);
 
       if (id == 0) {   // the link to the leader
-        action_force = true;
-        MenuButtonOnClickKey (MNU_DISCONNECT);
-
-        action_key = 0;
+        /* Leave the host once the player confirms: the host must not be deleted here, under
+           giant, while its dispatcher may be waiting for giant. */
+        host->DisconnectAll ();
+        action_key = MNU_DISCONNECT;
         gui->ShowMessageBox ("You were disconnected!", GUI_MB_OK);
       } else if (id != -1) {   // another player, while the game is starting
         Info (LogMsg ("Connection to player %d closed", id));
