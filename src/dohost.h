@@ -59,6 +59,7 @@ enum NetworkingProtocolMessage {
   net_protocol_ping         = 0x09,   //!< Ping request.
   net_protocol_request_start = 0x0A,  //!< Follower asks leader to start the game.
   net_protocol_request_add_computer = 0x0B,  //!< Follower asks leader to add a CPU player.
+  net_protocol_time_sync    = 0x0C,   //!< In-game clock sync (subtype 0 request, 1 reply).
   net_protocol_end
 };
 

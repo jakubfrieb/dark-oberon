@@ -1,12 +1,14 @@
 /*
  * Unit tests for the network wire format (protocol version 2): fixed-width
  * fields in network byte order (src/donet.h), the linearized game event
- * (TEVENT, src/doevents.cpp) and the version trailer of connect/hello
- * (THOST, src/dohost.cpp). Parsing must accept exactly the bytes the sender
- * produces and reject shorter or longer payloads.
+ * (TEVENT, src/doevents.cpp), the version trailer of connect/hello
+ * (THOST, src/dohost.cpp) and the in-game clock correction of a follower
+ * (TCLOCK_FILTER, src/dofollower.cpp). Parsing must accept exactly the bytes
+ * the sender produces and reject shorter or longer payloads.
  * Built with AddressSanitizer. Run: make test-ai
  */
 #include "doevents.h"
+#include "dofollower.h"
 #include "dohost.h"
 #include "doplayers.h"
 #include "build_info.h"
@@ -239,6 +241,31 @@ TEST(test_version_trailer_malformed) {
   receive(r, one, sizeof one);
   THOST::ExtractVersion(&r, version);
   CHECK(r.ExtractFailed());
+}
+
+TEST(test_clock_slews_by_small_steps) {
+  TCLOCK_FILTER f;
+  double clock = 0;                       // our correction so far; the leader is 10 ms ahead
+  for (int i = 0; i < 4; i++) {
+    double step = f.AddSample(0.001, 0.010 - clock);
+    CHECK(std::fabs(step - TCLOCK_FILTER::max_step) < 1e-12);   // never a jump
+    clock += step;
+  }
+  for (int i = 0; i < 4; i++)
+    clock += f.AddSample(0.001, 0.010 - clock);
+  CHECK(std::fabs(clock - 0.010) < 1e-9);   // converged, no overshoot
+  CHECK(std::fabs(f.GetOffset()) < 1e-9);
+  CHECK(std::fabs(f.AddSample(0.001, 0.010 - clock)) < 1e-9);
+}
+
+TEST(test_clock_trusts_smallest_round_trip) {
+  TCLOCK_FILTER f;
+  CHECK(std::fabs(f.AddSample(0.002, 0.0005) - 0.0005) < 1e-12);
+  // later samples were queued (long round trip): their offsets are not trusted
+  for (int i = 0; i < TCLOCK_FILTER::samples_count - 1; i++)
+    CHECK(std::fabs(f.AddSample(0.200, -0.050)) < 1e-12);
+  // the good sample has left the window: now the best of the slow ones counts
+  CHECK(std::fabs(f.AddSample(0.150, -0.040) + TCLOCK_FILTER::max_step) < 1e-12);
 }
 
 int main()

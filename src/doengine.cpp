@@ -310,6 +310,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg);
 static void ProcessHello (TNET_MESSAGE *msg);
 static void ProcessPingRequest (TNET_MESSAGE *msg);
 static void ProcessPingReply (TNET_MESSAGE *msg);
+static void ProcessTimeSyncRequest (TNET_MESSAGE *msg);
+static void ProcessTimeSyncReply (TNET_MESSAGE *msg);
 static void ProcessConnectRequest (TNET_MESSAGE *msg);
 static void ProcessChangeRace (TNET_MESSAGE *msg);
 static void ProcessRequestAddComputer (TNET_MESSAGE *msg);
@@ -614,6 +616,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     host->RegisterExtendedFunction (net_protocol_chat_message, ProcessChatMessage);
     host->RegisterExtendedFunction (net_protocol_synchronise, ProcessAllowProcessFunction);
     host->RegisterExtendedFunction (net_protocol_ping, ProcessPingReply);
+    host->RegisterExtendedFunction (net_protocol_time_sync, ProcessTimeSyncReply);
     host->RegisterExtendedFunction (net_protocol_disconnect, ProcessDisconnect);
 
     host->RegisterOnDisconnect (OnDisconnect);
@@ -1754,6 +1757,7 @@ bool CreateGame()
   host->RegisterExtendedFunction (net_protocol_chat_message, ProcessChatMessage);
   host->RegisterExtendedFunction (net_protocol_synchronise, ProcessSynchronise);
   host->RegisterExtendedFunction (net_protocol_ping, ProcessPingRequest);
+  host->RegisterExtendedFunction (net_protocol_time_sync, ProcessTimeSyncRequest);
   host->RegisterExtendedFunction (net_protocol_disconnect, ProcessDisconnect);
   host->RegisterExtendedFunction (net_protocol_request_start, ProcessRequestStart);
   host->RegisterExtendedFunction (net_protocol_request_add_computer, ProcessRequestAddComputer);
@@ -4275,6 +4279,41 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
 }
 
 /**
+ *  Leader: answers an in-game time sync request, only to the requester. It runs without
+ *  giant so that the answer does not wait for a simulation step (the round trip time is
+ *  the measurement). The host exists while its dispatcher runs this (~THOST).
+ */
+static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
+  TLEADER *leader = dynamic_cast<TLEADER *>(host);
+
+  double request_time = msg->ExtractDouble ();
+  msg->ExtractEnd ();
+
+  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time))
+    return;
+
+  leader->SendTimeSyncReply (request_time, msg->GetFileDescriptor ());
+}
+
+/**
+ *  Follower: corrects the clock by a time sync reply of the leader. Without giant like
+ *  the request; only this dispatcher thread touches the clock sync state.
+ */
+static void ProcessTimeSyncReply (TNET_MESSAGE *msg) {
+  TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
+
+  double request_time = msg->ExtractDouble ();
+  double time = msg->ExtractDouble ();
+  msg->ExtractEnd ();
+
+  if (follower == NULL || msg->GetSubtype () != 1 || msg->ExtractFailed () || !std::isfinite (time)
+      || msg->GetFileDescriptor () != follower->GetLeaderFileDescriptor ())
+    return;
+
+  follower->ProcessTimeSyncReply (request_time, time);
+}
+
+/**
  *  Returns the player who sent a chat message over the socket @p fd, or -1.
  *
  *  On a follower, chat over the link to the leader (talker index 0, the hyper player) comes
@@ -6113,6 +6152,9 @@ static int SDLCALL ProcessFunction(void *arg)
     }
     PerfRecordStep (perf_t1 - perf_t0, AppGetTimeSeconds () - perf_t1, perf_events,
                     threadpool_astar ? (int)threadpool_astar->PendingRequests () : 0);
+
+    if (host && host->GetType () == THOST::ht_follower)
+      dynamic_cast<TFOLLOWER *>(host)->TimeSyncTick ();
 
     // sleep that long, we get 50 fps
     time.SleepToGetExpectedFrameDuration (0.02);

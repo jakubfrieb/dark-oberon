@@ -79,14 +79,18 @@ THOST::THOST (int incoming_message_queue_size, in_port_t listen_port,
 
 THOST::~THOST ()
 {
+  /* Stop the dispatcher before the talker goes away: some handlers (time sync) send
+   * replies without giant, so they do not see host set to NULL. */
+  listener->GetMessageQueue ()->Die ();
+  SDL_WaitThread (dispatcher->GetThread (), NULL);
+  dispatcher->ThreadJoined ();
+  listener->ConsumerIsAttached (NULL);
+
   delete talker;
 
   /* Order in which objects are deleted must be: listener, dispatcher, handler!
    */
   delete listener;
-  /* ~TNET_LISTENER already joined the dispatcher thread (its consumer);
-   * joining it again would double-free the SDL_Thread. */
-  dispatcher->ThreadJoined ();
   delete dispatcher;
   delete handler;
 }

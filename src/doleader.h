@@ -67,6 +67,7 @@ public:
   void RefuseFollower (int fd, int protocol);
 
   void SendPingReply (double request_time, int fd);
+  void SendTimeSyncReply (double request_time, int fd);
 
   void SendPlayerArray (std::string map_name, bool start_game);
 
