@@ -1652,8 +1652,12 @@ void UpdateGameMenu()
 
 /**
  *  Synchronises player_array with game menu and updates the menu.
+ *
+ *  Lock order: giant, then player_array (like the network handlers). A caller that holds
+ *  player_array must have taken giant before it.
  */
 void UpdatePlayersAndMenu () {
+  giant->Lock ();
   player_array.Lock ();
 
 #if !HEADLESS
@@ -1661,12 +1665,11 @@ void UpdatePlayersAndMenu () {
   UpdateGameMenu ();
 #endif
 
-  giant->Lock ();
   if (host != NULL && host->GetType () == THOST::ht_leader)
     dynamic_cast<TLEADER *>(host)->SendPlayerArray (selected_map_name, false);
-  giant->Unlock ();
 
   player_array.Unlock ();
+  giant->Unlock ();
 }
 
 
@@ -2108,6 +2111,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     break;
 
   case MNU_KILL_PLAYER:
+    giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
     player_array.Lock ();
 
     {
@@ -2122,6 +2126,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
     UpdatePlayersAndMenu ();
     player_array.Unlock ();
+    giant->Unlock ();
     break;
 
   case MNU_ADD_COMPUTER:
@@ -2576,6 +2581,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
     for (act = map_info_list.map_list, i = 0; (act != NULL) && (i < item_index); act = act->next, i++); // finds pointer to item_index.th map
 
     if (act != NULL) {
+      giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
       player_array.Lock ();
 
       /* The new map (its name, scheme and races) can make the player list too
@@ -2600,6 +2606,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
 
       UpdatePlayersAndMenu ();
       player_array.Unlock ();
+      giant->Unlock ();
     }
   }
 }
@@ -2614,6 +2621,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
  */
 void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
   
+  giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
   player_array.Lock();
 
   TGUI_LIST_BOX *list = (TGUI_LIST_BOX *)sender;
@@ -2622,8 +2630,6 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
     if (list == pl_race_combo[i]->GetList ()) {
       string selected_race_name = list->GetItem (item_index);
       string selected_race_id = map_info_list.GetRacIdName (selected_race_name);
-
-      giant->Lock ();
 
       if (host->GetType () == THOST::ht_leader) {
         /* The same check as a race change from the network; on refusal the
@@ -2640,14 +2646,13 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
               player_array.GetPlayerName (i), selected_race_id);
       }
 
-      giant->Unlock ();
-
       break;
     }
 
   UpdatePlayersAndMenu ();
   
   player_array.Unlock();
+  giant->Unlock ();
 }
 
 
