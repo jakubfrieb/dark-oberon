@@ -95,8 +95,10 @@ const double net_out_queue_max_age = 2.0;
 const int net_max_invalid_messages = 32;
 
 /** Accepted connections that are not admitted yet (TNET_LISTENER::Admit()): more are closed at
- *  once. Each one costs two threads, and a joining player is admitted within a round trip. */
+ *  once, in all and from one address. Each one costs two threads, and a joining player is
+ *  admitted within a round trip. */
 const int net_max_pending_connections = 64;
+const int net_max_pending_per_address = 8;
 
 /** Seconds an accepted connection has to be admitted (TNET_LISTENER::Admit()) before it is
  *  closed: anyone can connect to the public port and then send nothing, or only pings. */
@@ -500,6 +502,9 @@ public:
   /** What the reader does with a received message (RECEIVE_HANDLER). */
   enum ReceiveResult {
     receive_dispatch,   //!< Queue it for the dispatcher.
+    receive_join,       //!< Queue it: a request to join, the dispatcher admits the connection or
+                        //!  refuses it. Its admission time (net_admission_timeout) starts again,
+                        //!  once, so a dispatcher held up for a while does not lose the joiner.
     receive_done,       //!< The handler took care of it (forwarded, or dropped as stale).
     receive_invalid     //!< Malformed or forged: dropped and counted; too many evict the connection.
   };

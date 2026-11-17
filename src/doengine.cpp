@@ -4514,7 +4514,10 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
       self->SendToAll (msg, msg->GetConnection (), true);
   }
 
-  return r.local ? TNET_LISTENER::receive_dispatch : TNET_LISTENER::receive_done;
+  if (!r.local)
+    return TNET_LISTENER::receive_done;
+  return (r.origin == -1 && m.type == net_protocol_connect) ? TNET_LISTENER::receive_join
+                                                            : TNET_LISTENER::receive_dispatch;
 }
 
 /**
