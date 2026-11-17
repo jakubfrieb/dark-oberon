@@ -24,7 +24,7 @@ test_perf: test_perf.cpp $(SRC)/doperf.cpp $(SRC)/doperf.h
 	$(CXX) -std=gnu++17 -Wall -Wextra -O1 -I$(SRC) $(SDL2_CFLAGS) -o $@ test_perf.cpp $(SRC)/doperf.cpp $(SDL2_LIBS)
 
 # Network wire format (protocol version 2) and connection writers, built with ASan (no vptr check: TPLAYER is not linked).
-NETWIRE_SRC = $(SRC)/doevents.cpp $(SRC)/donet.cpp $(SRC)/dohost.cpp $(SRC)/dofollower.cpp $(SRC)/doipc.cpp $(SRC)/utils.cpp
+NETWIRE_SRC = $(SRC)/doevents.cpp $(SRC)/donet.cpp $(SRC)/dohost.cpp $(SRC)/dofollower.cpp $(SRC)/doipc.cpp $(SRC)/doperf.cpp $(SRC)/utils.cpp
 test_netwire: test_netwire.cpp $(NETWIRE_SRC) $(SRC)/donet.h $(SRC)/doevents.h $(SRC)/dohost.h $(SRC)/dofollower.h | $(SRC)/build_info.h
 	$(CXX) -std=gnu++17 -O1 -g -fsanitize=address,undefined -fno-sanitize=vptr -fno-omit-frame-pointer \
 	  -w -DUNIX=1 -DSOUND=0 -DDEBUG=0 -DHEADLESS=0 -I$(SRC) $(SDL2_CFLAGS) \

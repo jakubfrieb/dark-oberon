@@ -43,6 +43,7 @@
 
 #include "dologs.h"
 #include "donet.h"
+#include "doperf.h"
 #include "dosimpletypes.h"
 #include "dotime.h"
 #include "utils.h"
@@ -610,7 +611,7 @@ int SDLCALL TNET_LISTENER::writer_thread_function (void *connection) {
     bool ok = SendAll (c->fd, data);
     SDL_LockMutex (c->lock);
 
-    c->out.Pop (AppGetRawSeconds ());
+    NetStatRecord (NS_WRITER, c->out.Pop (AppGetRawSeconds ()));
 
     if (!ok && c->writing) {
       Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Writer: error sending to %s, closing the connection",

@@ -39,6 +39,7 @@ enum TNET_STAT {
   NS_TRANSIT,     //!< state event: received - generated (its time stamp)
   NS_DISPATCH,    //!< any event: received - put into the event queue (wait for giant + queue residence)
   NS_PERCEIVED,   //!< state event: applied to the replica - generated
+  NS_WRITER,      //!< any sent message: written to the socket - queued for its connection
   NS_COUNT
 };
 

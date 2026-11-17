@@ -133,7 +133,7 @@ srv quit; sleep 2
 # --- summary: the last netstat block of every host ---
 log() { if [ "$1" = srv ]; then echo "$OUT/srv.log"; else echo "$OUT/$1.home/.dark-oberon/logs/full.log"; fi; }
 last_block() {   # the server's `netstat` command output, the clients' game-end log line
-  if [ "$1" = "$OUT/srv.log" ]; then grep -E '^netstat: [tdpc]' "$1" | head -4; else grep -o 'netstat: [tdpc].*' "$1" | tail -4; fi || true
+  if [ "$1" = "$OUT/srv.log" ]; then grep -E '^netstat: [tdpwc]' "$1" | head -5; else grep -o 'netstat: [tdpwc].*' "$1" | tail -5; fi || true
 }
 {
   echo "# $(date -Iseconds) bin=$BIN delay=${DELAY}ms jitter=${JITTER}ms secs=$SECS warmup=$WARMUP cpus='${NET_CPUS:-}' spawn='${NET_SPAWN:-}'"
