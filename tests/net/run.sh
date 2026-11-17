@@ -35,7 +35,12 @@ export DISPLAY=${DISPLAY:-:0}
 rm -rf "$OUT"/{srv,c1,c2}* "$OUT"/*.png "$OUT/summary.txt"
 
 PIDS=()
-cleanup() { for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done; }
+cleanup() {   # the server ignores SIGTERM (SDL turns it into a quit event nobody reads): ask it to quit
+  [ -p "$OUT/srv.fifo" ] && timeout 2 sh -c "echo quit >'$OUT/srv.fifo'" 2>/dev/null
+  for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done
+  sleep 2
+  for p in "${PIDS[@]}"; do kill -KILL "$p" 2>/dev/null || true; done
+}
 trap cleanup EXIT
 
 ip link set lo up
