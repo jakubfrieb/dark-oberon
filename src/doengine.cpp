@@ -4795,7 +4795,12 @@ static int SDLCALL OnDisconnectThread (void *d) {
     return 0;
   }
 
-  if (state == ST_PLAY_MENU) {
+  /* A game runs from the start player array on (state ST_GAME, loading) until it is stopped
+     (started), also while its Esc menu is open (state ST_PLAY_MENU): a lobby removal there would
+     shift the player ids of a running game. */
+  const bool in_game = started || state == ST_GAME;
+
+  if (!in_game && state == ST_PLAY_MENU) {
     Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
@@ -4823,7 +4828,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Unlock ();
     }
-  } else if (state == ST_GAME) {
+  } else if (in_game) {
       Debug ("in game");
 
       player_array.Lock ();
