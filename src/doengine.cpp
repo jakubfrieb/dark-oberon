@@ -4117,8 +4117,9 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     bool dial_failed = false;
     for (i = 1; i < player_array.GetCount (); i++) {
       if (player_array.IsComputer (i)) {
-        host->AddRoute ();
-        Debug (LogMsg ("%d: Adding empty address (computer)", i));
+        /* Computer players are hosted on the leader. */
+        host->AddRoute (player_array.IsRemote (i) ? follower->GetLeaderConnection () : no_connection);
+        Debug (LogMsg ("%d: Adding computer", i));
       } else if (i < my_id) {
         /* Wait until player with id < my_id gets connected to me (one player per IP address is
            assumed: connections from one address are matched in the order they arrive). */
