@@ -516,6 +516,8 @@ bool connected = false;
 bool started = false;
 /** Leader: players who left before the start, announced when the game starts. */
 static std::vector<int> departed_before_start;
+/** Leader: players whose departure was sent to the followers (each one is sent once). */
+static std::vector<int> departures_announced;
 bool allowed_to_start_process_function = true;
 bool won_lose = false;
 
@@ -1720,6 +1722,7 @@ bool Disconnect() {
   player_array.Clear();
   connected = false;
   departed_before_start.clear ();
+  departures_announced.clear ();
 
   THOST *to_delete = NULL;
 
@@ -4641,6 +4644,7 @@ static void LeaderAllowStartIfAllReady () {
     departed = departed_before_start[i];
     Info (LogMsg ("Announcing that player %d left before the game started", departed));
     host->SendDisconnect (departed);
+    departures_announced.push_back (departed);
     DeactivatePlayer (departed);
   }
   departed_before_start.clear ();
@@ -4745,6 +4749,15 @@ static void ProcessDisconnect (int player_id) {
     return;
   }
 
+  /* Followers hear of a departure only from the leader, after his relayed messages, once. Also
+     when the leader has already marked the player inactive (his units are gone here). */
+  if (host->GetType () == THOST::ht_leader
+      && std::find (departures_announced.begin (), departures_announced.end (), player_id)
+         == departures_announced.end ()) {
+    departures_announced.push_back (player_id);
+    host->SendDisconnect (player_id);
+  }
+
   if (!players[player_id]->active) {
     Debug(LogMsg("Not disconnecting player %d (%s) - he is not active.",
           player_id, player_array.GetPlayerName (player_id).c_str ()));
@@ -4756,10 +4769,6 @@ static void ProcessDisconnect (int player_id) {
 
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
-
-  /* Followers hear of a departure only from the leader, after his relayed messages. */
-  if (host->GetType () == THOST::ht_leader)
-    host->SendDisconnect (player_id);
 
   /* when hyper player was disconnected, dont write "You won!" message */
   if (player_id == 0) {
