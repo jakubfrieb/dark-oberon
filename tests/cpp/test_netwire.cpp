@@ -274,14 +274,14 @@ TEST(test_clock_trusts_smallest_round_trip) {
   CHECK(std::fabs(f.AddSample(0.150, -0.040) + TCLOCK_FILTER::max_step) < 1e-12);
 }
 
-TEST(test_out_queue_drops_when_full) {
+TEST(test_out_queue_full) {
   TNET_OUT_QUEUE q(100, 0.25);
   char data[40] = {0};
   CHECK(q.Put(data, 40, 1.0) == TNET_OUT_QUEUE::queued);
   CHECK(q.Put(data, 40, 1.0) == TNET_OUT_QUEUE::queued);
   CHECK(q.GetBytes() == 80);
-  CHECK(q.Put(data, 40, 1.1) == TNET_OUT_QUEUE::dropped);   // over the byte limit
-  CHECK(q.GetDropped() == 1);
+  CHECK(q.Put(data, 40, 1.1) == TNET_OUT_QUEUE::full);      // over the byte limit: evict
+  CHECK(q.GetBytes() == 80);                                // nothing queued
   CHECK(q.Put(data, 20, 1.1) == TNET_OUT_QUEUE::queued);    // fits exactly
   CHECK(std::fabs(q.Pop(1.2) - 0.2) < 1e-9);                // how long it waited
   CHECK(q.GetBytes() == 60);

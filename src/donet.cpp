@@ -833,10 +833,6 @@ void TNET_LISTENER::ConnectionEnded (CONNECTION *c) {
   SDL_WaitThread (c->writer, NULL);
   c->writer = NULL;
 
-  if (c->out.GetDropped () > 0)
-    Warning (LogMsg ("Connection to %s: %d outgoing messages were dropped", c->peer.c_str (),
-                     c->out.GetDropped ()));
-
   SDL_LockMutex (connections_lock);
   do_close (c->fd);
   c->state = CONNECTION::closed;
@@ -844,11 +840,11 @@ void TNET_LISTENER::ConnectionEnded (CONNECTION *c) {
 }
 
 /**
- *  Queues a copy of @p msg for the connection @p conn. Never blocks: when its queue is full,
- *  the message is dropped; when its oldest message waits longer than net_out_queue_max_age,
- *  the connection is evicted (shut down, so it ends like a lost connection and the disconnect
- *  handler runs). The caller keeps @p msg. A @p forward (a received message passed on) is
- *  measured from when it was received (netstat `forward`).
+ *  Queues a copy of @p msg for the connection @p conn. Never blocks: when its queue is full or
+ *  its oldest message waits longer than net_out_queue_max_age, the connection is evicted (shut
+ *  down, so it ends like a lost connection and the disconnect handler runs). The caller keeps
+ *  @p msg. A @p forward (a received message passed on) is measured from when it was received
+ *  (netstat `forward`).
  *
  *  @return true when the message was queued.
  */
@@ -864,26 +860,18 @@ bool TNET_LISTENER::Send (TNET_CONN_ID conn, TNET_MESSAGE *msg, bool forward) {
     if (c->writing) {
       double now = AppGetRawSeconds ();
       double received = forward ? now - (AppGetTimeSeconds () - msg->GetReceivedAt ()) : -1;
+      TNET_OUT_QUEUE::PutResult result = c->out.Put (msg->GetHeaderStart (), msg->GetSize (), now, received);
 
-      switch (c->out.Put (msg->GetHeaderStart (), msg->GetSize (), now, received)) {
-      case TNET_OUT_QUEUE::queued:
+      if (result == TNET_OUT_QUEUE::queued) {
         queued = true;
         SDL_CondSignal (c->has_data);
-        break;
-
-      case TNET_OUT_QUEUE::dropped:
-        if (c->out.GetDropped () == 1)
-          Warning (LogMsg ("Connection to %s is slow: its outgoing queue is full (%d bytes), dropping messages",
-                           c->peer.c_str (), c->out.GetBytes ()));
-        break;
-
-      case TNET_OUT_QUEUE::stalled:
-        Warning (LogMsg ("Evicting %s: its oldest outgoing message has waited %.0f ms (%d bytes queued)",
-                         c->peer.c_str (), c->out.GetAge (now) * 1000, c->out.GetBytes ()));
+      } else {
+        Warning (LogMsg ("Evicting %s: its outgoing queue is %s (%d bytes, the oldest message has waited %.0f ms)",
+                         c->peer.c_str (), result == TNET_OUT_QUEUE::full ? "full" : "stalled",
+                         c->out.GetBytes (), c->out.GetAge (now) * 1000));
         c->writing = false;
         SDL_CondSignal (c->has_data);
         shutdown (c->fd, 2);
-        break;
       }
     }
 
@@ -1004,7 +992,6 @@ TNET_OUT_QUEUE::TNET_OUT_QUEUE (int max_bytes, double max_age) {
   bytes = 0;
   this->max_bytes = max_bytes;
   this->max_age = max_age;
-  dropped_count = 0;
 }
 
 /**
@@ -1016,10 +1003,8 @@ TNET_OUT_QUEUE::PutResult TNET_OUT_QUEUE::Put (const void *data, int size, doubl
   if (GetAge (now) > max_age)
     return stalled;
 
-  if (bytes + size > max_bytes) {
-    dropped_count++;
-    return dropped;
-  }
+  if (bytes + size > max_bytes)
+    return full;
 
   packets.push_back (PACKET ());
   packets.back ().queued_at = now;

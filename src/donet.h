@@ -81,9 +81,13 @@ typedef unsigned short in_port_t;
 const int max_net_message_size = 255;
 
 /** Limits of the outgoing queue of a connection (TNET_OUT_QUEUE): bytes queued and the age
- *  of the oldest queued message (seconds). */
+ *  of the oldest queued message (seconds). Past either one the connection is evicted for good,
+ *  so the age allows for a bad moment of a real player: one TCP retransmission on a lossy
+ *  Wi-Fi or WAN link alone takes 200 ms plus the round trip, and a few in a row take seconds.
+ *  A peer that keeps up never comes near either limit; one that stopped reading is gone
+ *  within seconds (the byte limit comes first in a big battle, at roughly 100 KB/s). */
 const int net_out_queue_max_bytes = 256 * 1024;
-const double net_out_queue_max_age = 0.25;
+const double net_out_queue_max_age = 2.0;
 
 /** Invalid messages (malformed or forged, see TNET_LISTENER::RECEIVE_HANDLER) after which a
  *  connection is evicted. A correct peer sends none. */
@@ -383,8 +387,9 @@ private:
 
 /**
  *  Outgoing queue of one connection: copies of the messages waiting for its writer. It is
- *  bounded, so a client that does not read cannot hold up the others: when it is full a new
- *  message is dropped, and when its oldest message waits too long the connection is evicted.
+ *  bounded, so a client that does not read cannot hold up the others: when it is full or its
+ *  oldest message waits too long, the connection is evicted (a message is never left out of
+ *  the stream: the peer would miss it without noticing).
  *  The message being written stays at the front until it is written, so a write blocked by
  *  the peer counts in the age.
  *
@@ -395,7 +400,7 @@ class TNET_OUT_QUEUE {
 public:
   enum PutResult {
     queued,    //!< The message waits for the writer.
-    dropped,   //!< The queue is full: the message was dropped.
+    full,      //!< The queue is full: nothing was queued, evict the connection.
     stalled    //!< The oldest message is older than the age limit: evict the connection.
   };
 
@@ -412,7 +417,6 @@ public:
   int GetBytes () const { return bytes; }
   /** Age of the oldest message (0 when empty). */
   double GetAge (double now) const { return packets.empty () ? 0 : now - packets.front ().queued_at; }
-  int GetDropped () const { return dropped_count; }
 
 private:
   struct PACKET {
@@ -425,7 +429,6 @@ private:
   int bytes;            //!< Sum of the sizes of #packets.
   int max_bytes;
   double max_age;
-  int dropped_count;
 };
 
 
