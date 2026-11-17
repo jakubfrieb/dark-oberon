@@ -5,13 +5,15 @@ Measures how late the events of remote units arrive, with real game clients, for
 
 ## Metrics (`netstat`)
 
-Every host keeps three fixed histograms of the events it receives (`src/doperf.cpp`):
+Every host keeps three fixed histograms of the events it receives, and one of the messages it
+sends (`src/doperf.cpp`):
 
 | Line | What |
 |---|---|
 | `transit` | received by the listener − time stamp of the event (the owner's game clock when the state happened) |
 | `dispatch` | received by the listener − put into the event queue (waiting for `giant` + dispatcher queue) |
 | `perceived` | applied to the replica by the simulation − time stamp of the event |
+| `writer` | any sent message: written to the socket − queued for its connection (the writer's queue, including a write blocked by the peer) |
 
 - Only unit **states** count for `transit` and `perceived`; requests and `US_ZOMBIE`/`US_DELETE` are
   scheduled ahead. `dispatch` counts every event.

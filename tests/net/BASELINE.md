@@ -143,3 +143,28 @@ Samples per client and run: 1000–2400. One B1-a client had 323.
   - scenario c more than once per build;
   - the Windows and Haiku builds at runtime (the MinGW build compiles; `TCP_NODELAY` is in
     `winsock.h` and `netinet/tcp.h`).
+
+## Step 3 (`net/conn-writers`): per-connection writers, still P2P
+
+Same harness, scenarios a and b, 2 runs each of this branch (`adeff07`) and of the B1 binaries,
+interleaved in one session (ports 17311/17312). Median and [range] over 2 runs × 2 clients, in ms.
+`transit` is clock-corrected as above.
+
+| Scenario | Build | perceived p50 | perceived p95 | perceived p99 | perceived max | transit p95 | transit p99 |
+|---|---|---|---|---|---|---|---|
+| a localhost | B1 | 21.4 [20.1–23.6] | 37.5 [37.5–39.5] | 39.8 [39.2–40.5] | 40.3 [39.6–41.0] | 19.9 [19.8–19.9] | 20.1 [20.1–20.2] |
+| a localhost | step 3 | 19.5 [14.3–20.4] | 34.8 [28.8–36.4] | 37.8 [33.1–39.2] | 39.3 [34.2–40.1] | 19.9 [19.8–19.9] | 20.1 [20.1–20.2] |
+| b 20±2 ms | B1 | 37.0 [15.4–66.2] | 52.9 [28.4–83.0] | 58.5 [32.8–87.0] | 60.8 [34.2–89.2] | 40.1 [40.0–40.2] | 41.5 [41.3–41.5] |
+| b 20±2 ms | step 3 | 38.4 [34.8–42.1] | 55.1 [49.4–57.6] | 57.5 [54.9–60.4] | 60.7 [58.1–62.1] | 40.0 [39.3–40.9] | 41.8 [40.7–43.0] |
+
+- No regression: `transit` is the same within 0.3 ms. The wide B1-b `perceived` range comes from
+  the B1 clients' connect-time clock error (B1 has no in-game time sync), not from the network.
+- `writer` (queued → written, every host): p99 0.15–0.85 ms, max below 0.9 ms in every run.
+- **Head of line** (scenario c load: 2 hard CPUs, `spawn 600 fight`; client 2 stopped with
+  `kill -STOP` for 5 s after 10 s of measuring):
+  - the server evicted client 2 (`Evicting …: its oldest outgoing message has waited 259 ms
+    (13107 bytes queued)`) and ran its departure (`Player 2 (Bot2) was disconnected`);
+  - server `perf` step p99 2.99 ms, max 7.04 ms; client 1 `perceived` p99 39.5 ms (its maximum,
+    4.7 s, is client 2's backlog sent after `SIGCONT`), client 1 `writer` max 0.63 ms;
+  - after `SIGCONT` client 2 shows "Connection to the server was lost!". Client 1 is not told:
+    the in-game departure broadcast is step 4 (in P2P client 1 still has its own link to client 2).
