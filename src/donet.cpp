@@ -59,7 +59,7 @@ using std::vector;
 /**
  *  String used for error message produced by macro SOCKET_ERROR_MESSAGE().
  */
-TLOG_MESSAGE socket_error_message;
+thread_local TLOG_MESSAGE socket_error_message;
 
 /** Warnings about dropped messages logged per window; the rest is counted. */
 static const int net_drop_warnings_per_window = 20;
@@ -75,7 +75,7 @@ static std::atomic<int> net_drop_count (0);
  */
 void NetDropWarning (const char *text)
 {
-  const std::string copy (text);   // LogMsg() output lives in a shared buffer
+  const std::string copy (text);   // LogMsg() output: the Warning() below may reuse its buffer
   const long window = static_cast<long> (time (NULL) / net_drop_window_seconds);
   long old_window = net_drop_window.load ();
 
@@ -833,7 +833,7 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool dia
   c->fd = fd;
   c->address = address.sin_addr;
   c->port = ntohs (address.sin_port);
-  c->peer = LogMsg ("%s:%hu", inet_ntoa (address.sin_addr), c->port);
+  c->peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (address.sin_addr).c_str (), c->port);
   c->dialed = dialed;
   c->deadline = 0;
   if (!dialed)
@@ -1222,7 +1222,11 @@ string TNET_RESOLVER::GetHostName () {
  *  Converts network address to ASCII representation (IP address).
  */
 string TNET_RESOLVER::NetworkToAscii (in_addr address) {
-  return inet_ntoa (address);
+  /* Not inet_ntoa(): many network threads call this, and its buffer is static on some systems. */
+  const uint32_t a = ntohl (address.s_addr);
+  char text[16];
+  snprintf (text, sizeof text, "%u.%u.%u.%u", a >> 24, (a >> 16) & 255, (a >> 8) & 255, a & 255);
+  return text;
 }
 
 in_addr TNET_RESOLVER::AsciiToNetwork (string address) {

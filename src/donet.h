@@ -50,6 +50,7 @@
 
 #include <stdint.h>
 #include <atomic>
+#include <cstring>
 #include <deque>
 #include <string>
 #include <vector>
@@ -180,7 +181,7 @@ inline double NetGetDouble (const T_BYTE *p)
 // Variables
 //=========================================================================
 
-extern TLOG_MESSAGE socket_error_message;
+extern thread_local TLOG_MESSAGE socket_error_message;
 
 /** Logs a warning about a dropped (malformed or unexpected) network message,
  *  rate limited so that a flood of bad messages cannot fill the log. */

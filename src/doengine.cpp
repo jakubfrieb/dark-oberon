@@ -3996,7 +3996,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
        * where the leader's player_array message arrives before our address echo.
        */
       p.local = follower->HasMyAddress () &&
-          TNET_RESOLVER::NetworkToAscii (p.addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
+          p.addr.s_addr == follower->GetMyAddress ().s_addr &&
           p.port == follower->GetMyPort ();
       if (p.local && !p.computer)
         local_humans++;
