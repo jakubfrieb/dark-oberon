@@ -155,7 +155,12 @@ void TEVENT::SetEventProps(int n_player_id, int n_unit_id, bool n_priority, doub
  *  Linearize event to array of chars (prepare event for sending through
  *  network).
  *
+ *  Wire format (network byte order, the same size on every platform):
+ *  player_id u8, unit_id i32, time_stamp f64 (as u64 bits), event i32,
+ *  last_event i32, request_id i32, simple1..6 u8, int1 i64, int2 i64.
+ *
  *  @param char_event Input paramenter where linearized event will be stored
+ *                    (at least GetLinearizedSize() bytes).
  *
  *  @return Count of characters written to char_event (size of linearized
  *          event).
@@ -165,29 +170,24 @@ void TEVENT::SetEventProps(int n_player_id, int n_unit_id, bool n_priority, doub
  */
 int TEVENT::LinearizeEvent(char *char_event)
 {
-  int size = 0;
-#define pack(variable) \
-  memcpy (char_event + size, &variable, sizeof (variable)); \
-  size += sizeof (variable);
+  T_BYTE *p = reinterpret_cast<T_BYTE *>(char_event);
 
-  pack (player_id);
-  pack (unit_id);
-  pack (time_stamp);
-  pack (event);
-  pack (last_event);
-  pack (request_id);
-  pack (simple1);
-  pack (simple2);
-  pack (simple3);
-  pack (simple4);
-  pack (simple5);
-  pack (simple6);
-  pack (int1);
-  pack (int2);
+  p[0] = static_cast<T_BYTE>(player_id);
+  NetPutU32 (p + 1, static_cast<uint32_t>(unit_id));
+  NetPutDouble (p + 5, time_stamp);
+  NetPutU32 (p + 13, static_cast<uint32_t>(event));
+  NetPutU32 (p + 17, static_cast<uint32_t>(last_event));
+  NetPutU32 (p + 21, static_cast<uint32_t>(request_id));
+  p[25] = simple1;
+  p[26] = simple2;
+  p[27] = simple3;
+  p[28] = simple4;
+  p[29] = simple5;
+  p[30] = simple6;
+  NetPutU64 (p + 31, static_cast<uint64_t>(static_cast<int64_t>(int1)));
+  NetPutU64 (p + 39, static_cast<uint64_t>(static_cast<int64_t>(int2)));
 
-#undef pack
- 
-  return size;
+  return GetLinearizedSize ();
 }
 
 /**
@@ -197,35 +197,35 @@ int TEVENT::LinearizeEvent(char *char_event)
  *  @param lin_event_len Size of linearized event.
  *
  *  @return false (event left unchanged) if @p lin_event_len is not exactly
- *          the size LinearizeEvent() produces.
+ *          the size LinearizeEvent() produces, or int1/int2 do not fit
+ *          intptr_t (32-bit hosts).
  */
 bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 {
-  int pos = 0;
-
   if (lin_event_len != GetLinearizedSize ())
     return false;
 
-#define unpack(variable) \
-  memcpy (&variable, char_event + pos, sizeof (variable)); \
-  pos += sizeof (variable);
+  const T_BYTE *p = reinterpret_cast<const T_BYTE *>(char_event);
 
-  unpack (player_id);
-  unpack (unit_id);
-  unpack (time_stamp);
-  unpack (event);
-  unpack (last_event);
-  unpack (request_id);
-  unpack (simple1);
-  unpack (simple2);
-  unpack (simple3);
-  unpack (simple4);
-  unpack (simple5);
-  unpack (simple6);
-  unpack (int1);
-  unpack (int2);
+  const int64_t n_int1 = static_cast<int64_t>(NetGetU64 (p + 31));
+  const int64_t n_int2 = static_cast<int64_t>(NetGetU64 (p + 39));
+  if (static_cast<intptr_t>(n_int1) != n_int1 || static_cast<intptr_t>(n_int2) != n_int2)
+    return false;
 
-#undef unpack
+  player_id = p[0];
+  unit_id = static_cast<int32_t>(NetGetU32 (p + 1));
+  time_stamp = NetGetDouble (p + 5);
+  event = static_cast<int32_t>(NetGetU32 (p + 13));
+  last_event = static_cast<int32_t>(NetGetU32 (p + 17));
+  request_id = static_cast<int32_t>(NetGetU32 (p + 21));
+  simple1 = p[25];
+  simple2 = p[26];
+  simple3 = p[27];
+  simple4 = p[28];
+  simple5 = p[29];
+  simple6 = p[30];
+  int1 = static_cast<intptr_t>(n_int1);
+  int2 = static_cast<intptr_t>(n_int2);
 
   priority = false;
   from_net = true;
@@ -237,10 +237,7 @@ bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
  */
 int TEVENT::GetLinearizedSize(void)
 {
-  return sizeof (player_id) + sizeof (unit_id) + sizeof (time_stamp) + sizeof (event)
-    + sizeof (last_event) + sizeof (request_id) + sizeof (simple1) + sizeof (simple2)
-    + sizeof (simple3) + sizeof (simple4) + sizeof (simple5) + sizeof (simple6)
-    + sizeof (int1) + sizeof (int2);
+  return 1 + 4 + 8 + 3 * 4 + 6 + 2 * 8;   // 47 bytes
 }
 
 

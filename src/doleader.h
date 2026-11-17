@@ -64,7 +64,10 @@ public:
 
   void ConnectFollower (in_addr remote_address, in_port_t remote_port, int fd);
 
-  void SendPingReply (double request_time);
+  void RefuseFollower (int fd, int protocol);
+
+  void SendPingReply (double request_time, int fd);
+  void SendTimeSyncReply (double request_time, int fd);
 
   void SendPlayerArray (std::string map_name, bool start_game);
 

@@ -33,6 +33,7 @@
 #include "doalloc.h"
 #include "dotime.h"
 
+#include <algorithm>
 #include <string>
 #include <string.h>
 
@@ -68,6 +69,12 @@ TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
   // HasMyAddress() at least see a deterministic 0.0.0.0:0 instead of garbage.
   memset (&my_address, 0, sizeof my_address);
   my_port = 0;
+
+  admitted = false;
+  leader_fd = GetTalker ()->GetRemoteFiledescriptor (0);
+  leader_lost = false;
+  time_samples_total = 0;
+  time_sync_sent = 0;
 }
 
 /**
@@ -80,8 +87,9 @@ void TFOLLOWER::Connect (string player_name) {
 
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_connect, 0);
-  m->Pack (&listener_port, sizeof (in_port_t));
+  m->PackU16 (listener_port);
   m->PackString (player_name);
+  PackVersion (m);
 
   ping_request_time = AppGetTimeSeconds();
 
@@ -119,9 +127,77 @@ void TFOLLOWER::SendPingRequest () {
   msg->Init_send(net_protocol_ping, 0);
 
   ping_request_time = AppGetTimeSeconds();
-  msg->Pack (&ping_request_time, sizeof ping_request_time);
+  msg->PackDouble (ping_request_time);
 
   SendMessage (msg, 0);
+}
+
+/** Interval of in-game time sync requests (seconds). */
+static const double time_sync_period = 2.0;
+
+/**
+ *  Adds a sample: round trip @p rtt and @p offset (leader's clock minus ours, both
+ *  seconds), and returns the correction to apply to our clock now.
+ */
+double TCLOCK_FILTER::AddSample (double rtt, double offset) {
+  samples[next].rtt = rtt;
+  samples[next].offset = offset;
+  next = (next + 1) % samples_count;
+  if (used < samples_count)
+    used++;
+
+  int best = 0;
+  for (int i = 1; i < used; i++)
+    if (samples[i].rtt < samples[best].rtt)
+      best = i;
+
+  double step = std::max (-max_step, std::min (max_step, samples[best].offset));
+
+  for (int i = 0; i < used; i++)   // the offsets are relative to our (corrected) clock
+    samples[i].offset -= step;
+
+  this->offset = samples[best].offset;
+  return step;
+}
+
+/**
+ *  Called every simulation step during a game: asks the leader for its time every
+ *  time_sync_period. The request carries our raw clock, the leader echoes it.
+ */
+void TFOLLOWER::TimeSyncTick () {
+  double now = AppGetRawSeconds ();
+  if (leader_lost || now - time_sync_sent < time_sync_period)
+    return;
+  time_sync_sent = now;
+
+  TNET_MESSAGE *msg = pool_net_messages->GetFromPool();
+  msg->Init_send(net_protocol_time_sync, 0);
+  msg->PackDouble (now);
+  SendMessage (msg, 0);
+}
+
+/**
+ *  Corrects our clock by a time sync reply (TCLOCK_FILTER). Like the connect-time
+ *  ping, the reply is assumed to take half the round trip time.
+ *
+ *  @param request_time AppGetRawSeconds() when the request was sent (echoed).
+ *  @param leader_time  Leader's clock when it answered.
+ */
+void TFOLLOWER::ProcessTimeSyncReply (double request_time, double leader_time) {
+  double rtt = AppGetRawSeconds () - request_time;
+
+  if (!(rtt >= 0 && rtt < 2 * time_sync_period)) {   // not one of our recent requests
+    NetDropWarning (LogMsg ("Ignoring time sync reply (round trip %.3f s)", rtt));
+    return;
+  }
+
+  double step = clock_filter.AddSample (rtt, leader_time + rtt / 2 - AppGetTimeSeconds ());
+  AppAdjustTimeSeconds (step);
+
+  /* The first sample and then one a minute: the clock offset over a long game. */
+  if (time_samples_total++ % 30 == 0)
+    Info (LogMsg ("Time sync: round trip %.2f ms, clock offset to the leader %.2f ms (corrected %.2f ms)",
+                  rtt * 1000, (clock_filter.GetOffset () + step) * 1000, step * 1000));
 }
 
 void TFOLLOWER::SendSynchronise () {

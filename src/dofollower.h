@@ -35,6 +35,7 @@
 #include "cfg.h"
 #include "doalloc.h"
 
+#include <atomic>
 #include <string>
 
 #include "dohost.h"
@@ -49,6 +50,40 @@
 const int follower_in_queue_size = 10024;
 /** Size of outgoing message queue for follower. */
 const int follower_out_queue_size = 10024;
+
+
+//=========================================================================
+// TCLOCK_FILTER
+//=========================================================================
+
+/**
+ *  In-game clock correction of a follower from time sync samples (see
+ *  TFOLLOWER::ProcessTimeSyncReply()). Of the last samples_count samples the one
+ *  with the smallest round trip (the least queueing delay) is trusted, and the
+ *  clock moves towards it by at most max_step per sample: it slews, it does not jump.
+ */
+class TCLOCK_FILTER {
+public:
+  static const int samples_count = 8;
+  static constexpr double max_step = 0.002;   //!< Seconds.
+
+  TCLOCK_FILTER () : used (0), next (0) {}
+
+  double AddSample (double rtt, double offset);
+
+  /** Offset of the trusted sample after the last correction (seconds). */
+  double GetOffset () const { return offset; }
+
+private:
+  struct SAMPLE {
+    double rtt;     //!< Round trip time.
+    double offset;  //!< Leader's clock minus ours, at the time of the sample.
+  };
+  SAMPLE samples[samples_count];
+  int used;         //!< Valid entries of samples.
+  int next;         //!< Where the next sample goes.
+  double offset;
+};
 
 
 //=========================================================================
@@ -84,6 +119,19 @@ public:
   void SendPingRequest ();
   void SendSynchronise ();
 
+  /** True once the leader's hello showed the same protocol version. */
+  bool IsAdmitted () const { return admitted; }
+  void SetAdmitted () { admitted = true; }
+
+  /** Socket of the link to the leader (fixed for the life of the follower). */
+  int GetLeaderFileDescriptor () const { return leader_fd; }
+
+  /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
+  void SetLeaderLost () { leader_lost = true; }
+
+  void TimeSyncTick ();
+  void ProcessTimeSyncReply (double request_time, double leader_time);
+
   /** Ask the leader to start the game (same as host stdin / web "start"). */
   void SendRequestStartGame ();
 
@@ -98,6 +146,14 @@ private:
 
   double ping_request_time;   //!< Time when the connect request was sent.
   double minimal_timeshift;   //!< Minimal timeshift yet received.
+
+  bool admitted;              //!< See IsAdmitted().
+  int leader_fd;              //!< See GetLeaderFileDescriptor().
+  std::atomic<bool> leader_lost; //!< See SetLeaderLost().
+
+  TCLOCK_FILTER clock_filter; //!< In-game clock sync, see ProcessTimeSyncReply().
+  int time_samples_total;     //!< Count of time sync samples so far (for the log).
+  double time_sync_sent;      //!< AppGetRawSeconds() of the last time sync request.
 };
 
 

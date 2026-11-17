@@ -34,6 +34,7 @@
 
 #include <string>
 
+#include "build_info.h"
 #include "dohost.h"
 #include "donet.h"
 
@@ -78,14 +79,18 @@ THOST::THOST (int incoming_message_queue_size, in_port_t listen_port,
 
 THOST::~THOST ()
 {
+  /* Stop the dispatcher before the talker goes away: some handlers (time sync) send
+   * replies without giant, so they do not see host set to NULL. */
+  listener->GetMessageQueue ()->Die ();
+  SDL_WaitThread (dispatcher->GetThread (), NULL);
+  dispatcher->ThreadJoined ();
+  listener->ConsumerIsAttached (NULL);
+
   delete talker;
 
   /* Order in which objects are deleted must be: listener, dispatcher, handler!
    */
   delete listener;
-  /* ~TNET_LISTENER already joined the dispatcher thread (its consumer);
-   * joining it again would double-free the SDL_Thread. */
-  dispatcher->ThreadJoined ();
   delete dispatcher;
   delete handler;
 }
@@ -116,9 +121,35 @@ void THOST::SendDisconnect (T_BYTE player_id) {
   SendMessage (m);
 }
 
+/**
+ *  Appends the version trailer to a connect or hello message: u16 protocol
+ *  version and the game version string.
+ */
+void THOST::PackVersion (TNET_MESSAGE *msg) {
+  msg->PackU16 (NET_PROTOCOL_VERSION);
+  msg->PackString (DO_VERSION_STRING);
+}
+
+/**
+ *  Reads the version trailer of a connect or hello message (the rest of the
+ *  message). Hosts before protocol version 2 send none.
+ *
+ *  @return Protocol version of the peer, 0 for a host without the trailer.
+ *          @p version is the peer's game version ("" without the trailer).
+ */
+int THOST::ExtractVersion (TNET_MESSAGE *msg, string &version) {
+  version.clear ();
+  if (msg->Remaining () == 0)
+    return 0;
+
+  int protocol = msg->ExtractU16 ();
+  version = msg->ExtractString ();
+  msg->ExtractEnd ();
+  return protocol;
+}
+
 
 //=========================================================================
 // END
 //=========================================================================
 // vim:ts=2:sw=2:et:
-

@@ -59,8 +59,13 @@ enum NetworkingProtocolMessage {
   net_protocol_ping         = 0x09,   //!< Ping request.
   net_protocol_request_start = 0x0A,  //!< Follower asks leader to start the game.
   net_protocol_request_add_computer = 0x0B,  //!< Follower asks leader to add a CPU player.
+  net_protocol_time_sync    = 0x0C,   //!< In-game clock sync (subtype 0 request, 1 reply).
   net_protocol_end
 };
+
+/** Version of the wire format. Hosts play together only when it matches: the
+ *  follower sends it in connect, the leader in hello (THOST::PackVersion()). */
+const int NET_PROTOCOL_VERSION = 2;
 
 
 //=========================================================================
@@ -93,6 +98,9 @@ public:
   virtual ~THOST ();
 
   void SendChatMessage (std::string chat_message);
+
+  static void PackVersion (TNET_MESSAGE *msg);
+  static int ExtractVersion (TNET_MESSAGE *msg, std::string &version);
 
   void SendDisconnect (T_BYTE player_id);
 

@@ -268,6 +268,7 @@ void TNET_MESSAGE::Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest)
   this->type = type;
   this->subtype = subtype;
   this->dest = dest;
+  this->fd = -1;
 
   extract_p = 0;
   extract_error = false;
@@ -783,6 +784,25 @@ bool TNET_LISTENER::IsConnectionOpen (int fd) {
   return open;
 }
 
+/**
+ *  Lets the connection @p fd end once the peer has sent nothing for @p seconds (a refused
+ *  host: it gets time to show the reply before the connection closes).
+ */
+void TNET_LISTENER::CloseWhenIdle (int fd, int seconds) {
+  SDL_LockMutex (connections_lock);
+  for (unsigned i = 0; i < connections.size (); i++) {
+    if (connections[i].fd == fd && connections[i].state == CONNECTION::open) {
+#ifdef WINDOWS
+      DWORD timeout = seconds * 1000;
+#else
+      timeval timeout = { seconds, 0 };
+#endif
+      setsockopt (fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof (timeout));
+    }
+  }
+  SDL_UnlockMutex (connections_lock);
+}
+
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
   consumer_thread = thread;
 }
@@ -901,7 +921,15 @@ int SDLCALL TNET_TALKER::talker_thread_function (void *talker_class) {
      * Find out, if the message is destined for all remote addresses, or for
      * one only (e.g. only for one player).
      */
-    if (msg->GetDest () == 255) {
+    if (msg->GetFileDescriptor () != -1) {
+      /* A reply goes back over the connection the request came on, also to a host that is
+         not a player (yet), e.g. a refused one. */
+      try {
+        msg->Send (msg->GetFileDescriptor ());
+      } catch (TNET_MESSAGE::SendError &) {
+        Warning ("Talker: could not send a reply");
+      }
+    } else if (msg->GetDest () == 255) {
       // XXX: should use a constant instead of 255
 
       for (unsigned i = 0; i < self->distinct_remote_addresses.size (); i++) {

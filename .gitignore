@@ -31,4 +31,5 @@ dist/
 # C++ unit test binaries (tests/cpp/Makefile)
 tests/cpp/test_ai_logic
 tests/cpp/test_dofile
+tests/cpp/test_netwire
 tests/cpp/test_perf
