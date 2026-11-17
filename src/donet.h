@@ -317,6 +317,8 @@ public:
   in_addr GetAddress () { return address; }
   in_port_t GetPort ()  { return port; }
   int GetFileDescriptor () { return fd; }
+  //! When the listener received the message (AppGetTimeSeconds), for `netstat`.
+  double GetReceivedAt () { return received_at; }
 
   void Send (int fd);
 
@@ -338,6 +340,7 @@ private:
   in_addr address;
   in_port_t port;
   int fd;          //!< Received on this connection / reply to it (-1 = use dest).
+  double received_at;
 
   int extract_p;
   bool extract_error;  //!< An Extract*() call ran past the end of the message.

@@ -1,5 +1,6 @@
 /*
  * Timing of the game simulation loop (ProcessFunction), for performance tests.
+ * Latency of the events received from the network (`netstat`, see NetStatRecord).
  *
  * Every simulation step records how long it worked: processing the event queue and running
  * the CPU players. Path searches run in a thread pool beside it and are recorded separately
@@ -32,3 +33,19 @@ void PerfRecordJob(double seconds);
 void PerfReset();
 //! Multi-line report of the steps recorded since the last reset; @p units = units on the map.
 std::string PerfReport(int units);
+
+//! Latency series of the events received from the network (`netstat`).
+enum TNET_STAT {
+  NS_TRANSIT,     //!< state event: received - generated (its time stamp)
+  NS_DISPATCH,    //!< any event: received - put into the event queue (wait for giant + queue residence)
+  NS_PERCEIVED,   //!< state event: applied to the replica - generated
+  NS_COUNT
+};
+
+/** Records one sample of @p stat (seconds; may be negative when the clocks of the hosts differ).
+ *  Fixed histograms, no allocation. Samples before the gate set by NetStatReset() are ignored. */
+void NetStatRecord(TNET_STAT stat, double seconds);
+//! Forgets all samples and ignores new ones for @p warmup_s seconds (e.g. loading at game start).
+void NetStatReset(double warmup_s = 0.0);
+//! Multi-line report ("netstat: ..."), percentiles in ms, plus this host's clock offset.
+std::string NetStatReport();
