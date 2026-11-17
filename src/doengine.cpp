@@ -1773,14 +1773,14 @@ bool CreateGame()
 
   host->RegisterOnDisconnect (OnDisconnect);
   host->RegisterOnReceive (RelayFromFollower);
-  host->Start ();
 
   leader_ready = false;
 
+  host->AddRoute (); /* hyper player (player 0) */
 #if !HEADLESS
   host->AddRoute (); /* player on leader */
 #endif
-  host->AddRoute (); /* hyper player */
+  host->Start ();   // the routes of the players on the leader exist before anyone can connect
 
   // XXX: check whether the server started successfully
   connected = true;
