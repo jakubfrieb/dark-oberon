@@ -19,9 +19,9 @@ test_dofile: test_dofile.cpp $(SRC)/dofile.cpp $(SRC)/dofile.h
 	  -w -DUNIX=1 -DSOUND=0 -DDEBUG=0 -DHEADLESS=0 -I$(SRC) $(SDL2_CFLAGS) \
 	  -o $@ test_dofile.cpp $(SRC)/dofile.cpp $(SDL2_LIBS)
 
-# Simulation step statistics (performance tests).
+# Simulation step statistics (performance tests), built with UBSan (netstat gets any number).
 test_perf: test_perf.cpp $(SRC)/doperf.cpp $(SRC)/doperf.h
-	$(CXX) -std=gnu++17 -Wall -Wextra -O1 -I$(SRC) $(SDL2_CFLAGS) -o $@ test_perf.cpp $(SRC)/doperf.cpp $(SDL2_LIBS)
+	$(CXX) -std=gnu++17 -Wall -Wextra -O1 -fsanitize=undefined,float-cast-overflow -fno-sanitize-recover=all -I$(SRC) $(SDL2_CFLAGS) -o $@ test_perf.cpp $(SRC)/doperf.cpp $(SDL2_LIBS)
 
 # Network wire format (protocol version 2) and connection writers, built with ASan (no vptr check: TPLAYER is not linked).
 NETWIRE_SRC = $(SRC)/doevents.cpp $(SRC)/donet.cpp $(SRC)/dohost.cpp $(SRC)/dofollower.cpp $(SRC)/doipc.cpp $(SRC)/doperf.cpp $(SRC)/utils.cpp

@@ -41,6 +41,17 @@ int main() {
   CHECK(r.find("units=600") != std::string::npos);
   CHECK(r.find("50.0 %") != std::string::npos);   // one of two steps over the 20 ms budget
 
+  // netstat: any time stamp of a peer is recorded safely; non-finite ones are left out
+  NetStatReset();
+  NetStatRecord(NS_TRANSIT, NAN);
+  NetStatRecord(NS_TRANSIT, INFINITY);
+  NetStatRecord(NS_TRANSIT, -INFINITY);
+  NetStatRecord(NS_TRANSIT, 1e300);
+  NetStatRecord(NS_TRANSIT, -1e300);
+  NetStatRecord(NS_TRANSIT, 0.005);
+  std::string n = NetStatReport();
+  CHECK(n.find("transit   ms n=3 ") != std::string::npos);
+
   std::printf("%d failures\n", g_fail);
   return g_fail ? 1 : 0;
 }

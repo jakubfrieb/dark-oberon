@@ -6219,7 +6219,7 @@ static int SDLCALL ProcessFunction(void *arg)
               Debug(LogMsg("PROC_R: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), AppGetTimeSeconds(), queue_events->GetQueueLength()));
             #endif
 
-            if (NetStatHasLatency(act_event))
+            if (act_event->IsFromNet() && NetStatHasLatency(act_event))
               NetStatRecord(NS_PERCEIVED, AppGetTimeSeconds() - act_event->GetTimeStamp());
 
             act_unit->ProcessEvent(act_event);
