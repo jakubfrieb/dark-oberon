@@ -579,22 +579,22 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
      timeout, and a peer that keeps sending is checked after every receive. A receive that times
      out after the connection was admitted (or got a later deadline) is repeated. Returns what
      recv() does, or -2 when the deadline has passed. */
-  auto receive = [c, fd](T_BYTE *data, int bytes) {
+  auto receive = [c, fd, peer](T_BYTE *data, int bytes) {
     while (1) {
       int got = recv (fd, reinterpret_cast<char*>(data), bytes, 0);
       double deadline = c->deadline;
-      if (deadline > 0 && AppGetRawSeconds () >= deadline)
+      if (deadline > 0 && AppGetRawSeconds () >= deadline) {
+        Info (LogMsg ("Listener: dropping connection from %s: it did not join in time", peer));
         return -2;
+      }
       if (got != -1 || !ReceiveTimedOut ())
         return got;
     }
   };
 
   while (1) {
-    if ((pos = receive (buf, 1)) == -2) {
-      Info (LogMsg ("Listener: dropping connection from %s: it did not join in time", peer));
+    if ((pos = receive (buf, 1)) == -2)
       break;
-    }
 
     if (pos == -1) {
       /* Reported like a closed connection (ConnectionEnded below). */
@@ -619,11 +619,9 @@ int SDLCALL TNET_LISTENER::reader_thread_function (void *connection) {
     bool complete = true;
     do {
       if ((len = receive (buf + pos, *size - pos)) <= 0) {
-        if (len == -2)
-          Info (LogMsg ("Listener: dropping connection from %s: it did not join in time", peer));
-        else if (len < 0)
+        if (len == -1)   // -2 (not admitted in time) is logged by receive()
           Warning (SOCKET_ERROR_MESSAGE (LogMsg ("Listener: connection from %s lost in the middle of a message", peer)));
-        else
+        else if (len == 0)
           Warning (LogMsg ("Listener: %s closed the connection in the middle of a message", peer));
         complete = false;
         break;

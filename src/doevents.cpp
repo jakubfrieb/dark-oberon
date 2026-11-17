@@ -175,6 +175,9 @@ int TEVENT::GetRequestSender(void)
   return (event == RQ_CAN_MINE && simple1 != 0) ? simple1 : -1;
 }
 
+/** Offsets of the last fields of a linearized event (LinearizeEvent()) and its size. */
+static const int wire_int1 = 31, wire_int2 = 39, wire_size = wire_int2 + 8;
+
 /**
  *  Linearize event to array of chars (prepare event for sending through
  *  network).
@@ -192,9 +195,6 @@ int TEVENT::GetRequestSender(void)
  *  @note Keep the field list in sync with DelinearizeEvent() and
  *        GetLinearizedSize() (received events must have exactly that size).
  */
-/** Offsets of the last fields of a linearized event (LinearizeEvent()) and its size. */
-static const int wire_int1 = 31, wire_int2 = 39, wire_size = wire_int2 + 8;
-
 int TEVENT::LinearizeEvent(char *char_event)
 {
   T_BYTE *p = reinterpret_cast<T_BYTE *>(char_event);

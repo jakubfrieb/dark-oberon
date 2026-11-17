@@ -215,7 +215,6 @@ private:
   std::atomic<TNET_CONN_ID> remote_conn;   //!< See GetRemoteConnection().
 
 protected:
-
   HostType type;    //!< Type of the host.
 };
 

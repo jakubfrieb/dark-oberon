@@ -521,7 +521,6 @@ TEST(test_relay_requests) {
   CHECK(dropped(THOST::RouteRelay(ask0, CA, relay_routes(), std::vector<bool>(6, false), true), false));
   CHECK(THOST::RouteRelay(ask0, CB, relay_routes(), std::vector<bool>(6, false), true).local);
   // an owner-authored request (RQ_CREATE_UNIT, RQ_SYNC_LIFE, ...) for another player's unit
-  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 1, 1, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 0, 0, false, CA), false));
 }

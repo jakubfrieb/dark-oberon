@@ -639,7 +639,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     for (int i = 0; i < 50; i++) {
       giant->Lock ();
       bool ours = (host == follower
-                   && host->GetPlayerIDByConnection (follower->GetLeaderConnection ()) == 0);
+                   && host->GetPlayerIDByConnection (follower->GetRemoteConnection ()) == 0);
       if (ours)
         follower->SendPingRequest ();
       giant->Unlock ();
@@ -4115,7 +4115,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
      * player is reached through the leader too, which relays; local players have no
      * connection. */
     for (i = 1; i < player_array.GetCount (); i++)
-      host->AddRoute (player_array.IsRemote (i) ? follower->GetLeaderConnection () : no_connection);
+      host->AddRoute (player_array.IsRemote (i) ? follower->GetRemoteConnection () : no_connection);
 
     state = ST_GAME;
   }
@@ -4263,9 +4263,8 @@ static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
   double request_time = msg->ExtractDouble ();
   msg->ExtractEnd ();
 
-  /* Only players get an answer, like a ping (GetPlayerIDByConnection() needs no giant). */
-  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time)
-      || leader->GetPlayerIDByConnection (msg->GetConnection ()) == -1)
+  /* Only players send it: the relay drops it from any other connection (THOST::RouteRelay()). */
+  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time))
     return;
 
   leader->SendTimeReply (net_protocol_time_sync, request_time, msg->GetConnection ());
@@ -4283,7 +4282,7 @@ static void ProcessTimeSyncReply (TNET_MESSAGE *msg) {
   msg->ExtractEnd ();
 
   if (follower == NULL || msg->GetSubtype () != 1 || msg->ExtractFailed () || !std::isfinite (time)
-      || msg->GetConnection () != follower->GetLeaderConnection ())
+      || msg->GetConnection () != follower->GetRemoteConnection ())
     return;
 
   follower->ProcessTimeSyncReply (request_time, time);
@@ -4705,8 +4704,9 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
   if (msg->ExtractFailed ())
     return;
 
-  /* On the leader a follower announces only his own departure (the relay checks it too, but
-     a connect pipelined with a disconnect reached the reader before the follower was a player). */
+  /* On the leader a follower announces only his own departure. The relay checked it against
+     the routes when it was received; check again here, where the lobby may have removed a player
+     meanwhile and moved the ids of the next ones (THOST::RemoveRoute()). */
   giant->Lock ();
   bool from_player = host != NULL && FromPlayer (msg)
                      && (host->GetType () != THOST::ht_leader

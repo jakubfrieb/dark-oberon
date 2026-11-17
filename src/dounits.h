@@ -1065,7 +1065,6 @@ public:
   bool CanUnload(TBUILDING_UNIT *unit, bool write_msg, bool auto_call);
   bool StartUnload(TBUILDING_UNIT *unit, bool auto_call);
 
-
   //!< The method gets pointer to nearest building for the worker from the source src.
   TBUILDING_UNIT* GetNearestBuilding(TSOURCE_UNIT * src, TA_STAR_ALG *path_tool); 
  

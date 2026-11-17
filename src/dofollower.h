@@ -122,9 +122,6 @@ public:
 
   ~TFOLLOWER () { Stop (); }
 
-  /** The link to the leader (fixed once started). */
-  TNET_CONN_ID GetLeaderConnection () const { return GetRemoteConnection (); }
-
   /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
   void SetLeaderLost () { leader_lost = true; }
 
