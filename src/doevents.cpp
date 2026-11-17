@@ -165,6 +165,17 @@ bool TEVENT::IsCrossOwnerRequest(void)
 }
 
 /**
+ *  The player whose host sends a request to another player's unit (IsCrossOwnerRequest()),
+ *  when the request says so, else -1. A worker's RQ_CAN_MINE to a source carries the worker's
+ *  player in simple1 (worker ids are never of player 0, the hyper player); the source's answer
+ *  has simple1 = 0 and does not say which source asked, so it is not bound.
+ */
+int TEVENT::GetRequestSender(void)
+{
+  return (event == RQ_CAN_MINE && simple1 != 0) ? simple1 : -1;
+}
+
+/**
  *  Linearize event to array of chars (prepare event for sending through
  *  network).
  *

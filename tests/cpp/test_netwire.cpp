@@ -493,6 +493,19 @@ TEST(test_relay_requests) {
   CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 5, 3, true, CA), false));
   CHECK(dropped(relay(net_protocol_event, 2, 2, true, CA), false));
+  // RQ_CAN_MINE of a worker names the worker's player: only that player's host may send it
+  e.SetEventProps(0, 7, false, 1.0, RQ_CAN_MINE, US_NONE, 0, 2, 0, 0, 0, 0, 0, 5, 1);
+  CHECK(e.GetRequestSender() == 2);
+  e.SetEventProps(2, 5, false, 1.0, RQ_CAN_MINE, US_NONE, 0, 0, 0, 0, 0, 0, 0, 0, 1);   // the answer
+  CHECK(e.GetRequestSender() == -1);
+  TRELAY_MESSAGE ask = { net_protocol_event, 3, 3, true, 2 };          // CA's worker asks CB's source
+  r = THOST::RouteRelay(ask, CA, relay_routes(), std::vector<bool>(6, false), true);
+  CHECK(r.drop == NULL && r.to == CB);
+  r = THOST::RouteRelay(ask, CC, relay_routes(), std::vector<bool>(6, false), true);   // CC poses as CA
+  CHECK(dropped(r, false));
+  TRELAY_MESSAGE ask0 = { net_protocol_event, 0, 0, true, 3 };         // for CB's worker, to the hyper player
+  CHECK(dropped(THOST::RouteRelay(ask0, CA, relay_routes(), std::vector<bool>(6, false), true), false));
+  CHECK(THOST::RouteRelay(ask0, CB, relay_routes(), std::vector<bool>(6, false), true).local);
   // an owner-authored request (RQ_CREATE_UNIT, RQ_SYNC_LIFE, ...) for another player's unit
   CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 1, 1, false, CA), false));

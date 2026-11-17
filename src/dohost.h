@@ -82,6 +82,7 @@ struct TRELAY_MESSAGE {
   T_BYTE dest;      //!< The header's dest byte as the follower sent it.
   int player_id;    //!< Event: its player id; disconnect: the departing player; otherwise -1.
   bool cross_owner; //!< Event: a request that may go to another player's unit (TEVENT::IsCrossOwnerRequest()).
+  int sender = -1;  //!< Such a request: the player whose host must send it, -1 = not known (TEVENT::GetRequestSender()).
 };
 
 /** What the leader does with a message received from a follower (THOST::RouteRelay()). */

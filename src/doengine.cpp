@@ -4476,6 +4476,7 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
     }
     m.player_id = ev.GetPlayerID ();
     m.cross_owner = ev.IsCrossOwnerRequest ();
+    m.sender = ev.GetRequestSender ();
     break;
   }
   case net_protocol_chat_message:   // one string, nothing after it

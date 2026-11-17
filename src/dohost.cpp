@@ -299,8 +299,9 @@ int THOST::GetPlayerIDByConnection (TNET_CONN_ID conn, int from) {
  *      be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
  *      every follower but the origin;
  *    - request to the owner of a unit (dest = that owner), only of the kinds sent to another
- *      player's unit (TRELAY_MESSAGE::cross_owner): local when the owner is on the leader,
- *      else forwarded to the owner's connection only.
+ *      player's unit (TRELAY_MESSAGE::cross_owner) and, where the request names the player on
+ *      whose behalf it is sent (TRELAY_MESSAGE::sender), only from that player: local when the
+ *      owner is on the leader, else forwarded to the owner's connection only.
  *  - Chat: local and to every follower but the origin, the origin id in the dest byte.
  *  - Disconnect: only of the origin's own player, local only: the leader announces the
  *    departure itself (ProcessDisconnect()). In the game the player has left from now on
@@ -348,6 +349,8 @@ TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
       const TNET_CONN_ID owner = routes[m.player_id];
       if (!m.cross_owner || m.dest != m.player_id)
         r.drop = "event for another player";
+      else if (m.sender >= 0 && (m.sender >= count || routes[m.sender] != from))
+        r.drop = "request on behalf of another player";
       else if (owner == from)
         r.drop = "request for an own unit";
       else if (owner != no_connection) {

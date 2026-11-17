@@ -164,6 +164,7 @@ public:
   void SetEventProps(int n_player_id, int n_unit_id, bool n_priority, double n_time_stamp, int n_event, int n_last_event, int n_request_id, T_SIMPLE n_simple1, T_SIMPLE n_simple2, T_SIMPLE n_simple3, T_SIMPLE n_simple4, T_SIMPLE n_simple5, T_SIMPLE n_simple6, intptr_t n_int1,intptr_t n_int2=0); // sets event's properties
   
   bool IsCrossOwnerRequest(void); // A request a host sends to a unit of another player.
+  int GetRequestSender(void);     // The player such a request is sent for, -1 = not known.
 
   int LinearizeEvent(char * char_event); // Linearize event to array of chars (prepare event for net).
   bool DelinearizeEvent(char * char_event, int lin_event_len); // Delinearize event from array of chars (fill event with data in char).
