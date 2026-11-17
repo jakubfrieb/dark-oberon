@@ -14,15 +14,16 @@ B2 (relay) is to be measured later with the same harness and must be compared ag
 - Commit: `976d284` (metrics). The harness is the `tests/net` of this branch.
 - Binaries: `do-wt/baselines/{B0,B1}/` (`dark-oberon`, `dark-oberon-server`, `BUILD_INFO.txt`).
 - Raw results: `do-wt/baselines/results/{B0,B1,run2/*,run3/*}/{a,b,c}/` (`summary.txt` and the logs).
-- `strace -e trace=setsockopt` on the server's accept path:
+- `strace -e trace=setsockopt` on the server's accept path (run on the B0/B1 builds of the previous
+  commit `bbd389d`, which have the same socket code):
   - B1: `setsockopt(fd, SOL_TCP, TCP_NODELAY, [1], 4) = 0`;
   - B0: no TCP_NODELAY call;
   - both: one SO_KEEPALIVE.
 
 | Build | `dark-oberon` sha256 | `dark-oberon-server` sha256 |
 |---|---|---|
-| B0 | `8a89e3d4…0cea0` | `8a39af11…bc83` |
-| B1 | `0f749e35…82fe` | `6df148df…6234` |
+| B0 | `b0c7bf4b…dd601` | `207bfc8e…03fc9` |
+| B1 | `4df4b279…ca0e` | `ce3202d2…d7454` |
 
 Full hashes: `BUILD_INFO.txt` next to the binaries.
 
@@ -57,12 +58,15 @@ route through the server.
 
 Each value is the median and [range] over 3 runs × 2 clients, in ms.
 
-| Scenario | Build | p50 | p95 | p99 | max | transit p95 | dispatch p99 / max |
-|---|---|---|---|---|---|---|---|
-| a localhost | B0 | 23.4 [16.2–24.6] | 58.4 [45.5–62.9] | 72.5 [60.2–92.3] | 78.8 [77.4–134.8] | 42.2 | 0.15 / 0.77 |
-| a localhost | **B1** | 18.3 [13.9–21.4] | **32.3** [28.2–35.4] | **34.5** [31.6–38.8] | 37.2 [32.0–40.7] | 19.9 | 0.10 / 0.74 |
-| b 20±2 ms | B0 | 58.3 [53.2–59.8] | 107.4 [100.2–110.0] | 126.3 [121.8–128.8] | 143.0 [139.7–151.8] | 96.5 | 0.20 / 0.75 |
-| b 20±2 ms | **B1** | 36.2 [32.6–42.5] | **53.2** [47.0–56.9] | **56.6** [54.8–61.2] | 60.9 [58.3–62.7] | 40.0 | 0.15 / 0.80 |
+| Scenario | Build | perceived p50 | perceived p95 | perceived p99 | perceived max | transit p95* | transit p99* | dispatch p99 / max |
+|---|---|---|---|---|---|---|---|---|
+| a localhost | B0 | 23.4 [16.2–24.6] | 58.4 [45.5–62.9] | 72.5 [60.2–92.3] | 78.8 [77.4–134.8] | 42.1 [32.7–47.2] | 55.5 [52.1–83.2] | 0.15 / 0.77 |
+| a localhost | **B1** | 18.3 [13.9–21.4] | **32.3** [28.2–35.4] | **34.5** [31.6–38.8] | 37.2 [32.0–40.7] | **19.9** [19.8–20.0] | **20.1** [20.1–20.2] | 0.10 / 0.74 |
+| b 20±2 ms | B0 | 58.3 [53.2–59.8] | 107.4 [100.2–110.0] | 126.3 [121.8–128.8] | 143.0 [139.7–151.8] | 96.5 [83.4–98.4] | 115.0 [112.7–117.7] | 0.20 / 0.75 |
+| b 20±2 ms | **B1** | 36.2 [32.6–42.5] | **53.2** [47.0–56.9] | **56.6** [54.8–61.2] | 60.9 [58.3–62.7] | **40.1** [39.8–40.5] | **41.5** [41.3–41.6] | 0.15 / 0.80 |
+
+\* `transit` is corrected by each run's client↔client clock error. For c1:
+`transit + (c2-c1)`; for c2: `transit − (c2-c1)`, with `c2-c1` taken from `[clock]`.
 
 Samples per client and run: 1000–2400. One B1-a client had 323.
 
@@ -96,6 +100,15 @@ Samples per client and run: 1000–2400. One B1-a client had 323.
   so coalescing is not needed (plan, step 1).
 - **Server step time** (`perf` step p99 about 2.9 ms in c) does not depend on NODELAY.
 
+## Which metric to gate on
+
+- `perceived` spreads by ±4-5 ms between runs and clients even in B1. The spread comes from the
+  phase of the receiver's 20 ms step, not from the network.
+- `transit` (corrected for the clock) spreads by less than 1 ms in B1.
+- Gating B2 against B1:
+  - for the **+2 ms** LAN criterion, use `transit` p95/p99, or pool many runs of `perceived`;
+  - for the **+25 ms** and **p99 ≤ 100 ms** criteria, `perceived` is precise enough.
+
 ## Accuracy and caveats
 
 - **Clock sync error.** Followers set the leader's clock with pings at connect. On one machine, the
@@ -124,7 +137,9 @@ Samples per client and run: 1000–2400. One B1-a client had 323.
   - Another agent ran GUI tests on the same display at the same time. One run failed because a
     join click got lost; it was repeated (B0 b run2).
 - **Not measured here:**
-  - the dial path of `TCP_NODELAY` on a follower (same function as the accept path, verified only
-    by reading the code);
+  - an strace of the dial path of `TCP_NODELAY` on a follower. The peer-to-peer link is the
+    follower's dialed socket, and B1-b is fast and symmetric on both clients, which shows that this
+    socket has NODELAY too;
+  - scenario c more than once per build;
   - the Windows and Haiku builds at runtime (the MinGW build compiles; `TCP_NODELAY` is in
     `winsock.h` and `netinet/tcp.h`).
