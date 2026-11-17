@@ -251,6 +251,7 @@ TEST(test_version_trailer_malformed) {
 
 TEST(test_clock_slews_by_small_steps) {
   TCLOCK_FILTER f;
+  CHECK(f.GetOffset() == 0);              // no sample yet
   double clock = 0;                       // our correction so far; the leader is 10 ms ahead
   for (int i = 0; i < 4; i++) {
     double step = f.AddSample(0.001, 0.010 - clock);

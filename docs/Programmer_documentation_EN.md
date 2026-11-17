@@ -2572,14 +2572,13 @@ TNET_MESSAGE_QUEUE – a message queue into which messages can be inserted and f
 messages can be taken,
 •
 
-TNET_LISTENER - a class waiting for incoming connections and inserting network
+TNET_LISTENER - the owner of the connections: it accepts incoming connections, registers the
+ones the host dials, receives messages into the queue of incoming messages and sends messages,
 
-messages into the queue of incoming messages,
 •
 
-TNET_TALKER - a class that sends network messages from the queue of outgoing messages
+TNET_OUT_QUEUE - the bounded outgoing queue of one connection,
 
-to the individual recipients,
 •
 
 TNET_DISPATCHER - the deliverer of incoming messages.
@@ -2629,66 +2628,37 @@ multiple threads.
 The queue is implemented as a circular array with a head.
 
 #### 10.2.3 The TNET_LISTENER and TNET_DISPATCHER classes
-TNET_LISTENER is a class that represents a receiver of network messages. The class contains
+TNET_LISTENER owns every connection of a host. A connection is identified by a stable handle
+(TNET_CONN_ID), never by its socket. Its thread accepts TCP connections on the host's port once the
+host has registered its handlers (Start()); the host also adds the connection it dialed itself (a
+follower's link to the leader). Every connection has two threads:
 
-a queue of incoming messages. An object of this class creates a new thread in its constructor, which
-waits for incoming TCP connections. For each new incoming connection a
-new thread is created, which receives messages from the network and inserts them into the queue.
+- a reader, which receives its messages, passes each one to the receive handler (the leader's relay
+  forwards it from here) and inserts it into the queue of incoming messages;
+- a writer, the only code writing to its socket, which sends the messages of its bounded outgoing
+  queue (TNET_OUT_QUEUE). Send() only queues a copy and never blocks.
+
+A connection ends when the peer closes it, on an error, when it is shut down, when its outgoing queue
+is full or its oldest message has waited too long, when it sends too many invalid messages, or when
+an accepted connection is not admitted as a player in time. The dispatcher then gets a notice behind
+its last messages.
+
 TNET_DISPATCHER is a class whose task is to deliver received messages. It contains a pointer
-
 to a message queue, from which it takes the individual messages and, according to their type, executes the corresponding
-registered functions on them. This task is performed by the auxiliary class TNET_HANDLER. All
+registered functions on them. This task is performed by the auxiliary class TNET_MESSAGE_HANDLER. All
 activity of the class TNET_DISPATCHER runs autonomously in a separate thread, which is created
 in the constructor.
 
-#### 10.2.4 The TNET_TALKER class
-Sending network messages is the responsibility of the class TNET_TALKER. The class contains a queue
-of messages to be sent. The object instance creates a new thread in its constructor, which in an
-infinite loop takes new messages from the queue of messages to be sent and sends them over the network
-to the given recipients. If the recipient is the special value, the message is delivered to all
-recipients, but only once to each address. Recipient addresses are specified using the function
-AddAddress(). When an address is added, a TCP connection is created automatically.
-
 ### 10.3 Network interface - the THOST class
 The class THOST represents a simple network interface containing everything needed for
-network communication. It integrates all the basic network classes into one. Its structure is
-shown in figure no. 2:
-Besides the basic function for sending messages SendMessage() and the function for creating
-a network
-connection
-AddRemoteAddress(),
-the class
-also
-contains
-the functions
-RegisterSimpleFunction() and RegisterExtendedFunction(), by which it is
-possible to determine which function will be called upon receipt of the individual message types.
-The host class is implemented in the files dohost.h and dohost.cpp.
-
-
-THOST
-thread
-TNET_TALKER
-TNET_MESSAGE_QUEUE
-incoming messages
-
-thread
-thread
-
-TNET_LISTENER
-
-thread
-
-thread
-TNET_HANDLER
-TNET_MESSAGE_QUEUE
-outgoing messages
-
-thread
-
-TNET_DISPATCHER
-
-Figure no. 2: The THOST class
+network communication: a listener, a dispatcher and a message handler. Besides the function for
+sending messages SendMessage(), it has a route table (AddRoute(), RemoveRoute(), ClearRoute()),
+which maps every player id to the connection of the host of that player (no connection for a player
+of this host). Every follower has one connection, to the leader; the leader relays the messages one
+follower sends for the others (RouteRelay()). The functions RegisterExtendedFunction(),
+RegisterOnReceive() and RegisterOnDisconnect() determine which function is called upon receipt of
+the individual message types; Start() then starts receiving. The host class is implemented in the
+files dohost.h and dohost.cpp.
 
 ### 10.4 Starting the game
 As already mentioned above, a client-server architecture is used when starting the game. The computer

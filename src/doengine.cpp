@@ -4207,7 +4207,7 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
     return;
   }
 
-  leader->SendPingReply (request_time, msg->GetConnection ());
+  leader->SendTimeReply (net_protocol_ping, request_time, msg->GetConnection ());
 
   giant->Unlock ();
 }
@@ -4265,7 +4265,7 @@ static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
       || leader->GetPlayerIDByConnection (msg->GetConnection ()) == -1)
     return;
 
-  leader->SendTimeSyncReply (request_time, msg->GetConnection ());
+  leader->SendTimeReply (net_protocol_time_sync, request_time, msg->GetConnection ());
 }
 
 /**

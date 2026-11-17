@@ -214,8 +214,7 @@ std::string NetStatReport()
   /* Game clock minus the raw monotonic clock: the same on every host after a perfect clock sync.
      On one machine the difference of two hosts' offsets is their sync error, which shifts transit
      and perceived by exactly that amount. */
-  const double offset_ms =
-    (AppGetTimeSeconds() - (double)SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency()) * 1000.0;
+  const double offset_ms = (AppGetTimeSeconds() - AppGetRawSeconds()) * 1000.0;
   char buf[256];
   std::string out;
   SDL_mutex *m = Lock();

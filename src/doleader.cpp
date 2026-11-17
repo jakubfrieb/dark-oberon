@@ -132,22 +132,13 @@ void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
   GetListener ()->CloseAfter (conn, refused_close_delay);
 }
 
-/** Answers the ping request with @p request_time received on the connection @p conn. */
-void TLEADER::SendPingReply (double request_time, TNET_CONN_ID conn) {
+/**
+ *  Answers a ping or time sync request (@p type) with @p request_time received on the
+ *  connection @p conn: the echoed request time and our clock.
+ */
+void TLEADER::SendTimeReply (T_BYTE type, double request_time, TNET_CONN_ID conn) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
-  m->Init_send(net_protocol_ping, 1);
-
-  m->PackDouble (request_time);
-  m->PackDouble (AppGetTimeSeconds());
-
-  m->SetReplyConnection (conn);
-  SendMessage (m);
-}
-
-/** Answers the time sync request with @p request_time received on the connection @p conn. */
-void TLEADER::SendTimeSyncReply (double request_time, TNET_CONN_ID conn) {
-  TNET_MESSAGE *m = pool_net_messages->GetFromPool();
-  m->Init_send(net_protocol_time_sync, 1);
+  m->Init_send(type, 1);
 
   m->PackDouble (request_time);
   m->PackDouble (AppGetTimeSeconds());

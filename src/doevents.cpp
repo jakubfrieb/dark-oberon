@@ -181,6 +181,9 @@ bool TEVENT::IsCrossOwnerRequest(void)
  *  @note Keep the field list in sync with DelinearizeEvent() and
  *        GetLinearizedSize() (received events must have exactly that size).
  */
+/** Offsets of the last fields of a linearized event (LinearizeEvent()) and its size. */
+static const int wire_int1 = 31, wire_int2 = 39, wire_size = wire_int2 + 8;
+
 int TEVENT::LinearizeEvent(char *char_event)
 {
   T_BYTE *p = reinterpret_cast<T_BYTE *>(char_event);
@@ -197,8 +200,8 @@ int TEVENT::LinearizeEvent(char *char_event)
   p[28] = simple4;
   p[29] = simple5;
   p[30] = simple6;
-  NetPutU64 (p + 31, static_cast<uint64_t>(static_cast<int64_t>(int1)));
-  NetPutU64 (p + 39, static_cast<uint64_t>(static_cast<int64_t>(int2)));
+  NetPutU64 (p + wire_int1, static_cast<uint64_t>(static_cast<int64_t>(int1)));
+  NetPutU64 (p + wire_int2, static_cast<uint64_t>(static_cast<int64_t>(int2)));
 
   return GetLinearizedSize ();
 }
@@ -220,8 +223,8 @@ bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
 
   const T_BYTE *p = reinterpret_cast<const T_BYTE *>(char_event);
 
-  const int64_t n_int1 = static_cast<int64_t>(NetGetU64 (p + 31));
-  const int64_t n_int2 = static_cast<int64_t>(NetGetU64 (p + 39));
+  const int64_t n_int1 = static_cast<int64_t>(NetGetU64 (p + wire_int1));
+  const int64_t n_int2 = static_cast<int64_t>(NetGetU64 (p + wire_int2));
   if (static_cast<intptr_t>(n_int1) != n_int1 || static_cast<intptr_t>(n_int2) != n_int2)
     return false;
 
@@ -250,7 +253,7 @@ bool TEVENT::DelinearizeEvent(char *char_event, int lin_event_len)
  */
 int TEVENT::GetLinearizedSize(void)
 {
-  return 1 + 4 + 8 + 3 * 4 + 6 + 2 * 8;   // 47 bytes
+  return wire_size;   // 47 bytes
 }
 
 

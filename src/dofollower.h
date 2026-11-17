@@ -65,7 +65,7 @@ public:
   static const int samples_count = 8;
   static constexpr double max_step = 0.002;   //!< Seconds.
 
-  TCLOCK_FILTER () : used (0), next (0) {}
+  TCLOCK_FILTER () : samples (), used (0), next (0), offset (0) {}
 
   double AddSample (double rtt, double offset);
 
