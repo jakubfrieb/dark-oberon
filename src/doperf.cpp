@@ -1,10 +1,12 @@
 #include "doperf.h"
+#include "dotime.h"
 
 #include <SDL.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 TPERF_SUMMARY PerfSummarize(std::vector<double> v)
 {
@@ -141,6 +143,88 @@ std::string PerfReport(int units)
   out += Line("path", PerfSummarize(jobs), buf);
   const TPERF_SUMMARY q = PerfSummarize(queue);
   snprintf(buf, sizeof(buf), "perf: path queue avg=%.1f p99=%.0f max=%.0f waiting searches\n", q.avg, q.p99, q.max);
+  out += buf;
+  return out;
+}
+
+namespace {
+
+/* Network latency histograms: 0.1 ms buckets from -100 ms to 1 s (values outside go to the edge
+   buckets; min and max stay exact). Negative values come from the clock difference of the hosts. */
+const double kNetBucketMs = 0.1, kNetLowMs = -100.0;
+const int kNetBuckets = 11000;
+
+struct TNET_HISTOGRAM {
+  unsigned counts[kNetBuckets];
+  unsigned n;
+  double sum, min, max;
+};
+
+TNET_HISTOGRAM g_net[NS_COUNT];
+double g_net_from = 0.0;   // samples before this time (AppGetTimeSeconds) are ignored
+
+const char *const kNetStatNames[NS_COUNT] = {"transit", "dispatch", "perceived"};
+
+double NetPercentile(const TNET_HISTOGRAM &h, double p)
+{
+  const unsigned want = (unsigned)std::ceil(p / 100.0 * h.n);
+  unsigned seen = 0;
+  for (int i = 0; i < kNetBuckets; i++) {
+    seen += h.counts[i];
+    if (seen >= want && seen > 0)
+      return std::min(h.max, std::max(h.min, kNetLowMs + (i + 0.5) * kNetBucketMs));
+  }
+  return h.max;
+}
+
+} // namespace
+
+void NetStatRecord(TNET_STAT stat, double seconds)
+{
+  SDL_mutex *m = Lock();
+  SDL_LockMutex(m);
+  if (AppGetTimeSeconds() >= g_net_from) {
+    TNET_HISTOGRAM &h = g_net[stat];
+    const double ms = seconds * 1000.0;
+    const int i = (int)std::floor((ms - kNetLowMs) / kNetBucketMs);
+    h.counts[std::min(kNetBuckets - 1, std::max(0, i))]++;
+    h.min = h.n ? std::min(h.min, ms) : ms;
+    h.max = h.n ? std::max(h.max, ms) : ms;
+    h.sum += ms;
+    h.n++;
+  }
+  SDL_UnlockMutex(m);
+}
+
+void NetStatReset(double warmup_s)
+{
+  SDL_mutex *m = Lock();
+  SDL_LockMutex(m);
+  memset(g_net, 0, sizeof(g_net));
+  g_net_from = AppGetTimeSeconds() + warmup_s;
+  SDL_UnlockMutex(m);
+}
+
+std::string NetStatReport()
+{
+  /* Game clock minus the raw monotonic clock: the same on every host after a perfect clock sync.
+     On one machine the difference of two hosts' offsets is their sync error, which shifts transit
+     and perceived by exactly that amount. */
+  const double offset_ms =
+    (AppGetTimeSeconds() - (double)SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency()) * 1000.0;
+  char buf[256];
+  std::string out;
+  SDL_mutex *m = Lock();
+  SDL_LockMutex(m);
+  for (int k = 0; k < NS_COUNT; k++) {
+    const TNET_HISTOGRAM &h = g_net[k];
+    snprintf(buf, sizeof(buf), "netstat: %-9s ms n=%u avg=%.2f p50=%.2f p95=%.2f p99=%.2f max=%.2f min=%.2f\n",
+             kNetStatNames[k], h.n, h.n ? h.sum / h.n : 0.0, h.n ? NetPercentile(h, 50) : 0.0,
+             h.n ? NetPercentile(h, 95) : 0.0, h.n ? NetPercentile(h, 99) : 0.0, h.max, h.min);
+    out += buf;
+  }
+  SDL_UnlockMutex(m);
+  snprintf(buf, sizeof(buf), "netstat: clock offset=%.3f ms (game clock - monotonic clock)\n", offset_ms);
   out += buf;
   return out;
 }

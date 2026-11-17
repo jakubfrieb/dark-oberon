@@ -44,6 +44,7 @@
 #include "dologs.h"
 #include "donet.h"
 #include "dosimpletypes.h"
+#include "dotime.h"
 #include "utils.h"
 
 using std::string;
@@ -109,6 +110,15 @@ static void EnableKeepalive (int fd) {
   setsockopt (fd, IPPROTO_TCP, TCP_KEEPINTVL, (const char *)&interval, sizeof (interval));
   setsockopt (fd, IPPROTO_TCP, TCP_KEEPCNT, (const char *)&count, sizeof (count));
 #endif
+}
+
+/**
+ *  Game messages are small and latency matters more than their count: send each one at once
+ *  instead of letting Nagle's algorithm hold it back until the previous one is acknowledged.
+ */
+static void EnableNoDelay (int fd) {
+  int on = 1;
+  setsockopt (fd, IPPROTO_TCP, TCP_NODELAY, (const char *)&on, sizeof (on));
 }
 
 /**
@@ -194,6 +204,7 @@ TNET_ADDRESS::TNET_ADDRESS (in_addr address, in_port_t port) {
   }
 
   EnableKeepalive (fd);
+  EnableNoDelay (fd);
   connected = true;
 }
 
@@ -283,6 +294,7 @@ void TNET_MESSAGE::Init_receive (in_addr address, in_port_t port, int fd, T_BYTE
   this->address = address;
   this->port = port;
   this->fd = fd;
+  received_at = AppGetTimeSeconds ();
 
   extract_p = 0;
   extract_error = false;
@@ -558,6 +570,7 @@ int SDLCALL TNET_LISTENER::listener_thread_function (void *listener_class) {
     }
 
     EnableKeepalive (new_fd);
+    EnableNoDelay (new_fd);
 
     self->AddConnection (new_fd, remote_addr, false);
   }

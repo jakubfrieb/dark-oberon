@@ -4373,6 +4373,16 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   return NULL;
 }
 
+/**
+ *  netstat: true for the events whose time stamp is when they happened on the owner, which
+ *  measures their latency. Requests can be scheduled ahead, and so are US_ZOMBIE and US_DELETE
+ *  (seconds after the unit died).
+ */
+static bool NetStatHasLatency (TEVENT *ev)
+{
+  return ev->GetEvent () < RQ_FIRST && ev->GetEvent () != US_ZOMBIE && ev->GetEvent () != US_DELETE;
+}
+
 static void ProcessNetEvent (TNET_MESSAGE *msg) {
   giant->Lock ();
 
@@ -4407,6 +4417,10 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
     giant->Unlock ();
     return;
   }
+
+  NetStatRecord (NS_DISPATCH, AppGetTimeSeconds () - msg->GetReceivedAt ());
+  if (NetStatHasLatency (pevent))
+    NetStatRecord (NS_TRANSIT, msg->GetReceivedAt () - pevent->GetTimeStamp ());
 
   queue_events->PutEvent(pevent);
 
@@ -5958,6 +5972,7 @@ static int SDLCALL ProcessFunction(void *arg)
     AppSleepSeconds(0.02);
 
   Info ("Update: Running");
+  NetStatReset (5.0);   // events queued while the hosts loaded the map would skew the latency
 
   while (started) {
     time.Update ();
@@ -6025,6 +6040,9 @@ static int SDLCALL ProcessFunction(void *arg)
 
               Debug(LogMsg("PROC_R: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), AppGetTimeSeconds(), queue_events->GetQueueLength()));
             #endif
+
+            if (NetStatHasLatency(act_event))
+              NetStatRecord(NS_PERCEIVED, AppGetTimeSeconds() - act_event->GetTimeStamp());
 
             act_unit->ProcessEvent(act_event);
           }
@@ -7585,6 +7603,7 @@ void Game(void)
 
   } // while (state == ST_GAME)
 
+  if (connected) Info(NetStatReport().c_str());   // network latency of this game
   if (state == ST_QUIT && connected) Disconnect();
 
   if (state == ST_RESET_VIDEO_MENU) state = ST_GAME;
@@ -7738,7 +7757,7 @@ void RunDedicatedServer(const char *map_basename, int port)
 
   fprintf(stderr, "Dark Oberon dedicated server: map '%s' TCP %d\n", map_base.c_str(), port);
   fprintf(stderr, "Clients connect to this host:%d — then type: start\n", port);
-  fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ... | spawn <n> [fight] | perf [reset]\n");
+  fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ... | spawn <n> [fight] | perf [reset] | netstat [reset]\n");
 
   bool running = true;
   while (running) {
@@ -7899,6 +7918,13 @@ void RunDedicatedServer(const char *map_basename, int port)
         } else
           fputs(PerfReport(CountPlayerUnits()).c_str(), stderr);
       }
+      else if (strncmp(buf, "netstat", 7) == 0) {
+        if (strstr(buf + 7, "reset")) {
+          NetStatReset();
+          fputs("netstat: reset\n", stderr);
+        } else
+          fputs(NetStatReport().c_str(), stderr);
+      }
       else if (strncmp(buf, "start", 5) == 0) {
         player_array.Lock();
         {
@@ -7939,8 +7965,10 @@ void RunDedicatedServer(const char *map_basename, int port)
     SDL_PumpEvents();
   }
 
-  if (started)
+  if (started) {
+    Info(NetStatReport().c_str());   // network latency of this game
     StopGame();
+  }
   Disconnect();
 }
 #endif /* HEADLESS */
