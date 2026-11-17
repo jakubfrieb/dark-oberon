@@ -623,6 +623,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
 
     host->RegisterOnDisconnect (OnDisconnect);
     host->RegisterOnReceive (OnlyFromLeader);
+    host->Start ();
 
     player_array.RunningOnFollower ();
 
@@ -1651,8 +1652,12 @@ void UpdateGameMenu()
 
 /**
  *  Synchronises player_array with game menu and updates the menu.
+ *
+ *  Lock order: giant, then player_array (like the network handlers). A caller that holds
+ *  player_array must have taken giant before it.
  */
 void UpdatePlayersAndMenu () {
+  giant->Lock ();
   player_array.Lock ();
 
 #if !HEADLESS
@@ -1660,12 +1665,11 @@ void UpdatePlayersAndMenu () {
   UpdateGameMenu ();
 #endif
 
-  giant->Lock ();
   if (host != NULL && host->GetType () == THOST::ht_leader)
     dynamic_cast<TLEADER *>(host)->SendPlayerArray (selected_map_name, false);
-  giant->Unlock ();
 
   player_array.Unlock ();
+  giant->Unlock ();
 }
 
 
@@ -1766,6 +1770,7 @@ bool CreateGame()
 
   host->RegisterOnDisconnect (OnDisconnect);
   host->RegisterOnReceive (RelayFromFollower);
+  host->Start ();
 
   leader_ready = false;
 
@@ -2106,6 +2111,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     break;
 
   case MNU_KILL_PLAYER:
+    giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
     player_array.Lock ();
 
     {
@@ -2120,6 +2126,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
     UpdatePlayersAndMenu ();
     player_array.Unlock ();
+    giant->Unlock ();
     break;
 
   case MNU_ADD_COMPUTER:
@@ -2574,6 +2581,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
     for (act = map_info_list.map_list, i = 0; (act != NULL) && (i < item_index); act = act->next, i++); // finds pointer to item_index.th map
 
     if (act != NULL) {
+      giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
       player_array.Lock ();
 
       /* The new map (its name, scheme and races) can make the player list too
@@ -2598,6 +2606,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
 
       UpdatePlayersAndMenu ();
       player_array.Unlock ();
+      giant->Unlock ();
     }
   }
 }
@@ -2612,6 +2621,7 @@ void MenuListOnChange(TGUI_BOX *sender, int item_index)
  */
 void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
   
+  giant->Lock ();   // before player_array (UpdatePlayersAndMenu())
   player_array.Lock();
 
   TGUI_LIST_BOX *list = (TGUI_LIST_BOX *)sender;
@@ -2620,8 +2630,6 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
     if (list == pl_race_combo[i]->GetList ()) {
       string selected_race_name = list->GetItem (item_index);
       string selected_race_id = map_info_list.GetRacIdName (selected_race_name);
-
-      giant->Lock ();
 
       if (host->GetType () == THOST::ht_leader) {
         /* The same check as a race change from the network; on refusal the
@@ -2638,14 +2646,13 @@ void MenuPlayerRaceComboOnChange (TGUI_BOX *sender, int item_index) {
               player_array.GetPlayerName (i), selected_race_id);
       }
 
-      giant->Unlock ();
-
       break;
     }
 
   UpdatePlayersAndMenu ();
   
   player_array.Unlock();
+  giant->Unlock ();
 }
 
 
@@ -3903,6 +3910,15 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
     return;
   }
 
+  /* A follower chooses only his own race (his combo box is the only one enabled), and only in
+     the lobby. The leader's own menu changes the others (MenuPlayerRaceComboOnChange()). */
+  if (started || host->GetPlayerIDByConnection (msg->GetConnection ()) != index) {
+    NetDropWarning (LogMsg ("change_race: ignoring a race for player %d from %s", index,
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    giant->Unlock ();
+    return;
+  }
+
   player_array.Lock ();
 
   if (index < 1 || index >= player_array.GetCount ()
@@ -3985,7 +4001,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
        * where the leader's player_array message arrives before our address echo.
        */
       p.local = follower->HasMyAddress () &&
-          TNET_RESOLVER::NetworkToAscii (p.addr) == TNET_RESOLVER::NetworkToAscii (follower->GetMyAddress ()) &&
+          p.addr.s_addr == follower->GetMyAddress ().s_addr &&
           p.port == follower->GetMyPort ();
       if (p.local && !p.computer)
         local_humans++;
@@ -4191,7 +4207,7 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
     return;
   }
 
-  leader->SendPingReply (request_time, msg->GetConnection ());
+  leader->SendTimeReply (net_protocol_ping, request_time, msg->GetConnection ());
 
   giant->Unlock ();
 }
@@ -4244,10 +4260,12 @@ static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
   double request_time = msg->ExtractDouble ();
   msg->ExtractEnd ();
 
-  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time))
+  /* Only players get an answer, like a ping (GetPlayerIDByConnection() needs no giant). */
+  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time)
+      || leader->GetPlayerIDByConnection (msg->GetConnection ()) == -1)
     return;
 
-  leader->SendTimeSyncReply (request_time, msg->GetConnection ());
+  leader->SendTimeReply (net_protocol_time_sync, request_time, msg->GetConnection ());
 }
 
 /**
@@ -4332,6 +4350,13 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
  *
  *  @return NULL when the event is valid, otherwise a short reason.
  */
+/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
+ *  1 and down from -1). */
+static bool IsNetUnitID (intptr_t id)
+{
+  return id > INT_MIN && id <= INT_MAX;
+}
+
 static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 {
   if (game_data && (!started || players == NULL))
@@ -4341,9 +4366,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   if (pid < 0 || pid >= player_array.GetCount () || (game_data && players[pid] == NULL))
     return "player";
 
-  /* abs(INT_MIN) stays negative: THASHTABLE_UNITS::HashFunction would index
-   * before the hash table. */
-  if (ev->GetUnitID () == INT_MIN)
+  if (!IsNetUnitID (ev->GetUnitID ()))
     return "unit id";
 
   if (!std::isfinite (ev->GetTimeStamp ()))
@@ -4353,6 +4376,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   bool direction = true;      // simple4 = direction
   bool impact = false;        // US_ATTACKING: simple5, simple6, int1 = impact x, y, segment
   int player_field = -1;      // simple<N> holds a player id
+  bool new_unit = false;      // int2 = the id of a new unit (0 would make the receiver pick one)
 
   switch (ev->GetEvent ()) {
   // states broadcast by the unit owner
@@ -4365,8 +4389,10 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   case US_ATTACKING:  impact = true; break;
 
   // requests
-  case RQ_FIRE_OFF: case RQ_END_MINE: case RQ_END_UNLOAD: case RQ_CREATE_UNIT:
+  case RQ_FIRE_OFF: case RQ_END_MINE: case RQ_END_UNLOAD:
     break;
+  case RQ_CREATE_UNIT:
+    new_unit = true; break;
   case RQ_FEEDING:    player_field = 6; break;    // target owner
   case RQ_IMPACT: case RQ_SYNC_RALLY:
     direction = false; break;
@@ -4374,6 +4400,7 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
     direction = false; break;
   case RQ_CREATE_PROJECTILE:                      // simple4..6 = impact position
     direction = false;
+    new_unit = true;
     if (game_data && (ev->simple4 >= map.width || ev->simple5 >= map.height || ev->simple6 >= DAT_SEGMENTS_COUNT))
       return "position";
     break;
@@ -4407,6 +4434,9 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   if (impact && (ev->int1 < 0 || ev->int1 >= DAT_SEGMENTS_COUNT
                  || (game_data && (ev->simple5 >= map.width || ev->simple6 >= map.height))))
     return "impact position";
+
+  if (new_unit && (ev->int2 == 0 || !IsNetUnitID (ev->int2)))
+    return "new unit id";
 
   if (player_field > 0) {
     const int p = (player_field == 1) ? ev->simple1 : (player_field == 5) ? ev->simple5 : ev->simple6;
@@ -4445,7 +4475,7 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
       player_array.Unlock ();
     }
     m.player_id = ev.GetPlayerID ();
-    m.request = ev.GetEvent () >= RQ_FIRST;
+    m.cross_owner = ev.IsCrossOwnerRequest ();
     break;
   }
   case net_protocol_chat_message:   // one string, nothing after it
@@ -4486,10 +4516,12 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
 /**
  *  Follower: receive handler (TNET_LISTENER::RECEIVE_HANDLER). Everything comes through the
  *  leader, which relays; a connection to the follower's (unused) listen port is ignored.
+ *  It uses only the THOST part of the follower, which stays valid while the readers run.
  */
 static TNET_LISTENER::ReceiveResult OnlyFromLeader (void *follower, TNET_MESSAGE *msg)
 {
-  if (msg->GetConnection () == dynamic_cast<TFOLLOWER *>(static_cast<THOST *>(follower))->GetLeaderConnection ())
+  const TNET_CONN_ID leader = static_cast<THOST *>(follower)->GetRemoteConnection ();
+  if (leader == no_connection || msg->GetConnection () == leader)   // see GetRemoteConnection()
     return TNET_LISTENER::receive_dispatch;
 
   NetDropWarning (LogMsg ("Dropping message (type %d) from %s, which is not the leader", msg->GetType (),
@@ -4658,8 +4690,12 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
   if (msg->ExtractFailed ())
     return;
 
+  /* On the leader a follower announces only his own departure (the relay checks it too, but
+     a connect pipelined with a disconnect reached the reader before the follower was a player). */
   giant->Lock ();
-  bool from_player = host != NULL && FromPlayer (msg);
+  bool from_player = host != NULL && FromPlayer (msg)
+                     && (host->GetType () != THOST::ht_leader
+                         || host->GetPlayerIDByConnection (msg->GetConnection ()) == player_id);
   giant->Unlock ();
 
   if (from_player)
@@ -4764,7 +4800,12 @@ static int SDLCALL OnDisconnectThread (void *d) {
     return 0;
   }
 
-  if (state == ST_PLAY_MENU) {
+  /* A game runs from the start player array on (state ST_GAME, loading) until it is stopped
+     (started), also while its Esc menu is open (state ST_PLAY_MENU): a lobby removal there would
+     shift the player ids of a running game. */
+  const bool in_game = started || state == ST_GAME;
+
+  if (!in_game && state == ST_PLAY_MENU) {
     Debug ("in menu");
 
     if (host->GetType () == THOST::ht_follower) {
@@ -4792,7 +4833,7 @@ static int SDLCALL OnDisconnectThread (void *d) {
 
       player_array.Unlock ();
     }
-  } else if (state == ST_GAME) {
+  } else if (in_game) {
       Debug ("in game");
 
       player_array.Lock ();
@@ -4831,8 +4872,10 @@ static void OnDisconnect (TNET_CONN_ID conn) {
 
   data->conn = conn;
 
-  if (SDL_CreateThread (OnDisconnectThread, "ondisc", data) == NULL)
+  SDL_Thread *thread = SDL_CreateThread (OnDisconnectThread, "ondisc", data);
+  if (thread == NULL)
     Critical ("Could not create OnDisconnect thread");
+  SDL_DetachThread (thread);   // nobody waits for it: every ended connection would leak one
 }
 
 
@@ -6181,7 +6224,7 @@ static int SDLCALL ProcessFunction(void *arg)
               Debug(LogMsg("PROC_R: P:%d U:%d E:%s RQ:%d X:%d Y:%d Z:%d R:%d I1:%d TS:%f RT:%f COUNT:%d", act_event->GetPlayerID(), act_event->GetUnitID(), EventToString(act_event->GetEvent()), act_event->GetRequestID(), act_event->simple1, act_event->simple2, act_event->simple3, act_event->simple4, act_event->int1, act_event->GetTimeStamp(), AppGetTimeSeconds(), queue_events->GetQueueLength()));
             #endif
 
-            if (NetStatHasLatency(act_event))
+            if (act_event->IsFromNet() && NetStatHasLatency(act_event))
               NetStatRecord(NS_PERCEIVED, AppGetTimeSeconds() - act_event->GetTimeStamp());
 
             act_unit->ProcessEvent(act_event);
@@ -7903,6 +7946,11 @@ void RunDedicatedServer(const char *map_basename, int port)
   fprintf(stderr, "Commands: status | players | addcpu [easy|medium|hard] | start | quit | logs ... | spawn <n> [fight] | perf [reset] | netstat [reset]\n");
 
   bool running = true;
+#ifndef WINDOWS
+  /* poll() sees only what the kernel holds: with a stdio buffer, a second command that came in
+     the same read (the lobby writes several at once) waited there until more input arrived. */
+  setvbuf(stdin, NULL, _IONBF, 0);
+#endif
   while (running) {
 #ifndef WINDOWS
     struct pollfd pfd;

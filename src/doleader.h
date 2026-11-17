@@ -64,8 +64,7 @@ public:
 
   void RefuseFollower (TNET_CONN_ID conn, int protocol);
 
-  void SendPingReply (double request_time, TNET_CONN_ID conn);
-  void SendTimeSyncReply (double request_time, TNET_CONN_ID conn);
+  void SendTimeReply (T_BYTE type, double request_time, TNET_CONN_ID conn);
 
   void SendPlayerArray (std::string map_name, bool start_game);
 

@@ -101,7 +101,8 @@ class THASHTABLE_UNITS {
 private:
   THASH_UNIT * table[PL_HASHTABLE_UNITS_SIZE]; //!< Array of pointers to hash nodes.
 
-  int HashFunction(int h_unit_id) { return ((abs(h_unit_id)) % PL_HASHTABLE_UNITS_SIZE);}; //!< hash function.
+  //! Hash function; any id (also INT_MIN, which abs() keeps negative) gives a valid index.
+  int HashFunction(int h_unit_id) { unsigned u = h_unit_id; return (h_unit_id < 0 ? 0u - u : u) % PL_HASHTABLE_UNITS_SIZE;};
 
 public: 
   TPLAYER_UNIT * GetUnitPointer(int g_unit_id);   // Returns pointer to unit identified by unit_id.

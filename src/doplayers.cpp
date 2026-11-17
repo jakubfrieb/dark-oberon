@@ -572,6 +572,13 @@ void TPLAYER::DecPlayerUnitsCount()
       host->SendDisconnect(GetPlayerID());
     }
     else {
+      /* A computer player of the leader lost. The other hosts learn of a defeat only from
+         the departure that the loser's host sends (their replicas do not count the units of
+         remote players), like a human who lost does above. */
+      if (host != NULL && host->GetType() == THOST::ht_leader && this != hyper_player
+          && !player_array.IsRemote(GetPlayerID()))
+        host->SendDisconnect(GetPlayerID());
+
       bool exists_player = false;
       for (int i = 0; i < player_array.GetCount(); i++) {
         if ((players[i] != hyper_player) && (players[i] != myself) && (players[i]->active == true)){

@@ -167,7 +167,7 @@ doforces.o: doforces.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h
 doglfw_sdl.o: doglfw_sdl.cpp doglfw_sdl.h
 	$(CPP) -c doglfw_sdl.cpp
 
-dohost.o: dohost.cpp build_info.h cfg.h doalloc.h dohost.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h
+dohost.o: dohost.cpp build_info.h cfg.h doalloc.h dohost.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h utils.h
 	$(CPP) -c dohost.cpp
 
 doipc.o: doipc.cpp cfg.h doalloc.h doipc.h dologs.h

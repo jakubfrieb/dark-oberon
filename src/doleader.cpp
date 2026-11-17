@@ -63,6 +63,7 @@ TLEADER::TLEADER (int incoming_message_queue_size, in_port_t listen_port)
 void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, TNET_CONN_ID conn)
 {
   T_BYTE dest = AddRoute (conn);
+  GetListener ()->Admit (conn);
 
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_hello, 0);
@@ -76,15 +77,15 @@ void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, TN
 }
 
 /** Time to show a refused host the reply before its connection is closed (seconds).
- *  Clients before 0.7.0-rc.3 crash when the connection ends during their connect pings
- *  (about 8 s). */
+ *  Clients before protocol version 2 crash when the connection ends during their connect
+ *  pings (about 8 s). */
 static const int refused_close_delay = 15;
 
 /**
  *  Refuses the host on the connection @p conn, whose connect request has protocol
  *  version @p protocol (0 = before version 2). It gets only a reply that it can
  *  show; it is never added to the players and nothing is broadcast about it. The
- *  connection is closed once the host has been idle for refused_close_delay.
+ *  connection is closed refused_close_delay later.
  */
 void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
   if (protocol == 0) {
@@ -128,25 +129,16 @@ void TLEADER::RefuseFollower (TNET_CONN_ID conn, int protocol) {
     SendMessage (m);
   }
 
-  GetListener ()->CloseWhenIdle (conn, refused_close_delay);
+  GetListener ()->CloseAfter (conn, refused_close_delay);
 }
 
-/** Answers the ping request with @p request_time received on the connection @p conn. */
-void TLEADER::SendPingReply (double request_time, TNET_CONN_ID conn) {
+/**
+ *  Answers a ping or time sync request (@p type) with @p request_time received on the
+ *  connection @p conn: the echoed request time and our clock.
+ */
+void TLEADER::SendTimeReply (T_BYTE type, double request_time, TNET_CONN_ID conn) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
-  m->Init_send(net_protocol_ping, 1);
-
-  m->PackDouble (request_time);
-  m->PackDouble (AppGetTimeSeconds());
-
-  m->SetReplyConnection (conn);
-  SendMessage (m);
-}
-
-/** Answers the time sync request with @p request_time received on the connection @p conn. */
-void TLEADER::SendTimeSyncReply (double request_time, TNET_CONN_ID conn) {
-  TNET_MESSAGE *m = pool_net_messages->GetFromPool();
-  m->Init_send(net_protocol_time_sync, 1);
+  m->Init_send(type, 1);
 
   m->PackDouble (request_time);
   m->PackDouble (AppGetTimeSeconds());
@@ -195,12 +187,12 @@ void TLEADER::SendPlayerArray (string map_name, bool start_game) {
 
   player_array.Unlock ();
 
-  SendMessage (m);
-
   /* Relay the followers' game messages from now on: each one sends them only after this
-     message, which is queued for all of them already. */
+     message arrives, so the relay must be ready before it goes out. */
   if (start_game)
     SetInGame ();
+
+  SendMessage (m);
 }
 
 void TLEADER::SendAllowProcessFunction () {

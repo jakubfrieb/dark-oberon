@@ -126,7 +126,9 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
         hlp->SetEventProps(proc_event->GetPlayerID(), proc_event->GetUnitID(), false, proc_event->GetTimeStamp(), US_EJECTING, US_NONE, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, 0);
       }
 
-      SendNetEvent(hlp, all_players);
+      // only the owner tells the others: a replica gets this event from the owner too
+      if (!player_array.IsRemote(proc_event->GetPlayerID()))
+        SendNetEvent(hlp, all_players);
       pool_events->PutToPool(hlp);
       proc_event->SetTimeStamp(proc_event->GetTimeStamp() + TS_MIN_EVENTS_DIFF);
     }
@@ -590,6 +592,7 @@ void TWORKER_UNIT::ProcessEvent(TEVENT * proc_event)
 
   // US_DELETE, RQ_DELETE
   if (proc_event->TestEvent(US_DELETE) || proc_event->TestEvent(RQ_DELETE)) {
+    LeaveHeldList();
     DeleteFromSegments();
     UnitToDelete(true);
     return;
@@ -3632,21 +3635,6 @@ void TWORKER_UNIT::FindNearestBuilding(TLIST<TBUILDING_UNIT>&acceptable_building
   }
   //save finding result
   nearest.new_buildings_count = 0;  
-}
-
-
-/**
- *  Method is called when unit is destroyed. Dealocate memory, play animation, etc.
- */
-void TWORKER_UNIT::Dead(bool local)
-{
-  if (source && !acceptor && held)     // worker is mining now
-    source->RemoveFromListOfUnits(this, LIST_WORKING);
-
-  else if (acceptor && held)     // worker is unloading now
-    acceptor->RemoveFromListOfUnits(this, LIST_WORKING);
-
-  TFORCE_UNIT::Dead(local);             // call ancestors method
 }
 
 

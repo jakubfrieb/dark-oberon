@@ -44,9 +44,9 @@
 
 
 /**
- *  String for function LogMsg().
+ *  String for function LogMsg(), one per thread (the network has many threads that log).
  */
-TLOG_MESSAGE log_msg;
+static thread_local TLOG_MESSAGE log_msg;
 SDL_mutex *log_mutex = NULL;            //!< Mutex for LogMsg function.
 
 /**
@@ -74,7 +74,7 @@ void (*log_callback)(int, const char *, const char *) = NULL;
 
 /**
  *  Construct the log message. This function is similar to sprintf, but the
- *  output is always in @c log_msg, so you don't need to care about memory
+ *  output is always in @c log_msg of the calling thread, so you don't need to care about memory
  *  allocation.
  *
  *  @param msg Format of the message

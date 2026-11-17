@@ -65,7 +65,7 @@ public:
   static const int samples_count = 8;
   static constexpr double max_step = 0.002;   //!< Seconds.
 
-  TCLOCK_FILTER () : used (0), next (0) {}
+  TCLOCK_FILTER () : samples (), used (0), next (0), offset (0) {}
 
   double AddSample (double rtt, double offset);
 
@@ -120,8 +120,10 @@ public:
   bool IsAdmitted () const { return admitted; }
   void SetAdmitted () { admitted = true; }
 
-  /** The link to the leader (fixed for the life of the follower). */
-  TNET_CONN_ID GetLeaderConnection () const { return remote_conn; }
+  ~TFOLLOWER () { Stop (); }
+
+  /** The link to the leader (fixed once started). */
+  TNET_CONN_ID GetLeaderConnection () const { return GetRemoteConnection (); }
 
   /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
   void SetLeaderLost () { leader_lost = true; }

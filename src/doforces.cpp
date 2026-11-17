@@ -249,7 +249,9 @@ void TFORCE_UNIT::ProcessEvent(TEVENT * proc_event)
 
       hlp->SetEventProps(proc_event->GetPlayerID(), proc_event->GetUnitID(), false, proc_event->GetTimeStamp(), US_EJECTING, US_NONE, -1, pos.x, pos.y, pos.segment, move_direction, 0, 0, 0);
 
-      SendNetEvent(hlp, all_players);
+      // only the owner tells the others: a replica gets this event from the owner too
+      if (!player_array.IsRemote(proc_event->GetPlayerID()))
+        SendNetEvent(hlp, all_players);
       pool_events->PutToPool(hlp);
       proc_event->SetTimeStamp(proc_event->GetTimeStamp() + TS_MIN_EVENTS_DIFF);
     }
@@ -565,6 +567,7 @@ void TFORCE_UNIT::ProcessEvent(TEVENT * proc_event)
 
   // US_DELETE, RQ_DELETE
   if (proc_event->TestEvent(US_DELETE) || proc_event->TestEvent(RQ_DELETE)) {
+    LeaveHeldList();
     DeleteFromSegments();
     UnitToDelete(true);
     return;
@@ -1716,13 +1719,21 @@ void TFORCE_UNIT::DrawLine()
 
 
 /**
+ *  Leaves the list of the unit that holds it (source, acceptor, hider), whichever it is: a
+ *  deleted unit must not stay in it. Its own source/acceptor/hider pointer can be another unit.
+ */
+void TFORCE_UNIT::LeaveHeldList()
+{
+  if (held)
+    held_where->RemoveFromListOfUnits(this, held_list);
+}
+
+/**
  *  Sets state to US_DYING
  */
 void TFORCE_UNIT::Dead(bool local)
 {
-  if (hider && held) {
-    hider->RemoveFromListOfUnits(this, LIST_HIDING);
-  }
+  LeaveHeldList();
 
   if (local) {
     if (group_id >= 0)

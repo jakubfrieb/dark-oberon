@@ -38,6 +38,7 @@
 #include "build_info.h"
 #include "dohost.h"
 #include "donet.h"
+#include "utils.h"
 
 using std::string;
 
@@ -56,6 +57,7 @@ THOST::THOST (int incoming_message_queue_size, in_port_t listen_port)
 {
   remote_address.s_addr = 0;
   remote_port = 0;
+  remote_fd = -1;
   remote_conn = no_connection;
 
   Initialise (incoming_message_queue_size, listen_port);
@@ -64,19 +66,18 @@ THOST::THOST (int incoming_message_queue_size, in_port_t listen_port)
 /**
  *  Constructor of a host that connects to @p remote_address:@p remote_port
  *  first (throws TNET_LISTENER::ConnectingErrorException), the host of player 0.
+ *  The connection is read from Start() on.
  */
 THOST::THOST (int incoming_message_queue_size, in_port_t listen_port,
               in_addr remote_address, in_port_t remote_port)
 {
-  int fd = TNET_LISTENER::DialSocket (remote_address, remote_port);
+  remote_fd = TNET_LISTENER::DialSocket (remote_address, remote_port);
+  remote_conn = no_connection;
 
   this->remote_address = remote_address;
   this->remote_port = remote_port;
 
   Initialise (incoming_message_queue_size, listen_port);
-
-  remote_conn = listener->AddDialedConnection (remote_address, remote_port, fd);
-  AddRoute (remote_conn);   // player 0 (the hyper player) is on the remote host
 }
 
 void THOST::Initialise (int incoming_message_queue_size, in_port_t listen_port)
@@ -93,8 +94,36 @@ void THOST::Initialise (int incoming_message_queue_size, in_port_t listen_port)
   listener->ConsumerIsAttached (dispatcher->GetThread ());
 }
 
-THOST::~THOST ()
+/**
+ *  Starts receiving: accepts connections and reads the dialed one, which becomes the route of
+ *  player 0 (the hyper player is on the remote host). Call it once, after the handlers are
+ *  registered (RegisterOnReceive(), RegisterOnDisconnect(), RegisterExtendedFunction()), so no
+ *  message gets past them.
+ */
+void THOST::Start ()
 {
+  /* The dialed connection is read before its handle is known here: until then it is the only
+     connection (accepting starts after it), see GetRemoteConnection(). */
+  if (remote_fd >= 0) {
+    int fd = remote_fd;
+    remote_fd = -1;
+    remote_conn = listener->AddDialedConnection (remote_address, remote_port, fd);
+    AddRoute (remote_conn);
+  }
+
+  listener->Start ();
+}
+
+/**
+ *  Stops the dispatcher, then the connections (their reader threads call the receive handler).
+ *  The destructor of a derived host calls it first, so neither runs while that host is
+ *  partly destroyed. It can be called more than once.
+ */
+void THOST::Stop ()
+{
+  if (listener == NULL)
+    return;
+
   /* Stop the dispatcher before the connections go away: some handlers (time sync) send
    * replies without giant, so they do not see host set to NULL. */
   listener->GetMessageQueue ()->Die ();
@@ -102,11 +131,20 @@ THOST::~THOST ()
   dispatcher->ThreadJoined ();
   listener->ConsumerIsAttached (NULL);
 
-  /* Order in which objects are deleted must be: listener, dispatcher, handler!
-   */
   delete listener;
+  listener = NULL;
+}
+
+THOST::~THOST ()
+{
+  Stop ();
+
+  /* The listener goes first (Stop()), then the dispatcher and the handler. */
   delete dispatcher;
   delete handler;
+
+  if (remote_fd >= 0)   // never started
+    do_close (remote_fd);
 
   SDL_DestroyMutex (routes_lock);
 }
@@ -252,21 +290,26 @@ int THOST::GetPlayerIDByConnection (TNET_CONN_ID conn, int from) {
  *  origin is the first player routed to it (a follower hosts one human), and the dest byte
  *  only tells a broadcast from a request.
  *
- *  - Not from a player yet (connect, refused hosts): local only, the handlers check it.
+ *  - Not from a player yet (before the dispatcher admitted it, refused hosts): only connect
+ *    and ping, local only, the handlers check them; anything else counts as invalid (a
+ *    follower sends nothing else before its hello, so a connect pipelined with game or
+ *    departure messages cannot pass them before it is admitted).
  *  - Event, only in the game:
- *    - broadcast (a unit state or a sync request about the sender's own unit): its player
- *      must be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
+ *    - broadcast (a unit state or a request about the sender's own unit): its player must
+ *      be the origin's; dispatched locally (the leader keeps replicas) and forwarded to
  *      every follower but the origin;
- *    - request to the owner of a unit (dest = that owner): local when the owner is on the
- *      leader, else forwarded to the owner's connection only.
+ *    - request to the owner of a unit (dest = that owner), only of the kinds sent to another
+ *      player's unit (TRELAY_MESSAGE::cross_owner): local when the owner is on the leader,
+ *      else forwarded to the owner's connection only.
  *  - Chat: local and to every follower but the origin, the origin id in the dest byte.
  *  - Disconnect: only of the origin's own player, local only: the leader announces the
  *    departure itself (ProcessDisconnect()). In the game the player has left from now on
  *    (#departs), so nothing he sends after it is relayed.
  *  - Everything else (lobby, ping, time sync, ...): local only.
  *
- *  Events of a player who has left (ClearRoute(), #departs) are dropped as stale, not as
- *  invalid.
+ *  A misrouted event is dropped but does not count as invalid: a replica that sends for a
+ *  unit it does not own is a bug of an honest host, and evicting it would end the game for
+ *  that player. Events of a player who has left (ClearRoute(), #departs) are stale.
  */
 TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
                           const std::vector<TNET_CONN_ID> &routes,
@@ -280,31 +323,31 @@ TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
       break;
     }
 
-  if (r.origin == -1)
-    return r;
-
   const bool known = m.player_id >= 0 && m.player_id < count;
   const bool own = known && routes[m.player_id] == from;
 
-  switch (m.type) {
+  if (r.origin == -1) {
+    if (m.type != net_protocol_connect && m.type != net_protocol_ping) {
+      r.drop = "not a player";
+      r.invalid = true;
+    }
+  } else switch (m.type) {
   case net_protocol_event:
     if (!in_game)
       r.drop = "event before the game";
     else if (!known)
       r.drop = "player";
+    else if (departed[m.player_id])
+      r.drop = "player has left";
     else if (m.dest == all_players) {
       if (!own)
         r.drop = "broadcast for another player";
-      else if (departed[m.player_id])
-        r.drop = "player has left";
       else
         r.forward = true;
     } else {
       const TNET_CONN_ID owner = routes[m.player_id];
-      if (!m.request || m.dest != m.player_id)
+      if (!m.cross_owner || m.dest != m.player_id)
         r.drop = "event for another player";
-      else if (departed[m.player_id])
-        r.drop = "player has left";
       else if (owner == from)
         r.drop = "request for an own unit";
       else if (owner != no_connection) {
@@ -313,7 +356,6 @@ TRELAY THOST::RouteRelay (const TRELAY_MESSAGE &m, TNET_CONN_ID from,
         r.to = owner;
       }
     }
-    r.invalid = r.drop != NULL && !(known && departed[m.player_id]);
     break;
 
   case net_protocol_chat_message:
@@ -354,14 +396,15 @@ TRELAY THOST::Relay (const TRELAY_MESSAGE &m, TNET_CONN_ID from) {
 /**
  *  Sends chat message to all connected hosts.
  *
- *  @param chat_message Message content.
+ *  @param chat_message Message content (cut to what one message holds).
  *  @param sender       Player id of the sender: the dest byte carries it (the leader
  *                      replaces it with the origin when it forwards a follower's chat).
  */
 void THOST::SendChatMessage (string chat_message, int sender) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_chat_message, 0, static_cast<T_BYTE>(sender));
-  m->PackString (chat_message);
+  /* The chat line can be longer than a message holds (Pack() would throw). */
+  m->PackString (chat_message.substr (0, max_net_message_size - TNET_MESSAGE::GetHeaderSize () - 1));
 
   SendToAll (m);
   pool_net_messages->PutToPool (m);

@@ -10,29 +10,27 @@
 
 namespace app_time_detail {
 
+/** The game clock: base + time since origin. The origin is set once, when the clock is first
+ *  used (clock() is a function-local static: thread-safe initialisation), and never changes,
+ *  so a reader in another thread can never combine a new origin with an old base. */
 struct Clock {
-  Uint64 origin = 0;
-  std::atomic<double> base{0.0};   // AppAdjustTimeSeconds() changes it while other threads read
-  bool inited = false;
+  const Uint64 origin = SDL_GetPerformanceCounter();
+  std::atomic<double> base{0.0};   // AppSetTimeSeconds()/AppAdjustTimeSeconds() change it while other threads read
 
-  double get()
+  double elapsed() const
   {
-    if (!inited) {
-      origin = SDL_GetPerformanceCounter();
-      inited = true;
-      base = 0.0;
-    }
     const Uint64 freq = SDL_GetPerformanceFrequency();
-    if (freq == 0)
-      return base;
-    return base + (SDL_GetPerformanceCounter() - origin) / static_cast<double>(freq);
+    return freq ? (SDL_GetPerformanceCounter() - origin) / static_cast<double>(freq) : 0.0;
+  }
+
+  double get() const
+  {
+    return base + elapsed();
   }
 
   void set(double t)
   {
-    origin = SDL_GetPerformanceCounter();
-    base = t;
-    inited = true;
+    base = t - elapsed();
   }
 };
 
@@ -55,8 +53,8 @@ inline void AppSetTimeSeconds(double t)
   app_time_detail::clock().set(t);
 }
 
-/** Moves the clock by @p delta seconds. Unlike AppSetTimeSeconds it changes one
- *  value only, so threads reading the clock meanwhile never see a torn time. */
+/** Moves the clock by @p delta seconds (like AppSetTimeSeconds, threads reading the clock
+ *  meanwhile see either the old or the new time). */
 inline void AppAdjustTimeSeconds(double delta)
 {
   app_time_detail::Clock &c = app_time_detail::clock();

@@ -133,10 +133,10 @@
 - player ids are within range;
 - **ownership:**
   - a non-RQ event must have a `player_id` owned by F;
-  - an RQ request is routed to the real owner of the target unit, which must be a valid id (for example, a mining request to a server-owned source is handled locally);
+  - an RQ request is routed to the real owner of the target unit, which must be a valid id (for example, a mining request to a server-owned source is handled locally); only the kinds a host sends to another player's unit (`RQ_CAN_MINE`) go to another owner, every other request is an owner's broadcast of its own unit;
 - **only the leader announces departures.**
 
-Anything else is dropped and counted. A connection that keeps sending invalid messages is evicted.
+Anything else is dropped. Malformed input, forged departures and anything a not yet admitted connection sends besides connect and ping are counted, and a connection that keeps sending them is evicted. A misrouted event (a broadcast or request for another player's unit) is dropped without counting: a replica of an honest host can produce one.
 
 **Ordering and departures.**
 - Order is FIFO per origin through the relay. Each destination gets exactly one delivery.
@@ -151,8 +151,8 @@ Anything else is dropped and counted. A connection that keeps sending invalid me
 ## 6. Per-connection writers (head-of-line blocking, blocker)
 
 - Every connection has **one bounded outgoing queue and one writer**: a thread per connection, or nonblocking I/O with a poll loop. The writer is the **only** code that writes to that fd.
-- Enqueueing a forward never blocks: if the queue is full, the message is dropped and the client is marked slow.
-- **Limits:** queued bytes (e.g. 256 KB) and **queue age**. If the oldest queued message is older than about 250 ms, the client is evicted. Eviction closes the socket through its owner and sends the departure broadcast.
+- Enqueueing a forward never blocks.
+- **Limits:** queued bytes (256 KB) and **queue age**. If the queue is full, or the oldest queued message is older than 2 s, the client is evicted; a message is never dropped from the stream (the peer would miss it without noticing). 250 ms was too tight for WAN play: one TCP retransmission on Wi-Fi alone takes 200 ms plus the round trip. Eviction closes the socket through its owner and sends the departure broadcast.
 - **No `SO_SNDTIMEO` approach:** a 3 s stall would freeze everyone for 3 s.
 - The incoming side keeps one reader per connection. The dispatcher's `PutMessage` must not stall the reader for a long time; this is measured as queue residence time.
 

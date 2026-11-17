@@ -181,13 +181,17 @@ double NetPercentile(const TNET_HISTOGRAM &h, double p)
 
 void NetStatRecord(TNET_STAT stat, double seconds)
 {
+  /* A time stamp comes from the peer: anything is possible, and the sum must stay finite. */
+  if (!std::isfinite(seconds))
+    return;
+
   SDL_mutex *m = Lock();
   SDL_LockMutex(m);
   if (AppGetTimeSeconds() >= g_net_from) {
     TNET_HISTOGRAM &h = g_net[stat];
     const double ms = seconds * 1000.0;
-    const int i = (int)std::floor((ms - kNetLowMs) / kNetBucketMs);
-    h.counts[std::min(kNetBuckets - 1, std::max(0, i))]++;
+    const double bucket = std::floor((ms - kNetLowMs) / kNetBucketMs);   // clamped before the cast
+    h.counts[(int)std::min(kNetBuckets - 1.0, std::max(0.0, bucket))]++;
     h.min = h.n ? std::min(h.min, ms) : ms;
     h.max = h.n ? std::max(h.max, ms) : ms;
     h.sum += ms;
@@ -210,8 +214,7 @@ std::string NetStatReport()
   /* Game clock minus the raw monotonic clock: the same on every host after a perfect clock sync.
      On one machine the difference of two hosts' offsets is their sync error, which shifts transit
      and perceived by exactly that amount. */
-  const double offset_ms =
-    (AppGetTimeSeconds() - (double)SDL_GetPerformanceCounter() / SDL_GetPerformanceFrequency()) * 1000.0;
+  const double offset_ms = (AppGetTimeSeconds() - AppGetRawSeconds()) * 1000.0;
   char buf[256];
   std::string out;
   SDL_mutex *m = Lock();

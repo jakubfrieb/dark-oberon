@@ -1189,7 +1189,10 @@ bool TMAP_UNIT::AddToListOfUnits(TFORCE_UNIT *unit, T_BYTE which_list)
  */
 void TMAP_UNIT::RemoveFromListOfUnits(TFORCE_UNIT *unit, T_BYTE which_list)
 {
-  if (!unit->IsHeld()) return;
+  /* Only from where it is held: a worker can be held by another unit than its current source
+     or acceptor (e.g. it chose a new acceptor). Unsetting its held state here would leave it in
+     the other unit's list, which then pointed at it after it was deleted. */
+  if (!unit->IsHeldIn(this, which_list)) return;
 
   if (which_list == LIST_HIDING) {
     GetHidedUnits().RemoveNode(unit);

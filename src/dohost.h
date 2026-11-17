@@ -81,7 +81,7 @@ struct TRELAY_MESSAGE {
   T_BYTE type;
   T_BYTE dest;      //!< The header's dest byte as the follower sent it.
   int player_id;    //!< Event: its player id; disconnect: the departing player; otherwise -1.
-  bool request;     //!< Event: a request (RQ_*), not a unit state.
+  bool cross_owner; //!< Event: a request that may go to another player's unit (TEVENT::IsCrossOwnerRequest()).
 };
 
 /** What the leader does with a message received from a follower (THOST::RouteRelay()). */
@@ -91,7 +91,8 @@ struct TRELAY {
   TNET_CONN_ID to;     //!< The one connection to forward to; no_connection = every follower but the origin.
   int origin;          //!< Player id of the origin (the dest byte of the forwards), -1 = not a player.
   const char *drop;    //!< Why it is dropped (then neither local nor forward), else NULL.
-  bool invalid;        //!< The drop is malformed or forged input, not a stale message.
+  bool invalid;        //!< The drop counts towards eviction (net_max_invalid_messages): input
+                       //!  no correct host sends, not a stale or misrouted message.
   bool departs;        //!< The origin's player leaves the game (his own disconnect).
 };
 
@@ -124,6 +125,9 @@ public:
 
   virtual ~THOST ();
 
+  void Start ();
+  void Stop ();
+
   void SendChatMessage (std::string chat_message, int sender);
 
   static void PackVersion (TNET_MESSAGE *msg);
@@ -153,6 +157,9 @@ public:
   /** Address of the host this one dialed at the start (the leader of a follower). */
   in_addr GetRemoteAddress () { return remote_address; }
   in_port_t GetRemotePort () { return remote_port; }
+  /** The connection to it, fixed by Start() (no_connection for a leader, and while Start()
+   *  adds it: its reader may already run then, but no other connection exists yet). */
+  TNET_CONN_ID GetRemoteConnection () const { return remote_conn; }
 
   T_BYTE AddRoute (TNET_CONN_ID conn = no_connection);
   TNET_CONN_ID GetRoute (int id);
@@ -196,16 +203,17 @@ private:
   TNET_DISPATCHER *dispatcher;    //!< Dispatcher.
 
   std::vector<TNET_CONN_ID> routes;   //!< Route table (see THOST), index = player id.
-  std::vector<bool> departed;         //!< Index = player id: left the game (MarkDeparted()).
+  std::vector<bool> departed;         //!< Index = player id: left the game (ClearRoute(), Relay()).
   SDL_mutex *routes_lock;             //!< Guards #routes and #departed.
 
   std::atomic<bool> in_game;          //!< See SetInGame().
 
   in_addr remote_address;
   in_port_t remote_port;
+  int remote_fd;              //!< Dialed socket until Start() adds its connection, else -1.
+  std::atomic<TNET_CONN_ID> remote_conn;   //!< See GetRemoteConnection().
 
 protected:
-  TNET_CONN_ID remote_conn;   //!< Connection dialed at the start (see GetRemoteAddress()).
 
   HostType type;    //!< Type of the host.
 };

@@ -50,6 +50,7 @@
 
 #include <stdint.h>
 #include <atomic>
+#include <cstring>
 #include <deque>
 #include <string>
 #include <vector>
@@ -81,13 +82,25 @@ typedef unsigned short in_port_t;
 const int max_net_message_size = 255;
 
 /** Limits of the outgoing queue of a connection (TNET_OUT_QUEUE): bytes queued and the age
- *  of the oldest queued message (seconds). */
+ *  of the oldest queued message (seconds). Past either one the connection is evicted for good,
+ *  so the age allows for a bad moment of a real player: one TCP retransmission on a lossy
+ *  Wi-Fi or WAN link alone takes 200 ms plus the round trip, and a few in a row take seconds.
+ *  A peer that keeps up never comes near either limit; one that stopped reading is gone
+ *  within seconds (the byte limit comes first in a big battle, at roughly 100 KB/s). */
 const int net_out_queue_max_bytes = 256 * 1024;
-const double net_out_queue_max_age = 0.25;
+const double net_out_queue_max_age = 2.0;
 
 /** Invalid messages (malformed or forged, see TNET_LISTENER::RECEIVE_HANDLER) after which a
  *  connection is evicted. A correct peer sends none. */
 const int net_max_invalid_messages = 32;
+
+/** Accepted connections that are not admitted yet (TNET_LISTENER::Admit()): more are closed at
+ *  once. Each one costs two threads, and a joining player is admitted within a round trip. */
+const int net_max_pending_connections = 64;
+
+/** Seconds an accepted connection has to be admitted (TNET_LISTENER::Admit()) before it is
+ *  closed: anyone can connect to the public port and then send nothing, or only pings. */
+const int net_admission_timeout = 10;
 
 
 //=========================================================================
@@ -168,7 +181,7 @@ inline double NetGetDouble (const T_BYTE *p)
 // Variables
 //=========================================================================
 
-extern TLOG_MESSAGE socket_error_message;
+extern thread_local TLOG_MESSAGE socket_error_message;
 
 /** Logs a warning about a dropped (malformed or unexpected) network message,
  *  rate limited so that a flood of bad messages cannot fill the log. */
@@ -318,7 +331,7 @@ private:
    *
    * 'size' MUST be first variable!
    */
-  T_BYTE size;     //!< Size of the message without headers.
+  T_BYTE size;     //!< Size of the message including the header.
   T_BYTE type;     //!< Type of the message.
   T_BYTE subtype;  //!< Subtype. Might not be used.
 
@@ -383,8 +396,9 @@ private:
 
 /**
  *  Outgoing queue of one connection: copies of the messages waiting for its writer. It is
- *  bounded, so a client that does not read cannot hold up the others: when it is full a new
- *  message is dropped, and when its oldest message waits too long the connection is evicted.
+ *  bounded, so a client that does not read cannot hold up the others: when it is full or its
+ *  oldest message waits too long, the connection is evicted (a message is never left out of
+ *  the stream: the peer would miss it without noticing).
  *  The message being written stays at the front until it is written, so a write blocked by
  *  the peer counts in the age.
  *
@@ -395,7 +409,7 @@ class TNET_OUT_QUEUE {
 public:
   enum PutResult {
     queued,    //!< The message waits for the writer.
-    dropped,   //!< The queue is full: the message was dropped.
+    full,      //!< The queue is full: nothing was queued, evict the connection.
     stalled    //!< The oldest message is older than the age limit: evict the connection.
   };
 
@@ -412,7 +426,6 @@ public:
   int GetBytes () const { return bytes; }
   /** Age of the oldest message (0 when empty). */
   double GetAge (double now) const { return packets.empty () ? 0 : now - packets.front ().queued_at; }
-  int GetDropped () const { return dropped_count; }
 
 private:
   struct PACKET {
@@ -425,7 +438,6 @@ private:
   int bytes;            //!< Sum of the sizes of #packets.
   int max_bytes;
   double max_age;
-  int dropped_count;
 };
 
 
@@ -435,7 +447,7 @@ private:
 
 /**
  *  Owner of the connections of a host. It accepts connections on its port, and registers the
- *  ones the host dials (Dial()). Every connection has:
+ *  ones the host dials (DialSocket(), AddDialedConnection()). Every connection has:
  *  - a stable handle (TNET_CONN_ID); nothing outside refers to its socket;
  *  - a reader thread receiving messages into the incoming message queue;
  *  - a bounded outgoing queue (TNET_OUT_QUEUE) and a writer thread, the only code writing
@@ -464,12 +476,10 @@ public:
   TNET_LISTENER (int queue_size, in_port_t port);
   ~TNET_LISTENER ();
 
+  void Start ();
+
   static int DialSocket (in_addr address, in_port_t port);
   TNET_CONN_ID AddDialedConnection (in_addr address, in_port_t port, int fd);
-
-  /** Connects to @p address:@p port; throws ConnectingErrorException. */
-  TNET_CONN_ID Dial (in_addr address, in_port_t port)
-  { return AddDialedConnection (address, port, DialSocket (address, port)); }
 
   /** Returns pointer to incoming message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()
@@ -480,9 +490,9 @@ public:
   { return port; }
 
   void ConsumerIsAttached (SDL_Thread *thread);
-  TNET_CONN_ID ClaimConnection (in_addr address, in_port_t port);
   bool IsConnectionOpen (TNET_CONN_ID conn);
-  void CloseWhenIdle (TNET_CONN_ID conn, int seconds);
+  void Admit (TNET_CONN_ID conn);
+  void CloseAfter (TNET_CONN_ID conn, int seconds);
 
   bool Send (TNET_CONN_ID conn, TNET_MESSAGE *msg, bool forward = false);
   void Shutdown (TNET_CONN_ID conn);
@@ -520,8 +530,8 @@ private:
     in_addr address;
     in_port_t port;       //!< Remote port (host byte order).
     std::string peer;     //!< "address:port" for the log.
-    bool own;             //!< We dialed it (Dial()), e.g. the leader link.
-    bool claimed;         //!< Already assigned to a remote host.
+    bool dialed;          //!< We dialed it (AddDialedConnection()), e.g. the leader link.
+    std::atomic<double> deadline;   //!< AppGetRawSeconds() when it is closed unless admitted; 0 = never.
     State state;          //!< Changes under connections_lock.
     SDL_Thread *reader;
     SDL_Thread *writer;
@@ -532,8 +542,10 @@ private:
     bool writing;         //!< The writer takes messages (false once it stops).
   };
 
-  TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool own);
+  TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool dialed);
   CONNECTION *FindConnection (TNET_CONN_ID conn);
+  void SetDeadline (CONNECTION *c, int seconds);
+  bool IsStopping ();
   void ConnectionEnded (CONNECTION *c);
   static void DeleteConnection (CONNECTION *c);
 
@@ -550,6 +562,7 @@ private:
 
   SDL_sem *bind_sem;       //!< Posted after bind succeeds or fails (port 0 = OS picks port).
   bool listener_bind_ok;   //!< Set in listener thread before posting bind_sem.
+  SDL_sem *start_sem;      //!< Posted by Start() (or the destructor): the thread starts accepting.
 };
 
 
