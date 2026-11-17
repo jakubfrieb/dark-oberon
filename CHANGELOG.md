@@ -42,7 +42,7 @@ can play together on Oberon Cloud.
   that never joined; pending connections are now limited and time out.
 - A player could change another player's race, or send game messages in another player's name.
 - A player leaving while the host had the in-game menu open broke the game for the others.
-- Long chat lines crashed the game.
+- Long chat lines crashed the game, and keys typed into a full chat line triggered game hotkeys.
 - Several rare crashes and freezes when leaving or cancelling a network game.
 - The dedicated server processed only the first of several console commands that arrived together.
 
