@@ -204,7 +204,7 @@ void TNET_MESSAGE::Init_send (T_BYTE type, T_BYTE subtype, T_BYTE dest)
  *  @param data    Data of the message including the header.
  */
 void TNET_MESSAGE::Init_receive (in_addr address, in_port_t port, TNET_CONN_ID conn, T_BYTE *data) {
-  // The first byte is the message size header (see TNET_LISTENER::listener_accept).
+  // The first byte is the message size header (see TNET_LISTENER::reader_thread_function).
   // Copy only the bytes that are actually present, not the full max_net_message_size.
   T_BYTE msg_size = data[0];
   if (msg_size < GetHeaderSize () || msg_size > max_net_message_size) {
@@ -746,7 +746,7 @@ static void LimitSendBuffer (int fd) {
 /**
  *  Takes over the connected socket @p fd: starts its writer and reader. Returns its handle.
  */
-TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own) {
+TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool dialed) {
   static std::atomic<TNET_CONN_ID> last_id (no_connection);
 
   EnableKeepalive (fd);
@@ -780,8 +780,7 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool own
   c->address = address.sin_addr;
   c->port = ntohs (address.sin_port);
   c->peer = LogMsg ("%s:%hu", inet_ntoa (address.sin_addr), c->port);
-  c->own = own;
-  c->claimed = own;   // our own connection already belongs to a remote host
+  c->dialed = dialed;
   c->state = CONNECTION::open;
   c->writing = true;
   c->lock = SDL_CreateMutex ();
@@ -930,43 +929,6 @@ void TNET_LISTENER::CloseWhenIdle (TNET_CONN_ID conn, int seconds) {
 
 void TNET_LISTENER::ConsumerIsAttached (SDL_Thread *thread) {
   consumer_thread = thread;
-}
-
-/**
- *  Returns the open connection to the host at @p address:@p port, or no_connection.
- *
- *  A connection we dialed (e.g. to the leader) matches by address and port. A connection a peer
- *  dialed comes from a random port, so it matches by address only; each one is handed out once,
- *  in the order they were accepted.
- */
-TNET_CONN_ID TNET_LISTENER::ClaimConnection (in_addr address, in_port_t port) {
-  const string wanted = TNET_RESOLVER::NetworkToAscii (address);
-  CONNECTION *found = NULL;
-
-  SDL_LockMutex (connections_lock);
-
-  for (unsigned i = 0; found == NULL && i < connections.size (); i++) {
-    CONNECTION *c = connections[i];
-    if (c->state == CONNECTION::open && c->own && c->port == port
-        && TNET_RESOLVER::NetworkToAscii (c->address) == wanted)
-      found = c;
-  }
-
-  for (unsigned i = 0; found == NULL && i < connections.size (); i++) {
-    CONNECTION *c = connections[i];
-    if (c->state == CONNECTION::open && !c->own && !c->claimed
-        && TNET_RESOLVER::NetworkToAscii (c->address) == wanted)
-      found = c;
-  }
-
-  TNET_CONN_ID conn = no_connection;
-  if (found != NULL) {
-    found->claimed = true;
-    conn = found->id;
-  }
-
-  SDL_UnlockMutex (connections_lock);
-  return conn;
 }
 
 /**

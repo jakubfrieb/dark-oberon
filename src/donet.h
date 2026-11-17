@@ -322,7 +322,7 @@ private:
    *
    * 'size' MUST be first variable!
    */
-  T_BYTE size;     //!< Size of the message without headers.
+  T_BYTE size;     //!< Size of the message including the header.
   T_BYTE type;     //!< Type of the message.
   T_BYTE subtype;  //!< Subtype. Might not be used.
 
@@ -438,7 +438,7 @@ private:
 
 /**
  *  Owner of the connections of a host. It accepts connections on its port, and registers the
- *  ones the host dials (Dial()). Every connection has:
+ *  ones the host dials (DialSocket(), AddDialedConnection()). Every connection has:
  *  - a stable handle (TNET_CONN_ID); nothing outside refers to its socket;
  *  - a reader thread receiving messages into the incoming message queue;
  *  - a bounded outgoing queue (TNET_OUT_QUEUE) and a writer thread, the only code writing
@@ -472,10 +472,6 @@ public:
   static int DialSocket (in_addr address, in_port_t port);
   TNET_CONN_ID AddDialedConnection (in_addr address, in_port_t port, int fd);
 
-  /** Connects to @p address:@p port; throws ConnectingErrorException. */
-  TNET_CONN_ID Dial (in_addr address, in_port_t port)
-  { return AddDialedConnection (address, port, DialSocket (address, port)); }
-
   /** Returns pointer to incoming message queue. */
   TNET_MESSAGE_QUEUE *GetMessageQueue ()
   { return incoming_messages; }
@@ -485,7 +481,6 @@ public:
   { return port; }
 
   void ConsumerIsAttached (SDL_Thread *thread);
-  TNET_CONN_ID ClaimConnection (in_addr address, in_port_t port);
   bool IsConnectionOpen (TNET_CONN_ID conn);
   void CloseWhenIdle (TNET_CONN_ID conn, int seconds);
 
@@ -525,8 +520,7 @@ private:
     in_addr address;
     in_port_t port;       //!< Remote port (host byte order).
     std::string peer;     //!< "address:port" for the log.
-    bool own;             //!< We dialed it (Dial()), e.g. the leader link.
-    bool claimed;         //!< Already assigned to a remote host.
+    bool dialed;          //!< We dialed it (AddDialedConnection()), e.g. the leader link.
     State state;          //!< Changes under connections_lock.
     SDL_Thread *reader;
     SDL_Thread *writer;
@@ -537,7 +531,7 @@ private:
     bool writing;         //!< The writer takes messages (false once it stops).
   };
 
-  TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool own);
+  TNET_CONN_ID AddConnection (int fd, sockaddr_in address, bool dialed);
   CONNECTION *FindConnection (TNET_CONN_ID conn);
   void ConnectionEnded (CONNECTION *c);
   static void DeleteConnection (CONNECTION *c);

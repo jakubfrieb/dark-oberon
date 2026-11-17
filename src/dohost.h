@@ -203,7 +203,7 @@ private:
   TNET_DISPATCHER *dispatcher;    //!< Dispatcher.
 
   std::vector<TNET_CONN_ID> routes;   //!< Route table (see THOST), index = player id.
-  std::vector<bool> departed;         //!< Index = player id: left the game (MarkDeparted()).
+  std::vector<bool> departed;         //!< Index = player id: left the game (ClearRoute(), Relay()).
   SDL_mutex *routes_lock;             //!< Guards #routes and #departed.
 
   std::atomic<bool> in_game;          //!< See SetInGame().
