@@ -167,7 +167,7 @@ doforces.o: doforces.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h
 doglfw_sdl.o: doglfw_sdl.cpp doglfw_sdl.h
 	$(CPP) -c doglfw_sdl.cpp
 
-dohost.o: dohost.cpp cfg.h doalloc.h dohost.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h
+dohost.o: dohost.cpp build_info.h cfg.h doalloc.h dohost.h doipc.h dologs.h donet.h dopool.h dosimpletypes.h
 	$(CPP) -c dohost.cpp
 
 doipc.o: doipc.cpp cfg.h doalloc.h doipc.h dologs.h
@@ -176,7 +176,7 @@ doipc.o: doipc.cpp cfg.h doalloc.h doipc.h dologs.h
 dolayout.o: dolayout.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c dolayout.cpp
 
-doleader.o: doleader.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
+doleader.o: doleader.cpp build_info.h cfg.h doalloc.h doconfig.h dodata.h dodraw.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h doleader.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h
 	$(CPP) -c doleader.cpp
 
 dologs.o: dologs.cpp cfg.h doalloc.h doconfig.h dodata.h dodraw.h doengine.h doevents.h dofight.h dofile.h dohost.h doipc.h dolayout.h dologs.h domap.h donet.h doplayers.h dopool.h doraces.h doschemes.h dosimpletypes.h dosound.h dothreadpool.h dounits.h dowalk.h glfont.h glgui.h utils.h

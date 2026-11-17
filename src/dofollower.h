@@ -84,6 +84,13 @@ public:
   void SendPingRequest ();
   void SendSynchronise ();
 
+  /** True once the leader's hello showed the same protocol version. */
+  bool IsAdmitted () const { return admitted; }
+  void SetAdmitted () { admitted = true; }
+
+  /** Socket of the link to the leader (fixed for the life of the follower). */
+  int GetLeaderFileDescriptor () const { return leader_fd; }
+
   /** Ask the leader to start the game (same as host stdin / web "start"). */
   void SendRequestStartGame ();
 
@@ -98,6 +105,10 @@ private:
 
   double ping_request_time;   //!< Time when the connect request was sent.
   double minimal_timeshift;   //!< Minimal timeshift yet received.
+
+  bool admitted;              //!< See IsAdmitted().
+  int leader_fd;              //!< See GetLeaderFileDescriptor().
+
 };
 
 

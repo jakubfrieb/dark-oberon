@@ -62,6 +62,10 @@ enum NetworkingProtocolMessage {
   net_protocol_end
 };
 
+/** Version of the wire format. Hosts play together only when it matches: the
+ *  follower sends it in connect, the leader in hello (THOST::PackVersion()). */
+const int NET_PROTOCOL_VERSION = 2;
+
 
 //=========================================================================
 // THOST
@@ -93,6 +97,9 @@ public:
   virtual ~THOST ();
 
   void SendChatMessage (std::string chat_message);
+
+  static void PackVersion (TNET_MESSAGE *msg);
+  static int ExtractVersion (TNET_MESSAGE *msg, std::string &version);
 
   void SendDisconnect (T_BYTE player_id);
 

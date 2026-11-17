@@ -68,6 +68,9 @@ TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
   // HasMyAddress() at least see a deterministic 0.0.0.0:0 instead of garbage.
   memset (&my_address, 0, sizeof my_address);
   my_port = 0;
+
+  admitted = false;
+  leader_fd = GetTalker ()->GetRemoteFiledescriptor (0);
 }
 
 /**
@@ -80,8 +83,9 @@ void TFOLLOWER::Connect (string player_name) {
 
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_connect, 0);
-  m->Pack (&listener_port, sizeof (in_port_t));
+  m->PackU16 (listener_port);
   m->PackString (player_name);
+  PackVersion (m);
 
   ping_request_time = AppGetTimeSeconds();
 
@@ -119,7 +123,7 @@ void TFOLLOWER::SendPingRequest () {
   msg->Init_send(net_protocol_ping, 0);
 
   ping_request_time = AppGetTimeSeconds();
-  msg->Pack (&ping_request_time, sizeof ping_request_time);
+  msg->PackDouble (ping_request_time);
 
   SendMessage (msg, 0);
 }

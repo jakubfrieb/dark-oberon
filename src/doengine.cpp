@@ -624,9 +624,18 @@ static void connecting_in_menu_thread_impl (void *_data) {
 
     Debug ("Phase 3: before ping - background");
 
+    /* Stop when we left the host meanwhile (e.g. it refused us): the follower is deleted
+       once the player confirms, and host is cleared under giant before that. */
     double wait_interval = 0.05;
     for (int i = 0; i < 50; i++) {
-      follower->SendPingRequest ();
+      giant->Lock ();
+      bool ours = (host == follower
+                   && host->GetPlayerIDByFileDescriptor (follower->GetLeaderFileDescriptor ()) == 0);
+      if (ours)
+        follower->SendPingRequest ();
+      giant->Unlock ();
+      if (!ours)
+        break;
       AppSleepSeconds(wait_interval);
       wait_interval *= 1.04;
     }
@@ -3785,11 +3794,10 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
     return;
   }
 
-  in_port_t port;
-  string player_name;
-
-  msg->Extract (&port, sizeof (port));
-  player_name = msg->ExtractString ();
+  in_port_t port = msg->ExtractU16 ();
+  string player_name = msg->ExtractString ();
+  string version;
+  int protocol = THOST::ExtractVersion (msg, version);
 
   if (msg->ExtractFailed ()) {
     giant->Unlock ();
@@ -3802,15 +3810,29 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
     return;
   }
 
+  /* A second connect on the same connection would add a ghost player. */
+  if (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) != -1) {
+    NetDropWarning (LogMsg ("Refusing connect request from %s: already connected",
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    giant->Unlock ();
+    return;
+  }
+
+  /* Before anything else: a host with another protocol never becomes a player. */
+  if (protocol != NET_PROTOCOL_VERSION) {
+    Info (LogMsg ("Refusing connect request from %s: protocol %d (version '%.20s'), this host has %d",
+                  TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (), protocol,
+                  protocol ? version.c_str () : "before 0.7.0-rc.3", NET_PROTOCOL_VERSION));
+    dynamic_cast<TLEADER *>(host)->RefuseFollower (msg->GetFileDescriptor (), protocol);
+    giant->Unlock ();
+    return;
+  }
+
   player_array.Lock ();
 
-  /* AddRemotePlayer throws when the array is full, a player added after the start
-     would not have an entry in players[], and a second connect on the same
-     connection would add a ghost player; refuse before the follower gets an address. */
-  const char *why = started ? "game already started"
-                    : host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) != -1
-                      ? "already connected"
-                    : CannotAddPlayer (player_name, true);
+  /* AddRemotePlayer throws when the array is full and a player added after the start
+     would not have an entry in players[]; refuse before the follower gets an address. */
+  const char *why = started ? "game already started" : CannotAddPlayer (player_name, true);
   if (why) {
     NetDropWarning (LogMsg ("Refusing connect request from %s: %s",
                             TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (), why));
@@ -3852,6 +3874,7 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   int index = msg->ExtractByte ();
   string name = msg->ExtractString ();
   string new_race = msg->ExtractString ();
+  msg->ExtractEnd ();
 
   if (msg->ExtractFailed ()) {
     giant->Unlock ();
@@ -3922,12 +3945,17 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
   bool start_game = (msg->GetSubtype() == 1);
 
-  double time;
-  msg->Extract (&time, sizeof time);
+  /* Only after the hello: an older leader sends its own formats. */
+  if (!follower->IsAdmitted ()) {
+    NetDropWarning ("Ignoring player array from a leader with another protocol");
+    giant->Unlock ();
+    return;
+  }
+
+  double time = msg->ExtractDouble ();
 
   string net_map_name = msg->ExtractString ();    // Map name.
-  uint32_t remote_map_hash;
-  msg->Extract (&remote_map_hash, sizeof remote_map_hash);
+  uint32_t remote_map_hash = msg->ExtractU32 ();
   int player_count = msg->ExtractByte ();    // Count of players.
 
   const char *invalid = NULL;
@@ -3945,7 +3973,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
     p.local = false;
     if (!p.on_leader) {
       msg->Extract (&p.addr, sizeof (in_addr));
-      msg->Extract (&p.port, sizeof (in_port_t));
+      p.port = msg->ExtractU16 ();
 
       /* Check, if the actual player is a local or a remote player.
        * Without HasMyAddress() we'd compare against an uninitialised 0.0.0.0:0
@@ -3965,6 +3993,8 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
       invalid = "start point";
   }
 
+  if (!invalid)
+    msg->ExtractEnd ();
   if (msg->ExtractFailed ()) {    // truncated: the handler logs it
     giant->Unlock ();
     return;
@@ -4130,18 +4160,44 @@ static void ProcessHello (TNET_MESSAGE *msg) {
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
   in_addr my_address;
-  in_port_t my_port;
-
   msg->Extract (&my_address, sizeof my_address);
-  msg->Extract (&my_port, sizeof my_port);
+  in_port_t my_port = msg->ExtractU16 ();
+  double time = msg->ExtractDouble ();
 
-  double time;
-  msg->Extract (&time, sizeof time);
+  string version;
+  int protocol = THOST::ExtractVersion (msg, version);
 
-  if (msg->ExtractFailed ()) {
+  if (msg->ExtractFailed () || follower->IsAdmitted ()) {
     giant->Unlock ();
     return;
   }
+
+  /* The leader refuses us (or does not know the version 2 formats): leave. Disconnecting the
+     link first keeps OnDisconnectThread from replacing this message box. */
+  if (protocol != NET_PROTOCOL_VERSION) {
+    string message;
+    if (protocol == 0)
+      message = string ("Error:\nThe host runs an older Dark Oberon.\nBoth sides need version ")
+                + DO_VERSION_STRING + ".";
+    else
+      message = string ("Error:\nThe host runs Dark Oberon ") + version.substr (0, 20)
+                + ",\nthis is " + DO_VERSION_STRING + ".\nBoth sides need the same version.";
+    Warning (LogMsg ("Leaving the host: protocol %d (version '%.20s'), we have %d",
+                     protocol, version.c_str (), NET_PROTOCOL_VERSION));
+    host->DisconnectAll ();
+    action_key = MNU_DISCONNECT;
+    gui->ShowMessageBox (message.c_str (), GUI_MB_OK);
+    giant->Unlock ();
+    return;
+  }
+
+  if (!std::isfinite (time)) {
+    NetDropWarning ("Ignoring hello with an invalid time");
+    giant->Unlock ();
+    return;
+  }
+
+  follower->SetAdmitted ();
 
   /* Time shift is time that the request took divided by 2 (we beleive both
    * parts of the communication took the same amount of time. */
@@ -4168,15 +4224,16 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
 
   TLEADER *leader = dynamic_cast<TLEADER *>(host);
 
-  double request_time;
-  msg->Extract (&request_time, sizeof request_time);
+  double request_time = msg->ExtractDouble ();
+  msg->ExtractEnd ();
 
-  if (msg->ExtractFailed ()) {
+  /* Only players get an answer (a refused host would not understand it). */
+  if (msg->ExtractFailed () || host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) == -1) {
     giant->Unlock ();
     return;
   }
 
-  leader->SendPingReply (request_time);
+  leader->SendPingReply (request_time, msg->GetFileDescriptor ());
 
   giant->Unlock ();
 }
@@ -4193,13 +4250,11 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
 
   TFOLLOWER *follower = dynamic_cast<TFOLLOWER *>(host);
 
-  double request_time;
-  double time;
+  double request_time = msg->ExtractDouble ();
+  double time = msg->ExtractDouble ();
+  msg->ExtractEnd ();
 
-  msg->Extract (&request_time, sizeof request_time);
-  msg->Extract (&time, sizeof time);
-
-  if (msg->ExtractFailed ()) {
+  if (msg->ExtractFailed () || !std::isfinite (time)) {
     giant->Unlock ();
     return;
   }
@@ -4256,6 +4311,7 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   int id = ChatSenderID (msg->GetFileDescriptor ());
   if (id != -1) {
     string text = msg->ExtractString ();
+    msg->ExtractEnd ();
     if (!msg->ExtractFailed ()) {
       string message = player_array.GetPlayerName (id) + ": " + text;
       ost->AddText (message.c_str ());
@@ -4386,6 +4442,15 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
     pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
   }
 
+  /* The leader takes events only from its players (not from a refused host). */
+  if (host->GetType () == THOST::ht_leader
+      && host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) == -1) {
+    NetDropWarning (LogMsg ("Dropping event from %s, which is not a player",
+                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+    giant->Unlock ();
+    return;
+  }
+
   int size = msg->GetPayloadSize();
   char data[max_net_message_size];
   TEVENT *pevent;
@@ -4505,6 +4570,7 @@ static void ProcessAllowProcessFunction (TNET_MESSAGE *msg) {
 
 static void ProcessDisconnect (TNET_MESSAGE *msg) {
   T_BYTE player_id = msg->ExtractByte();
+  msg->ExtractEnd ();
 
   if (msg->ExtractFailed ())
     return;

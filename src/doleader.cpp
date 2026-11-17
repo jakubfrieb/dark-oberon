@@ -35,6 +35,7 @@
 
 #include <string>
 
+#include "build_info.h"
 #include "doleader.h"
 #include "dohost.h"
 #include "doengine.h"
@@ -67,47 +68,93 @@ void TLEADER::ConnectFollower (in_addr remote_address, in_port_t remote_port, in
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_hello, 0);
 
-  m->Pack (&remote_address, sizeof remote_address);
-  m->Pack (&remote_port, sizeof remote_port);
-
-  double time = AppGetTimeSeconds();
-
-  m->Pack (&time, sizeof time);
+  m->Pack (&remote_address, sizeof remote_address);   // in_addr is in network byte order
+  m->PackU16 (remote_port);
+  m->PackDouble (AppGetTimeSeconds());
+  PackVersion (m);
 
   SendMessage (m, dest);
 }
 
-void TLEADER::SendPingReply (double request_time) {
+/** Time to show a refused host the reply before its connection is closed (seconds).
+ *  Clients before 0.7.0-rc.3 crash when the connection ends during their connect pings
+ *  (about 8 s). */
+static const int refused_close_delay = 15;
+
+/**
+ *  Refuses the host on the connection @p fd, whose connect request has protocol
+ *  version @p protocol (0 = before version 2). It gets only a reply that it can
+ *  show; it is never added to the players and nothing is broadcast about it. The
+ *  connection is closed once the host has been idle for refused_close_delay.
+ */
+void TLEADER::RefuseFollower (int fd, int protocol) {
+  if (protocol == 0) {
+    /* An older client understands only the version 1 formats. A lobby-only player
+       array (all multi-byte fields 0, the same in any byte order) shows it a map that
+       does not exist, so Play stays disabled; the chat line is attributed to the
+       player "Server" hosted on the leader. */
+    TNET_MESSAGE *m = pool_net_messages->GetFromPool();
+    m->Init_send(net_protocol_player_array, 0);
+    m->PackDouble (0);                        // time: ignored when not in the future
+    m->PackString (string ("UPDATE CLIENT TO ") + DO_VERSION_STRING);
+    m->PackU32 (0);                           // map hash
+    m->PackByte (2);
+    for (int i = 0; i < 2; i++) {             // the hyper player and a human on the leader
+      m->PackString ("Server");
+      m->PackString ("");
+      m->PackByte (i == 0);                   // computer
+      m->PackByte (0);                        // not remote: no address follows
+      m->PackByte (0);                        // start point
+    }
+    m->SetReplyConnection (fd);
+    SendMessage (m);
+
+    m = pool_net_messages->GetFromPool();
+    m->Init_send(net_protocol_chat_message, 0);
+    m->PackString (string ("Your Dark Oberon is too old for this host: update to ") + DO_VERSION_STRING);
+    m->SetReplyConnection (fd);
+    SendMessage (m);
+  } else {
+    /* A newer client reads the version trailer of the hello and shows the versions. */
+    in_addr none;
+    none.s_addr = 0;
+
+    TNET_MESSAGE *m = pool_net_messages->GetFromPool();
+    m->Init_send(net_protocol_hello, 0);
+    m->Pack (&none, sizeof none);
+    m->PackU16 (0);
+    m->PackDouble (0);
+    PackVersion (m);
+    m->SetReplyConnection (fd);
+    SendMessage (m);
+  }
+
+  GetListener ()->CloseWhenIdle (fd, refused_close_delay);
+}
+
+/** Answers the ping request with @p request_time received on the connection @p fd. */
+void TLEADER::SendPingReply (double request_time, int fd) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_ping, 1);
 
-  double time = AppGetTimeSeconds();
+  m->PackDouble (request_time);
+  m->PackDouble (AppGetTimeSeconds());
 
-  m->Pack (&request_time, sizeof request_time);
-  m->Pack (&time, sizeof time);
-
+  m->SetReplyConnection (fd);
   SendMessage (m);
 }
 
-/**
- *  Sends the player list to all followers. Keep in sync with PlayerArrayFits()
- *  and NewPlayerArrayBytes() (doengine.cpp), which compute the size of this
- *  message so that a roster change that would not fit is refused.
- */
 void TLEADER::SendPlayerArray (string map_name, bool start_game) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_player_array, start_game);
 
   player_array.Lock ();
 
-  double time = AppGetTimeSeconds();
-
-  m->Pack (&time, sizeof time);
+  m->PackDouble (AppGetTimeSeconds());
 
   m->PackString (map_name);
 
-  uint32_t mh = map_info_list.map_ext_info.file_hash;
-  m->Pack (&mh, sizeof mh);
+  m->PackU32 (map_info_list.map_ext_info.file_hash);
 
   /* Count of players. */
   m->PackByte (static_cast<T_BYTE>(player_array.GetCount ()));
@@ -126,7 +173,7 @@ void TLEADER::SendPlayerArray (string map_name, bool start_game) {
       in_port_t port = player_array.GetPort (i);
 
       m->Pack (&addr, sizeof (in_addr));
-      m->Pack (&port, sizeof (in_port_t));
+      m->PackU16 (port);
     }
   }
 

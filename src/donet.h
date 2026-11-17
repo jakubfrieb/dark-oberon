@@ -48,6 +48,7 @@
  #include <unistd.h>
 #endif
 
+#include <stdint.h>
 #include <string>
 #include <vector>
 
@@ -76,6 +77,42 @@ typedef unsigned short in_port_t;
 
 /** Maximum size of networking message including headers. */
 const int max_net_message_size = 255;
+
+
+//=========================================================================
+// Wire encoding
+//=========================================================================
+
+/*
+ * Multi-byte message fields are fixed-width and in network byte order (big
+ * endian). They are written with shifts, so the encoding is the same on every
+ * platform and word size (no htonll() on Windows or Haiku).
+ */
+
+inline void NetPutU16 (T_BYTE *p, uint16_t v)
+{ p[0] = (T_BYTE)(v >> 8); p[1] = (T_BYTE)v; }
+
+inline void NetPutU32 (T_BYTE *p, uint32_t v)
+{ NetPutU16 (p, (uint16_t)(v >> 16)); NetPutU16 (p + 2, (uint16_t)v); }
+
+inline void NetPutU64 (T_BYTE *p, uint64_t v)
+{ NetPutU32 (p, (uint32_t)(v >> 32)); NetPutU32 (p + 4, (uint32_t)v); }
+
+/** A double travels as the u64 of its IEEE 754 bits. */
+inline void NetPutDouble (T_BYTE *p, double v)
+{ uint64_t u; memcpy (&u, &v, sizeof u); NetPutU64 (p, u); }
+
+inline uint16_t NetGetU16 (const T_BYTE *p)
+{ return (uint16_t)((p[0] << 8) | p[1]); }
+
+inline uint32_t NetGetU32 (const T_BYTE *p)
+{ return ((uint32_t)NetGetU16 (p) << 16) | NetGetU16 (p + 2); }
+
+inline uint64_t NetGetU64 (const T_BYTE *p)
+{ return ((uint64_t)NetGetU32 (p) << 32) | NetGetU32 (p + 4); }
+
+inline double NetGetDouble (const T_BYTE *p)
+{ uint64_t u = NetGetU64 (p); double v; memcpy (&v, &u, sizeof v); return v; }
 
 
 //=========================================================================
@@ -178,6 +215,10 @@ public:
 
   void SetDest (T_BYTE dest)  { this->dest = dest; }
 
+  /** Sends the message only over the connection @p fd (a reply to a message
+   *  received on it), whatever the destination is. */
+  void SetReplyConnection (int fd)  { this->fd = fd; }
+
   /** Puts @p size of bytes from memory at address @p data into the message. */
   void Pack (const void *data, int size)
   {
@@ -202,6 +243,11 @@ public:
   /** Puts a string @p str into the message. */
   void PackString (std::string str)
   { Pack (str.c_str (), str.length () + 1); }
+
+  /** Put fixed-width fields in network byte order (see NetPutU16()). */
+  void PackU16 (uint16_t v)  { T_BYTE b[2]; NetPutU16 (b, v); Pack (b, sizeof b); }
+  void PackU32 (uint32_t v)  { T_BYTE b[4]; NetPutU32 (b, v); Pack (b, sizeof b); }
+  void PackDouble (double v) { T_BYTE b[8]; NetPutDouble (b, v); Pack (b, sizeof b); }
 
   /** Gets @p size of bytes from message into memory at address @p data.
    *  Reading past the end of the received payload zero-fills @p data and marks
@@ -241,6 +287,20 @@ public:
     return char_p;
   }
 
+  /** Get fixed-width fields in network byte order (0 and malformed if the
+   *  message is too short). */
+  uint16_t ExtractU16 ()  { T_BYTE b[2]; Extract (b, sizeof b); return NetGetU16 (b); }
+  uint32_t ExtractU32 ()  { T_BYTE b[4]; Extract (b, sizeof b); return NetGetU32 (b); }
+  double ExtractDouble () { T_BYTE b[8]; Extract (b, sizeof b); return NetGetDouble (b); }
+
+  /** Count of payload bytes not extracted yet. */
+  int Remaining () { return GetPayloadSize () - extract_p; }
+
+  /** Marks the message as malformed when it has bytes after the parsed fields
+   *  (every message has an exact length). */
+  void ExtractEnd ()
+  { if (Remaining () != 0) extract_error = true; }
+
   /** True when an Extract*() call ran past the end of the message. */
   bool ExtractFailed () { return extract_error; }
 
@@ -277,7 +337,7 @@ private:
 
   in_addr address;
   in_port_t port;
-  int fd;
+  int fd;          //!< Received on this connection / reply to it (-1 = use dest).
 
   int extract_p;
   bool extract_error;  //!< An Extract*() call ran past the end of the message.
@@ -365,6 +425,7 @@ public:
   int GetListenersFileDescriptor (in_addr address, in_port_t port);
   void ReleaseConnection (int fd);
   bool IsConnectionOpen (int fd);
+  void CloseWhenIdle (int fd, int seconds);
 
   /** Distinguishes listeners of different sessions in late disconnect callbacks. */
   unsigned GetGeneration ()
