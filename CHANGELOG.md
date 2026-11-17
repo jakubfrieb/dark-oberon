@@ -9,6 +9,22 @@ is the historical baseline and not tracked here.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-17
+
+Stable release of the 0.7.0 line: everything from 0.7.0-rc.1, rc.2 and rc.3 below. No changes since
+0.7.0-rc.3.
+
+### Highlights
+- **BREAKING:** network protocol version 2. Multiplayer traffic goes through the server (or the player
+  hosting the game), so players behind home routers (NAT) can play together on Oberon Cloud.
+  **0.6.x players must update:** older clients cannot join 0.7.0 servers or hosts, and 0.7.0 clients
+  cannot join older ones.
+- Player feedback (rc.1): resolution changes and Retina/SDL3 window sizes, unit sounds, rally point flag,
+  zoom to the mouse cursor, optional C&C-style mouse controls, map editor layout.
+- Multiplayer fixes (rc.2, rc.3): races, lobby ghosts, unit movement of the second player, crashes when
+  players leave, "You WON!" for the winner, validation of network messages, a slow player no longer
+  delays the others.
+
 ## [0.7.0-rc.3] - 2026-11-17
 
 Third release candidate: multiplayer through the server (relay), so two players behind home routers (NAT)
@@ -436,7 +452,8 @@ First fork release — baseline of all changes since the upstream snapshot.
 - Repo-wide secret audit: no live API keys, tokens, or private keys present.
 - `.env` added to `.gitignore`; `.env.example` ships only a placeholder.
 
-[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.3...HEAD
+[Unreleased]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...v0.7.0
 [0.7.0-rc.3]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.2...v0.7.0-rc.3
 [0.7.0-rc.2]: https://github.com/jakubfrieb/dark-oberon/compare/v0.7.0-rc.1...v0.7.0-rc.2
 [0.7.0-rc.1]: https://github.com/jakubfrieb/dark-oberon/compare/v0.6.0...v0.7.0-rc.1
