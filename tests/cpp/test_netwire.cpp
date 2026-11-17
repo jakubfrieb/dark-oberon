@@ -382,6 +382,31 @@ TEST(test_connection_writer_and_eviction) {
   close(b[1]);
 }
 
+/** Die() wakes a producer blocked on a full queue; its message goes back to the pool. */
+TEST(test_queue_die_wakes_producer) {
+  if (!pool_net_messages)
+    pool_net_messages = new TPOOL<TNET_MESSAGE>(32, 32, 256);
+  static TNET_MESSAGE_QUEUE *q;
+  static std::atomic<bool> put_done;
+  q = new TNET_MESSAGE_QUEUE(1);
+  put_done = false;
+  static TNET_MESSAGE first;   // a dead queue does not free what it holds
+  q->PutMessage(&first);        // full now
+  SDL_Thread *t = SDL_CreateThread([](void *) -> int {
+    q->PutMessage(pool_net_messages->GetFromPool());
+    put_done = true;
+    return 0;
+  }, "producer", NULL);
+  usleep(50000);
+  CHECK(!put_done);   // blocked
+  q->Die();
+  wait_for([]() { return put_done.load(); }, 2);
+  CHECK(put_done);
+  CHECK(q->GetMessage() == NULL);
+  SDL_WaitThread(t, NULL);
+  delete q;
+}
+
 /** A forward is measured from when it was received; other messages are not forwards. */
 TEST(test_out_queue_forward_time) {
   TNET_OUT_QUEUE q(1000, 0.25);

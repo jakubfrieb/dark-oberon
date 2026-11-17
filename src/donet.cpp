@@ -301,7 +301,7 @@ TNET_MESSAGE *TNET_MESSAGE_QUEUE::GetMessage () {
 /**
  *  Inserts a new message into the queue. When the queue is full, this function
  *  blocks the actual thread and waits until a message is removed from the
- *  queue using GetMessage().
+ *  queue using GetMessage(). After Die() the message goes back to the pool.
  */
 void TNET_MESSAGE_QUEUE::PutMessage (TNET_MESSAGE *message) {
   SDL_LockMutex (mutex);
@@ -311,8 +311,14 @@ void TNET_MESSAGE_QUEUE::PutMessage (TNET_MESSAGE *message) {
     Debug ("MessageQueue limit achieved");
 #endif
 
-  while (count == size)
+  while (count == size && !dead)
     SDL_CondWait (is_not_full, mutex);
+
+  if (dead) {   // nobody takes it any more (Die())
+    SDL_UnlockMutex (mutex);
+    pool_net_messages->PutToPool (message);
+    return;
+  }
 
   int tail = (head + count) % size;
   this->message[tail] = message;
@@ -329,8 +335,10 @@ void TNET_MESSAGE_QUEUE::Die () {
   count = 1;
   SDL_UnlockMutex (mutex);
 
-  /* Wake up consumer. GetMessage will return NULL when dead. */
+  /* Wake up consumer. GetMessage will return NULL when dead. Producers blocked on a full
+     queue give their message back (PutMessage()). */
   SDL_CondSignal (is_not_empty);
+  SDL_CondBroadcast (is_not_full);
 }
 
 
