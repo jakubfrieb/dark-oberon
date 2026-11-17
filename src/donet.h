@@ -532,6 +532,7 @@ private:
     std::string peer;     //!< "address:port" for the log.
     bool dialed;          //!< We dialed it (AddDialedConnection()), e.g. the leader link.
     std::atomic<double> deadline;   //!< AppGetRawSeconds() when it is closed unless admitted; 0 = never.
+    std::atomic<bool> closing;   //!< CloseAfter() has set its last deadline.
     State state;          //!< Changes under connections_lock.
     SDL_Thread *reader;
     SDL_Thread *writer;

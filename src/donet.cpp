@@ -836,6 +836,7 @@ TNET_CONN_ID TNET_LISTENER::AddConnection (int fd, sockaddr_in address, bool dia
   c->peer = LogMsg ("%s:%hu", TNET_RESOLVER::NetworkToAscii (address.sin_addr).c_str (), c->port);
   c->dialed = dialed;
   c->deadline = 0;
+  c->closing = false;
   if (!dialed)
     SetDeadline (c, net_admission_timeout);
   c->state = CONNECTION::open;
@@ -993,13 +994,16 @@ void TNET_LISTENER::Admit (TNET_CONN_ID conn) {
 
 /**
  *  Lets the connection @p conn end in @p seconds unless it is admitted (a refused host: it gets
- *  time to show the reply before the connection closes).
+ *  time to show the reply before the connection closes). Only the first call counts: a host
+ *  that keeps asking must not keep its connection open.
  */
 void TNET_LISTENER::CloseAfter (TNET_CONN_ID conn, int seconds) {
   SDL_LockMutex (connections_lock);
   CONNECTION *c = FindConnection (conn);
-  if (c != NULL && c->state == CONNECTION::open)
+  if (c != NULL && c->state == CONNECTION::open && !c->closing) {
+    c->closing = true;
     SetDeadline (c, seconds);
+  }
   SDL_UnlockMutex (connections_lock);
 }
 
