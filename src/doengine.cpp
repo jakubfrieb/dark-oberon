@@ -516,6 +516,8 @@ bool connected = false;
 bool started = false;
 /** Leader: players who left before the start, announced when the game starts. */
 static std::vector<int> departed_before_start;
+/** Leader: players whose departure was sent to the followers (each one is sent once). */
+static std::vector<int> departures_announced;
 bool allowed_to_start_process_function = true;
 bool won_lose = false;
 
@@ -637,7 +639,7 @@ static void connecting_in_menu_thread_impl (void *_data) {
     for (int i = 0; i < 50; i++) {
       giant->Lock ();
       bool ours = (host == follower
-                   && host->GetPlayerIDByConnection (follower->GetLeaderConnection ()) == 0);
+                   && host->GetPlayerIDByConnection (follower->GetRemoteConnection ()) == 0);
       if (ours)
         follower->SendPingRequest ();
       giant->Unlock ();
@@ -1720,6 +1722,7 @@ bool Disconnect() {
   player_array.Clear();
   connected = false;
   departed_before_start.clear ();
+  departures_announced.clear ();
 
   THOST *to_delete = NULL;
 
@@ -1770,14 +1773,14 @@ bool CreateGame()
 
   host->RegisterOnDisconnect (OnDisconnect);
   host->RegisterOnReceive (RelayFromFollower);
-  host->Start ();
 
   leader_ready = false;
 
+  host->AddRoute (); /* hyper player (player 0) */
 #if !HEADLESS
   host->AddRoute (); /* player on leader */
 #endif
-  host->AddRoute (); /* hyper player */
+  host->Start ();   // the routes of the players on the leader exist before anyone can connect
 
   // XXX: check whether the server started successfully
   connected = true;
@@ -2166,6 +2169,7 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
     break;
 
   case MNU_PLAY2:
+    giant->Lock ();   // before player_array, like the network handlers
     player_array.Lock ();
 
     allowed_to_start_process_function = player_array.AllPlayersAreLocal ();
@@ -2177,17 +2181,16 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
         action_key = 0;
         gui->ShowMessageBox (reason.c_str (), GUI_MB_OK);
         player_array.Unlock ();
+        giant->Unlock ();
         break;
       }
-
-      giant->Lock ();
 
       if (host->GetType () == THOST::ht_follower) {
         /* Ask leader to start; we enter ST_GAME when ProcessPlayerArray runs. */
         TFOLLOWER *fol = dynamic_cast<TFOLLOWER *>(host);
         fol->SendRequestStartGame ();
-        giant->Unlock ();
         player_array.Unlock ();
+        giant->Unlock ();
         break;
       }
 
@@ -2201,13 +2204,12 @@ void MenuButtonOnClickKey(intptr_t key, TGUI_BOX *sender = NULL)
 
       state = ST_GAME;
 
-      giant->Unlock ();
-
       /* XXX: we still need to block somehow so that no more players can be
        *      added... i.e. something like player_array.NoMoreChanges (); */
     }
 
     player_array.Unlock ();
+    giant->Unlock ();
     break;
 
   case MNU_DISCONNECT:
@@ -3911,8 +3913,9 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   }
 
   /* A follower chooses only his own race (his combo box is the only one enabled), and only in
-     the lobby. The leader's own menu changes the others (MenuPlayerRaceComboOnChange()). */
-  if (started || host->GetPlayerIDByConnection (msg->GetConnection ()) != index) {
+     the lobby: from the start player array on (state ST_GAME, then started) the roster is fixed.
+     The leader's own menu changes the others (MenuPlayerRaceComboOnChange()). */
+  if (started || state == ST_GAME || host->GetPlayerIDByConnection (msg->GetConnection ()) != index) {
     NetDropWarning (LogMsg ("change_race: ignoring a race for player %d from %s", index,
                             TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
     giant->Unlock ();
@@ -4112,7 +4115,7 @@ static void ProcessPlayerArray (TNET_MESSAGE *msg) {
      * player is reached through the leader too, which relays; local players have no
      * connection. */
     for (i = 1; i < player_array.GetCount (); i++)
-      host->AddRoute (player_array.IsRemote (i) ? follower->GetLeaderConnection () : no_connection);
+      host->AddRoute (player_array.IsRemote (i) ? follower->GetRemoteConnection () : no_connection);
 
     state = ST_GAME;
   }
@@ -4260,9 +4263,8 @@ static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
   double request_time = msg->ExtractDouble ();
   msg->ExtractEnd ();
 
-  /* Only players get an answer, like a ping (GetPlayerIDByConnection() needs no giant). */
-  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time)
-      || leader->GetPlayerIDByConnection (msg->GetConnection ()) == -1)
+  /* Only players send it: the relay drops it from any other connection (THOST::RouteRelay()). */
+  if (leader == NULL || msg->GetSubtype () != 0 || msg->ExtractFailed () || !std::isfinite (request_time))
     return;
 
   leader->SendTimeReply (net_protocol_time_sync, request_time, msg->GetConnection ());
@@ -4280,7 +4282,7 @@ static void ProcessTimeSyncReply (TNET_MESSAGE *msg) {
   msg->ExtractEnd ();
 
   if (follower == NULL || msg->GetSubtype () != 1 || msg->ExtractFailed () || !std::isfinite (time)
-      || msg->GetConnection () != follower->GetLeaderConnection ())
+      || msg->GetConnection () != follower->GetRemoteConnection ())
     return;
 
   follower->ProcessTimeSyncReply (request_time, time);
@@ -4329,6 +4331,16 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
   giant->Unlock ();
 }
 
+/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
+ *  1 and down from -1). */
+static bool IsNetUnitID (intptr_t id)
+{
+  return id > INT_MIN && id <= INT_MAX;
+}
+
+/** Most material a worker mines at once that an event from the network may claim (US_MINING). */
+static const int net_max_mined_amount = 65535;
+
 /**
  *  Checks an event received from the network before it is queued.
  *
@@ -4350,13 +4362,6 @@ static void ProcessChatMessage (TNET_MESSAGE *msg) {
  *
  *  @return NULL when the event is valid, otherwise a short reason.
  */
-/** A unit id from the network: it must fit an int, and INT_MIN is not used (ids count up from
- *  1 and down from -1). */
-static bool IsNetUnitID (intptr_t id)
-{
-  return id > INT_MIN && id <= INT_MAX;
-}
-
 static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
 {
   if (game_data && (!started || players == NULL))
@@ -4385,7 +4390,11 @@ static const char *ValidateNetEvent (TEVENT *ev, bool game_data)
   case US_EJECTING: case US_REPAIRING: case US_CONSTRUCTING: case US_DYING: case US_ZOMBIE:
   case US_DELETE:
     break;
-  case US_MINING:     player_field = 5; break;    // source owner
+  case US_MINING:                                 // simple5 = source owner, int2 = amount mined
+    player_field = 5;
+    if (ev->int2 < 0 || ev->int2 > net_max_mined_amount)
+      return "amount";
+    break;
   case US_ATTACKING:  impact = true; break;
 
   // requests
@@ -4476,6 +4485,7 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
     }
     m.player_id = ev.GetPlayerID ();
     m.cross_owner = ev.IsCrossOwnerRequest ();
+    m.sender = ev.GetRequestSender ();
     break;
   }
   case net_protocol_chat_message:   // one string, nothing after it
@@ -4510,7 +4520,10 @@ static TNET_LISTENER::ReceiveResult RelayFromFollower (void *leader, TNET_MESSAG
       self->SendToAll (msg, msg->GetConnection (), true);
   }
 
-  return r.local ? TNET_LISTENER::receive_dispatch : TNET_LISTENER::receive_done;
+  if (!r.local)
+    return TNET_LISTENER::receive_done;
+  return (r.origin == -1 && m.type == net_protocol_connect) ? TNET_LISTENER::receive_join
+                                                            : TNET_LISTENER::receive_dispatch;
 }
 
 /**
@@ -4640,6 +4653,7 @@ static void LeaderAllowStartIfAllReady () {
     departed = departed_before_start[i];
     Info (LogMsg ("Announcing that player %d left before the game started", departed));
     host->SendDisconnect (departed);
+    departures_announced.push_back (departed);
     DeactivatePlayer (departed);
   }
   departed_before_start.clear ();
@@ -4690,8 +4704,9 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
   if (msg->ExtractFailed ())
     return;
 
-  /* On the leader a follower announces only his own departure (the relay checks it too, but
-     a connect pipelined with a disconnect reached the reader before the follower was a player). */
+  /* On the leader a follower announces only his own departure. The relay checked it against
+     the routes when it was received; check again here, where the lobby may have removed a player
+     meanwhile and moved the ids of the next ones (THOST::RemoveRoute()). */
   giant->Lock ();
   bool from_player = host != NULL && FromPlayer (msg)
                      && (host->GetType () != THOST::ht_leader
@@ -4744,6 +4759,15 @@ static void ProcessDisconnect (int player_id) {
     return;
   }
 
+  /* Followers hear of a departure only from the leader, after his relayed messages, once. Also
+     when the leader has already marked the player inactive (his units are gone here). */
+  if (host->GetType () == THOST::ht_leader
+      && std::find (departures_announced.begin (), departures_announced.end (), player_id)
+         == departures_announced.end ()) {
+    departures_announced.push_back (player_id);
+    host->SendDisconnect (player_id);
+  }
+
   if (!players[player_id]->active) {
     Debug(LogMsg("Not disconnecting player %d (%s) - he is not active.",
           player_id, player_array.GetPlayerName (player_id).c_str ()));
@@ -4755,10 +4779,6 @@ static void ProcessDisconnect (int player_id) {
 
   Info(LogMsg("Player %d (%s) was disconnected.",
        player_id, player_array.GetPlayerName (player_id).c_str ()));
-
-  /* Followers hear of a departure only from the leader, after his relayed messages. */
-  if (host->GetType () == THOST::ht_leader)
-    host->SendDisconnect (player_id);
 
   /* when hyper player was disconnected, dont write "You won!" message */
   if (player_id == 0) {

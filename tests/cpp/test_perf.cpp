@@ -3,6 +3,7 @@
  * Build and run: make test-ai
  */
 #include "doperf.h"
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 
@@ -48,9 +49,12 @@ int main() {
   NetStatRecord(NS_TRANSIT, -INFINITY);
   NetStatRecord(NS_TRANSIT, 1e300);
   NetStatRecord(NS_TRANSIT, -1e300);
+  NetStatRecord(NS_TRANSIT, DBL_MAX);
+  NetStatRecord(NS_TRANSIT, -DBL_MAX);
   NetStatRecord(NS_TRANSIT, 0.005);
   std::string n = NetStatReport();
-  CHECK(n.find("transit   ms n=3 ") != std::string::npos);
+  CHECK(n.find("transit   ms n=7 ") != std::string::npos);   // only NaN is left out
+  CHECK(n.find("inf") == std::string::npos && n.find("nan") == std::string::npos);   // the sum stays finite
 
   std::printf("%d failures\n", g_fail);
   return g_fail ? 1 : 0;

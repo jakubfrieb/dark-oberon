@@ -153,6 +153,7 @@ namespace {
    buckets; min and max stay exact). Negative values come from the clock difference of the hosts. */
 const double kNetBucketMs = 0.1, kNetLowMs = -100.0;
 const int kNetBuckets = 11000;
+const double kNetMaxMs = 1e9;   // a sample is limited to this (about 11 days)
 
 struct TNET_HISTOGRAM {
   unsigned counts[kNetBuckets];
@@ -181,15 +182,16 @@ double NetPercentile(const TNET_HISTOGRAM &h, double p)
 
 void NetStatRecord(TNET_STAT stat, double seconds)
 {
-  /* A time stamp comes from the peer: anything is possible, and the sum must stay finite. */
-  if (!std::isfinite(seconds))
+  /* A time stamp comes from the peer: anything is possible. NaN is left out, the rest is limited
+     so that the sum stays finite. */
+  if (std::isnan(seconds))
     return;
 
   SDL_mutex *m = Lock();
   SDL_LockMutex(m);
   if (AppGetTimeSeconds() >= g_net_from) {
     TNET_HISTOGRAM &h = g_net[stat];
-    const double ms = seconds * 1000.0;
+    const double ms = std::max(-kNetMaxMs, std::min(kNetMaxMs, seconds * 1000.0));
     const double bucket = std::floor((ms - kNetLowMs) / kNetBucketMs);   // clamped before the cast
     h.counts[(int)std::min(kNetBuckets - 1.0, std::max(0.0, bucket))]++;
     h.min = h.n ? std::min(h.min, ms) : ms;

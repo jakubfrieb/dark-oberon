@@ -165,6 +165,20 @@ bool TEVENT::IsCrossOwnerRequest(void)
 }
 
 /**
+ *  The player whose host sends a request to another player's unit (IsCrossOwnerRequest()),
+ *  when the request says so, else -1. A worker's RQ_CAN_MINE to a source carries the worker's
+ *  player in simple1 (worker ids are never of player 0, the hyper player); the source's answer
+ *  has simple1 = 0 and does not say which source asked, so it is not bound.
+ */
+int TEVENT::GetRequestSender(void)
+{
+  return (event == RQ_CAN_MINE && simple1 != 0) ? simple1 : -1;
+}
+
+/** Offsets of the last fields of a linearized event (LinearizeEvent()) and its size. */
+static const int wire_int1 = 31, wire_int2 = 39, wire_size = wire_int2 + 8;
+
+/**
  *  Linearize event to array of chars (prepare event for sending through
  *  network).
  *
@@ -181,9 +195,6 @@ bool TEVENT::IsCrossOwnerRequest(void)
  *  @note Keep the field list in sync with DelinearizeEvent() and
  *        GetLinearizedSize() (received events must have exactly that size).
  */
-/** Offsets of the last fields of a linearized event (LinearizeEvent()) and its size. */
-static const int wire_int1 = 31, wire_int2 = 39, wire_size = wire_int2 + 8;
-
 int TEVENT::LinearizeEvent(char *char_event)
 {
   T_BYTE *p = reinterpret_cast<T_BYTE *>(char_event);

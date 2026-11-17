@@ -389,10 +389,24 @@ TEST(test_long_chat_is_cut) {
     pool_net_messages = new TPOOL<TNET_MESSAGE>(32, 32, 256);
   THOST host(16, 0);
   host.SendChatMessage(std::string(300, 'x'), 1);   // no route: nothing is sent, nothing thrown
-  TNET_MESSAGE m;
-  m.Init_send(net_protocol_chat_message, 0);
-  m.PackString(std::string(max_net_message_size - TNET_MESSAGE::GetHeaderSize() - 1, 'x'));
-  CHECK(m.GetSize() == max_net_message_size);   // the longest line that fits
+
+  int pair[2];
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
+  in_addr addr;
+  addr.s_addr = 0;
+  host.AddRoute(host.GetListener()->AddDialedConnection(addr, 1, pair[0]));
+  const int fits = max_net_message_size - TNET_MESSAGE::GetHeaderSize() - 1;   // 250 bytes and the NUL
+  std::string czech;
+  for (int i = 0; i < 10; i++)
+    czech += "\xc4\x8d";                          // UTF-8 of a Czech letter, 2 bytes
+  host.SendChatMessage(std::string(fits - 1, 'x') + czech, 1);   // byte 250 is inside a letter
+  T_BYTE got[max_net_message_size];
+  int n = 0;
+  while (n < 1 || n < got[0])
+    n += read(pair[1], got + n, sizeof got - n);
+  CHECK(got[0] == TNET_MESSAGE::GetHeaderSize() + fits);   // cut before the letter, NUL included
+  CHECK(std::string((char *)got + 4) == std::string(fits - 1, 'x'));
+  close(pair[1]);
 }
 
 /** Die() wakes a producer blocked on a full queue; its message goes back to the pool. */
@@ -493,8 +507,20 @@ TEST(test_relay_requests) {
   CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 5, 3, true, CA), false));
   CHECK(dropped(relay(net_protocol_event, 2, 2, true, CA), false));
+  // RQ_CAN_MINE of a worker names the worker's player: only that player's host may send it
+  e.SetEventProps(0, 7, false, 1.0, RQ_CAN_MINE, US_NONE, 0, 2, 0, 0, 0, 0, 0, 5, 1);
+  CHECK(e.GetRequestSender() == 2);
+  e.SetEventProps(2, 5, false, 1.0, RQ_CAN_MINE, US_NONE, 0, 0, 0, 0, 0, 0, 0, 0, 1);   // the answer
+  CHECK(e.GetRequestSender() == -1);
+  TRELAY_MESSAGE ask = { net_protocol_event, 3, 3, true, 2 };          // CA's worker asks CB's source
+  r = THOST::RouteRelay(ask, CA, relay_routes(), std::vector<bool>(6, false), true);
+  CHECK(r.drop == NULL && r.to == CB);
+  r = THOST::RouteRelay(ask, CC, relay_routes(), std::vector<bool>(6, false), true);   // CC poses as CA
+  CHECK(dropped(r, false));
+  TRELAY_MESSAGE ask0 = { net_protocol_event, 0, 0, true, 3 };         // for CB's worker, to the hyper player
+  CHECK(dropped(THOST::RouteRelay(ask0, CA, relay_routes(), std::vector<bool>(6, false), true), false));
+  CHECK(THOST::RouteRelay(ask0, CB, relay_routes(), std::vector<bool>(6, false), true).local);
   // an owner-authored request (RQ_CREATE_UNIT, RQ_SYNC_LIFE, ...) for another player's unit
-  CHECK(dropped(relay(net_protocol_event, 3, 3, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 1, 1, false, CA), false));
   CHECK(dropped(relay(net_protocol_event, 0, 0, false, CA), false));
 }
