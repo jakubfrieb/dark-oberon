@@ -879,6 +879,9 @@ public:
   virtual void DeleteFromMap(bool from_segment);
 
   bool IsHeld() { return held; }
+  /** True when the unit is held in the list @p which_list of @p holder. */
+  bool IsHeldIn(const TMAP_UNIT *holder, T_BYTE which_list) const
+  { return held && held_where == holder && held_list == which_list; }
   void SetHeld(bool held, TMAP_UNIT *held_where = NULL, T_BYTE which_list = 0)
   { this->held = held; this->held_where = held_where; this->held_list = which_list; }
 
@@ -1061,7 +1064,6 @@ public:
   bool CanUnload(TBUILDING_UNIT *unit, bool write_msg, bool auto_call);
   bool StartUnload(TBUILDING_UNIT *unit, bool auto_call);
 
-  virtual void Dead(bool local);              // The method correctly kill the unit.
 
   //!< The method gets pointer to nearest building for the worker from the source src.
   TBUILDING_UNIT* GetNearestBuilding(TSOURCE_UNIT * src, TA_STAR_ALG *path_tool); 

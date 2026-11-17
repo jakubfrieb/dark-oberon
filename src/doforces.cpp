@@ -1722,9 +1722,9 @@ void TFORCE_UNIT::DrawLine()
  */
 void TFORCE_UNIT::Dead(bool local)
 {
-  if (hider && held) {
-    hider->RemoveFromListOfUnits(this, LIST_HIDING);
-  }
+  // leave the unit that holds it, whichever it is (it must not stay in its list once deleted)
+  if (held)
+    held_where->RemoveFromListOfUnits(this, held_list);
 
   if (local) {
     if (group_id >= 0)

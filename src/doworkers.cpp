@@ -3637,21 +3637,6 @@ void TWORKER_UNIT::FindNearestBuilding(TLIST<TBUILDING_UNIT>&acceptable_building
 }
 
 
-/**
- *  Method is called when unit is destroyed. Dealocate memory, play animation, etc.
- */
-void TWORKER_UNIT::Dead(bool local)
-{
-  if (source && !acceptor && held)     // worker is mining now
-    source->RemoveFromListOfUnits(this, LIST_WORKING);
-
-  else if (acceptor && held)     // worker is unloading now
-    acceptor->RemoveFromListOfUnits(this, LIST_WORKING);
-
-  TFORCE_UNIT::Dead(local);             // call ancestors method
-}
-
-
 //=========================================================================
 // END
 //=========================================================================
