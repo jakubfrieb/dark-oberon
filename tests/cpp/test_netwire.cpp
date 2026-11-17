@@ -389,10 +389,24 @@ TEST(test_long_chat_is_cut) {
     pool_net_messages = new TPOOL<TNET_MESSAGE>(32, 32, 256);
   THOST host(16, 0);
   host.SendChatMessage(std::string(300, 'x'), 1);   // no route: nothing is sent, nothing thrown
-  TNET_MESSAGE m;
-  m.Init_send(net_protocol_chat_message, 0);
-  m.PackString(std::string(max_net_message_size - TNET_MESSAGE::GetHeaderSize() - 1, 'x'));
-  CHECK(m.GetSize() == max_net_message_size);   // the longest line that fits
+
+  int pair[2];
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
+  in_addr addr;
+  addr.s_addr = 0;
+  host.AddRoute(host.GetListener()->AddDialedConnection(addr, 1, pair[0]));
+  const int fits = max_net_message_size - TNET_MESSAGE::GetHeaderSize() - 1;   // 250 bytes and the NUL
+  std::string czech;
+  for (int i = 0; i < 10; i++)
+    czech += "\xc4\x8d";                          // UTF-8 of a Czech letter, 2 bytes
+  host.SendChatMessage(std::string(fits - 1, 'x') + czech, 1);   // byte 250 is inside a letter
+  T_BYTE got[max_net_message_size];
+  int n = 0;
+  while (n < 1 || n < got[0])
+    n += read(pair[1], got + n, sizeof got - n);
+  CHECK(got[0] == TNET_MESSAGE::GetHeaderSize() + fits);   // cut before the letter, NUL included
+  CHECK(std::string((char *)got + 4) == std::string(fits - 1, 'x'));
+  close(pair[1]);
 }
 
 /** Die() wakes a producer blocked on a full queue; its message goes back to the pool. */

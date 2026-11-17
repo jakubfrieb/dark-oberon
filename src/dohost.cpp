@@ -406,8 +406,15 @@ TRELAY THOST::Relay (const TRELAY_MESSAGE &m, TNET_CONN_ID from) {
 void THOST::SendChatMessage (string chat_message, int sender) {
   TNET_MESSAGE *m = pool_net_messages->GetFromPool();
   m->Init_send(net_protocol_chat_message, 0, static_cast<T_BYTE>(sender));
-  /* The chat line can be longer than a message holds (Pack() would throw). */
-  m->PackString (chat_message.substr (0, max_net_message_size - TNET_MESSAGE::GetHeaderSize () - 1));
+  /* The chat line can be longer than a message holds (Pack() would throw): cut it before a
+     character, not inside a UTF-8 sequence. */
+  size_t fits = max_net_message_size - TNET_MESSAGE::GetHeaderSize () - 1;
+  if (chat_message.size () > fits) {
+    while (fits > 0 && (static_cast<unsigned char>(chat_message[fits]) & 0xC0) == 0x80)
+      fits--;
+    chat_message.resize (fits);
+  }
+  m->PackString (chat_message);
 
   SendToAll (m);
   pool_net_messages->PutToPool (m);
