@@ -72,6 +72,7 @@ TFOLLOWER::TFOLLOWER (int incoming_message_queue_size, in_port_t listen_port,
 
   admitted = false;
   leader_fd = GetTalker ()->GetRemoteFiledescriptor (0);
+  leader_lost = false;
   time_samples_total = 0;
   time_sync_sent = 0;
 }
@@ -165,7 +166,7 @@ double TCLOCK_FILTER::AddSample (double rtt, double offset) {
  */
 void TFOLLOWER::TimeSyncTick () {
   double now = AppGetRawSeconds ();
-  if (now - time_sync_sent < time_sync_period)
+  if (leader_lost || now - time_sync_sent < time_sync_period)
     return;
   time_sync_sent = now;
 

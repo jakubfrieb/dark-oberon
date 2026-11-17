@@ -35,6 +35,7 @@
 #include "cfg.h"
 #include "doalloc.h"
 
+#include <atomic>
 #include <string>
 
 #include "dohost.h"
@@ -125,6 +126,9 @@ public:
   /** Socket of the link to the leader (fixed for the life of the follower). */
   int GetLeaderFileDescriptor () const { return leader_fd; }
 
+  /** The link to the leader is gone: nothing more is sent to it (see TimeSyncTick()). */
+  void SetLeaderLost () { leader_lost = true; }
+
   void TimeSyncTick ();
   void ProcessTimeSyncReply (double request_time, double leader_time);
 
@@ -145,6 +149,7 @@ private:
 
   bool admitted;              //!< See IsAdmitted().
   int leader_fd;              //!< See GetLeaderFileDescriptor().
+  std::atomic<bool> leader_lost; //!< See SetLeaderLost().
 
   TCLOCK_FILTER clock_filter; //!< In-game clock sync, see ProcessTimeSyncReply().
   int time_samples_total;     //!< Count of time sync samples so far (for the log).

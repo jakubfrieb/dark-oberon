@@ -3712,15 +3712,30 @@ void GameOnRadarDraw(TGUI_BOX *sender)
 //========================================================================
 
 /**
+ *  Returns true unless we are the leader and @p msg came over a connection that is not a
+ *  player's: a refused host (or one that has not sent connect yet) must not change the
+ *  lobby or the game. Called with giant locked.
+ */
+static bool FromPlayer (TNET_MESSAGE *msg) {
+  if (host->GetType () != THOST::ht_leader
+      || host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) != -1)
+    return true;
+
+  NetDropWarning (LogMsg ("Dropping message (type %d) from %s, which is not a player", msg->GetType (),
+                          TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+  return false;
+}
+
+/**
  *  Follower asked the leader to add a CPU player (lobby).
  *  used: pointer only stored via RegisterExtendedFunction (table read in donet.cpp).
  */
-static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * /* msg */) {
+static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE *msg) {
   if (host == NULL || host->GetType () != THOST::ht_leader)
     return;
 
   giant->Lock ();
-  if (started) {
+  if (started || !FromPlayer (msg)) {
     giant->Unlock ();
     return;
   }
@@ -3742,12 +3757,12 @@ static void __attribute__((__used__)) ProcessRequestAddComputer (TNET_MESSAGE * 
  *  Follower asked the leader to start the game (menu Play or future UI).
  *  used: pointer only stored via RegisterExtendedFunction (table read in donet.cpp).
  */
-static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE * /* msg */) {
+static void __attribute__((__used__)) ProcessRequestStart (TNET_MESSAGE *msg) {
   if (host == NULL || host->GetType () != THOST::ht_leader)
     return;
 
   giant->Lock ();
-  if (started) {
+  if (started || !FromPlayer (msg)) {
     giant->Unlock ();
     return;
   }
@@ -3826,7 +3841,7 @@ static void ProcessConnectRequest (TNET_MESSAGE *msg) {
   if (protocol != NET_PROTOCOL_VERSION) {
     Info (LogMsg ("Refusing connect request from %s: protocol %d (version '%.20s'), this host has %d",
                   TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str (), protocol,
-                  protocol ? version.c_str () : "before 0.7.0-rc.3", NET_PROTOCOL_VERSION));
+                  protocol ? version.c_str () : "none", NET_PROTOCOL_VERSION));
     dynamic_cast<TLEADER *>(host)->RefuseFollower (msg->GetFileDescriptor (), protocol);
     giant->Unlock ();
     return;
@@ -3880,7 +3895,7 @@ static void ProcessChangeRace (TNET_MESSAGE *msg) {
   string new_race = msg->ExtractString ();
   msg->ExtractEnd ();
 
-  if (msg->ExtractFailed ()) {
+  if (msg->ExtractFailed () || !FromPlayer (msg)) {
     giant->Unlock ();
     return;
   }
@@ -4232,7 +4247,7 @@ static void ProcessPingRequest (TNET_MESSAGE *msg) {
   msg->ExtractEnd ();
 
   /* Only players get an answer (a refused host would not understand it). */
-  if (msg->ExtractFailed () || host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) == -1) {
+  if (msg->ExtractFailed () || !FromPlayer (msg)) {
     giant->Unlock ();
     return;
   }
@@ -4279,9 +4294,10 @@ static void ProcessPingReply (TNET_MESSAGE *msg) {
 }
 
 /**
- *  Leader: answers an in-game time sync request, only to the requester. It runs without
- *  giant so that the answer does not wait for a simulation step (the round trip time is
- *  the measurement). The host exists while its dispatcher runs this (~THOST).
+ *  Leader: answers an in-game time sync request, only to the requester. It does not take
+ *  giant, so the answer does not wait for a simulation step (the round trip time is the
+ *  measurement); it can still wait in the dispatcher queue behind a handler that waits
+ *  for giant. The host exists while its dispatcher runs this (~THOST).
  */
 static void ProcessTimeSyncRequest (TNET_MESSAGE *msg) {
   TLEADER *leader = dynamic_cast<TLEADER *>(host);
@@ -4481,11 +4497,7 @@ static void ProcessNetEvent (TNET_MESSAGE *msg) {
     pool_events = NEW TPOOL<TEVENT>(2 * EV_MIN_POOL_ELEMENTS, 0, EV_MIN_POOL_ELEMENTS);
   }
 
-  /* The leader takes events only from its players (not from a refused host). */
-  if (host->GetType () == THOST::ht_leader
-      && host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()) == -1) {
-    NetDropWarning (LogMsg ("Dropping event from %s, which is not a player",
-                            TNET_RESOLVER::NetworkToAscii (msg->GetAddress ()).c_str ()));
+  if (!FromPlayer (msg)) {
     giant->Unlock ();
     return;
   }
@@ -4525,8 +4537,10 @@ static void ProcessSynchronise (TNET_MESSAGE *msg) {
     return;
   }
 
-  player_array.PlayerReady (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()));
-  LeaderAllowStartIfAllReady ();
+  if (FromPlayer (msg)) {
+    player_array.PlayerReady (host->GetPlayerIDByFileDescriptor (msg->GetFileDescriptor ()));
+    LeaderAllowStartIfAllReady ();
+  }
 
   giant->Unlock ();
 }
@@ -4614,7 +4628,12 @@ static void ProcessDisconnect (TNET_MESSAGE *msg) {
   if (msg->ExtractFailed ())
     return;
 
-  ProcessDisconnect(player_id);
+  giant->Lock ();
+  bool from_player = host != NULL && FromPlayer (msg);
+  giant->Unlock ();
+
+  if (from_player)
+    ProcessDisconnect(player_id);
 }
 
 static void ProcessDisconnect (int player_id) {
@@ -4750,8 +4769,10 @@ static int SDLCALL OnDisconnectThread (void *d) {
       bool server_lost = host->GetType () == THOST::ht_follower
                          && host->GetPlayerIDByFileDescriptor (data->fd) == 0;
       bool show_server_lost = server_lost && !won_lose;
-      if (server_lost)
+      if (server_lost) {
         won_lose = true;  // no "You WON!" from the disconnects below
+        dynamic_cast<TFOLLOWER *>(host)->SetLeaderLost ();
+      }
 
       for (int id = 0; (id = host->GetPlayerIDByFileDescriptor (data->fd, id)) != -1; id++) {
         host->DisconnectAddress (id);
